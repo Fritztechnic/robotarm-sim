@@ -101,6 +101,8 @@ enum Play {
     /// Gelenkbewegung zum ersten Punkt (Start liegt oft nahe einer Singularität)
     Approach,
     Move { from: V3, s: f64 },
+    /// Ausweichbewegung im Gelenkraum, wenn die Gerade nicht fahrbar ist (Singularität, Grenze, Schleifenende)
+    Joint { from: [f64; 6], to: [f64; 6], s: f64 },
     Dwell(f64),
 }
 
@@ -267,6 +269,20 @@ impl App {
     }
 
     // Playlist von vorn: erst Bereit-Pose (gute Ellenbogen-Seite), dann zu Punkt 1
+    /// Gerade geht nicht: den Punkt per IK mit Neustarts lösen und im Gelenkraum hinfahren.
+    /// Nur wenn der Punkt wirklich unerreichbar ist, wird er übersprungen.
+    fn joint_fallback(&mut self, wp: &Waypoint) {
+        let opt = kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 20 };
+        let r = kin::solve_ik(&self.cfg.arm, &kin::from_xyz_rpy(wp.pos, [0.0; 3]), self.q_cmd, &opt);
+        if r.converged {
+            self.play = Play::Joint { from: self.q_cmd, to: r.q, s: 0.0 };
+            self.ik_msg = Some((true, format!("Playlist · Punkt {} (Gelenkfahrt)", self.pl_idx + 1)));
+        } else {
+            self.ik_msg = Some((false, format!("Punkt {} nicht erreichbar", self.pl_idx + 1)));
+            self.play = Play::Dwell(0.0);
+        }
+    }
+
     fn play_all(&mut self) {
         if !self.cfg.waypoints.is_empty() {
             self.trail.clear();
@@ -301,6 +317,15 @@ impl App {
                     self.play = Play::Idle;
                 }
             }
+            Play::Joint { from, to, s } => {
+                let far = (0..6).map(|i| (to[i] - from[i]).abs()).fold(1e-9, f64::max);
+                let rate = self.cfg.speed_dps.to_radians().max(1.5);
+                let ns = (s + rate * dt / far).min(1.0);
+                self.q_cmd = std::array::from_fn(|i| from[i] + (to[i] - from[i]) * ns);
+                self.q_view = self.q_cmd;
+                self.target_pos = self.tcp();
+                self.play = if ns >= 1.0 { Play::Dwell(wp.dwell) } else { Play::Joint { from, to, s: ns } };
+            }
             Play::Move { from, s } => {
                 let d: V3 = std::array::from_fn(|k| wp.pos[k] - from[k]);
                 let len = d.iter().map(|v| v * v).sum::<f64>().sqrt();
@@ -316,8 +341,7 @@ impl App {
                     let p: V3 = std::array::from_fn(|k| from[k] + d[k] * ns / len);
                     let r = kin::solve_ik(&self.cfg.arm, &kin::from_xyz_rpy(p, [0.0; 3]), self.q_cmd, &opt);
                     if !r.converged {
-                        self.ik_msg = Some((false, format!("Punkt {} nicht erreichbar", self.pl_idx + 1)));
-                        self.play = Play::Dwell(0.0);
+                        self.joint_fallback(&wp);
                         return;
                     }
                     let dq = (0..6).map(|i| (r.q[i] - self.q_cmd[i]).abs()).fold(0.0, f64::max);
@@ -327,8 +351,7 @@ impl App {
                     }
                     if dq > 2.0 * limit {
                         // Sprung im Gelenkraum: Singularität oder Lösungswechsel
-                        self.ik_msg = Some((false, format!("Singularität vor Punkt {}", self.pl_idx + 1)));
-                        self.play = Play::Idle;
+                        self.joint_fallback(&wp);
                         return;
                     }
                     self.q_cmd = r.q;
@@ -423,5 +446,33 @@ mod tests {
         }
         assert!(!a.playing(), "Playlist endet nicht");
         assert!(visited.iter().all(|v| *v), "nicht alle Punkte erreicht: {visited:?}");
+    }
+
+    #[test]
+    fn loop_reaches_every_point_even_through_singularities() {
+        let mut a = app();
+        a.cfg.tcp_speed = 400.0;
+        a.cfg.speed_dps = 720.0;
+        a.cfg.waypoints = [[300.0, 0.0, 300.0], [-300.0, 0.0, 300.0], [0.0, 300.0, 500.0], [0.0, -300.0, 500.0]]
+            .map(|pos| Waypoint { pos, dwell: 0.1 })
+            .to_vec();
+        a.looping = true;
+        a.play_all();
+        let (mut hits, mut t) = (0, 0.0);
+        let mut last = usize::MAX;
+        while t < 90.0 {
+            a.playlist_step(0.02);
+            a.advance(0.02);
+            t += 0.02;
+            let tcp = a.tcp();
+            for (i, w) in a.cfg.waypoints.iter().enumerate() {
+                if i != last && (0..3).map(|k| (w.pos[k] - tcp[k]).powi(2)).sum::<f64>().sqrt() < 1.0 {
+                    last = i;
+                    hits += 1;
+                }
+            }
+            assert!(a.playing(), "Loop ist stehen geblieben nach {hits} Punkten");
+        }
+        assert!(hits >= 12, "nur {hits} Punkte erreicht");
     }
 }
