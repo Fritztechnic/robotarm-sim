@@ -54,11 +54,41 @@ struct Waypoint {
     dwell: f64,
 }
 
-// Demo-Playlist zum Testen: ein Rechteck und ein Ausreißer nach oben
-fn demo_waypoints() -> Vec<Waypoint> {
+// Einfache Demo: ein Rechteck und ein Ausreißer nach oben (die Tests nutzen sie als Grundlage)
+fn demo_simple() -> Vec<Waypoint> {
     [[300.0, -150.0, 250.0], [300.0, 150.0, 250.0], [300.0, 150.0, 450.0], [300.0, -150.0, 450.0], [150.0, 0.0, 600.0]]
         .map(|pos| Waypoint { pos, dwell: 0.3 })
         .to_vec()
+}
+
+// Große Demo: Rechteck, Kreis, Zickzack-Raster, Doppel-Spirale und ein Stern, alles in einer Schleife
+fn demo_waypoints() -> Vec<Waypoint> {
+    let mut v: Vec<(V3, f64)> = vec![([300.0, 0.0, 400.0], 0.4)];
+    // Rechteck in der Ebene x = 330
+    for (y, z) in [(-130.0, 250.0), (130.0, 250.0), (130.0, 450.0), (-130.0, 450.0)] {
+        v.push(([330.0, y, z], 0.2));
+    }
+    // Kreis (r = 100 mm) in der Ebene x = 340
+    for k in 0..12 {
+        let t = k as f64 / 12.0 * std::f64::consts::TAU;
+        v.push(([340.0, 100.0 * t.sin(), 350.0 + 100.0 * t.cos()], 0.0));
+    }
+    // Zickzack-Raster knapp über dem Tisch
+    for (x, y) in [(250.0, -150.0), (250.0, 150.0), (300.0, 150.0), (300.0, -150.0), (350.0, -150.0), (350.0, 150.0)] {
+        v.push(([x, y, 180.0], 0.1));
+    }
+    // Spirale um die z-Achse, nach oben enger werdend
+    for k in 0..10 {
+        let (t, f) = (k as f64 * 0.7, k as f64 / 9.0);
+        let r = 260.0 - 120.0 * f;
+        v.push(([r * t.cos(), r * t.sin(), 250.0 + 300.0 * f], 0.0));
+    }
+    // Fünfzackiger Stern hoch über dem Arm (jeder zweite Eckpunkt)
+    for k in 0..5 {
+        let t = std::f64::consts::FRAC_PI_2 + k as f64 * 2.0 * std::f64::consts::TAU / 5.0;
+        v.push(([220.0, 160.0 * t.cos(), 500.0 + 110.0 * t.sin()], 0.15));
+    }
+    v.into_iter().map(|(pos, dwell)| Waypoint { pos, dwell }).collect()
 }
 
 impl Default for Config {
@@ -536,7 +566,7 @@ mod tests {
 
     #[test]
     fn loop_is_stable_over_many_rounds() {
-        let mut pts = demo_waypoints();
+        let mut pts = demo_simple();
         for pos in [[-50.0, 3.0, 579.0], [171.0, 209.0, 579.0], [236.0, 19.0, 579.0], [222.0, 249.0, 579.0]] {
             pts.push(Waypoint { pos, dwell: 0.3 });
         }
@@ -571,6 +601,16 @@ mod tests {
             assert!(dwells >= 40, "dt {dt}: nur {dwells} Punkte in 120 s");
             assert!(worst < 0.5, "dt {dt}: Gelenksprung {:.0}° pro Frame", worst.to_degrees());
         }
+    }
+
+    #[test]
+    fn big_demo_is_fully_reachable() {
+        let pts: Vec<V3> = demo_waypoints().iter().map(|w| w.pos).collect();
+        let p = plan::build(&kin::cobot_arm(), &pts);
+        let ptp = p.segs.iter().filter(|s| s.ptp).count();
+        println!("{} Punkte, {} Segmente, {} Gelenkfahrten, unerreichbar {:?}", pts.len(), p.segs.len(), ptp, p.unreachable);
+        assert!(p.unreachable.is_empty());
+        assert!(ptp * 4 <= p.segs.len(), "zu viele Gelenkfahrten: {ptp}");
     }
 
     #[test]
