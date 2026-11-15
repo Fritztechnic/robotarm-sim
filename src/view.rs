@@ -291,25 +291,34 @@ pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64
     };
     let glow = Color32::from_rgb(0, 120, 212);
     if st.show_reach {
-        // Kugeln der Erreichbarkeit: außen = maximale Reichweite, innen = Totzone (Minimalabstand)
+        // außen = maximale Reichweite, innen = Totzone (dort kommt die Spitze nicht hin).
+        // Bewusst wenig Linien: Umriss (Silhouette) + Äquator, innen zusätzlich leicht gefüllt.
         let (c, inner, outer) = reach;
-        for (r, col) in [(outer, Color32::from_rgb(0, 120, 212)), (inner, Color32::from_rgb(214, 80, 30))] {
-            let n = 64;
-            let ring = |f: &dyn Fn(f64) -> V3, a: f32| {
-                let pts: Vec<Pos2> = (0..=n).filter_map(|k| pr.pt(f(k as f64 / n as f64 * std::f64::consts::TAU))).collect();
-                if pts.len() == n + 1 {
-                    painter.add(egui::Shape::line(pts, Stroke::new(1.0, col.gamma_multiply(a))));
-                }
-            };
-            for lat in [-60.0f64, -30.0, 0.0, 30.0, 60.0] {
-                let (z, rr) = (r * lat.to_radians().sin(), r * lat.to_radians().cos());
-                ring(&|t| [c[0] + rr * t.cos(), c[1] + rr * t.sin(), c[2] + z], if lat == 0.0 { 0.55 } else { 0.28 });
+        let tau = std::f64::consts::TAU;
+        let n = 72;
+        let d = sub(pr.eye, c);
+        let dl = dot(d, d).sqrt().max(1e-6);
+        let dn = scale(d, 1.0 / dl);
+        let a = norm(cross(dn, [0.0, 0.0, 1.0]));
+        let b = cross(a, dn);
+        for (r, col, fill) in [(outer, Color32::from_rgb(0, 120, 212), 0u8), (inner, Color32::from_rgb(220, 80, 20), 38)] {
+            let k = (r / dl).min(0.99);
+            let (sc, sr) = (add(c, scale(dn, r * k)), r * (1.0 - k * k).sqrt());
+            let sil: Vec<Pos2> = (0..n).filter_map(|i| {
+                let t = i as f64 / n as f64 * tau;
+                pr.pt(add(sc, add(scale(a, sr * t.cos()), scale(b, sr * t.sin()))))
+            }).collect();
+            if sil.len() == n {
+                painter.add(egui::Shape::convex_polygon(sil, col.gamma_multiply(fill as f32 / 255.0), Stroke::new(1.6, col.gamma_multiply(0.85))));
             }
-            for k in 0..6 {
-                let az = k as f64 * std::f64::consts::PI / 6.0;
-                ring(&|t| [c[0] + r * t.cos() * az.cos(), c[1] + r * t.cos() * az.sin(), c[2] + r * t.sin()], 0.22);
+            let eq: Vec<Pos2> = (0..=n).filter_map(|i| {
+                let t = i as f64 / n as f64 * tau;
+                pr.pt([c[0] + r * t.cos(), c[1] + r * t.sin(), c[2]])
+            }).collect();
+            if eq.len() == n + 1 {
+                painter.add(egui::Shape::line(eq, Stroke::new(1.0, col.gamma_multiply(0.5))));
             }
-            if let Some(p) = pr.pt([c[0], c[1], c[2] + r]) {
+            if let Some(p) = pr.pt([c[0] + r, c[1], c[2]]) {
                 let txt = if r == outer { format!("außen {:.0} mm", r) } else { format!("innen {:.0} mm", r) };
                 painter.text(p + egui::vec2(6.0, -4.0), egui::Align2::LEFT_BOTTOM, txt, egui::FontId::proportional(10.5), col);
             }

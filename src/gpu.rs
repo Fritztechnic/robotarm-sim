@@ -128,6 +128,8 @@ fn floor_color(w: vec3<f32>) -> vec3<f32> {
 fn fs_main(in: VOut) -> @location(0) vec4<f32> {
   let pc = u.pcol[in.part];
   if (pc.w < -0.5) {
+    // Kamera unter dem Boden: Boden ausblenden, damit der Arm sichtbar bleibt
+    if (u.eye.z < 0.0) { discard; }
     return vec4<f32>(floor_color(in.world), 1.0);
   }
   let v = normalize(u.eye.xyz - in.world);
