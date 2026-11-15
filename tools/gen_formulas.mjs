@@ -18,6 +18,8 @@ const F = {
   roterr: String.raw`\begin{aligned}R_e&=R^{*}R^{T},\quad \mathbf v=\tfrac12\begin{bmatrix}R_{e,32}-R_{e,23}\\ R_{e,13}-R_{e,31}\\ R_{e,21}-R_{e,12}\end{bmatrix}\\ \mathbf e_R&=\theta\,\frac{\mathbf v}{\lVert\mathbf v\rVert},\qquad \theta=\operatorname{atan2}\!\left(\lVert\mathbf v\rVert,\ \tfrac{\operatorname{tr}R_e-1}{2}\right)\end{aligned}`,
   ik6: String.raw`\mathbf e=\begin{bmatrix}\mathbf p^{*}-\mathbf p\\ L\,\mathbf e_R\end{bmatrix},\qquad L=100\,\mathrm{mm}`,
   wrap: String.raw`q_i'=q_i-2\pi\,\operatorname{round}\!\left(\frac{q_i-q_i^{\mathrm{ist}}}{2\pi}\right),\qquad q_{min}\le q_i'\le q_{max}`,
+  rst: String.raw`q_i\leftarrow q_i-2\pi\,\operatorname{sgn}(q_i)\quad\text{falls }\lvert q_i\rvert\ge 2\pi\qquad(i=1,4,6)`,
+  slerp: String.raw`\mathbf p(s)=(1-s)\,\mathbf p_A+s\,\mathbf p_B,\qquad R(s)=R_A\exp\!\big(s\,\log(R_A^{T}R_B)\big),\quad s\in[0,1]`,
   dp: String.raw`C_k(s)=\min_{s'}\Big[\,C_{k-1}(s')+\sum\lvert\Delta\mathbf q\rvert+1000\,[\text{Gelenkfahrt}]+20\,[\text{Umorientieren}]\Big]`,
   reor: String.raw`\mathbf q_{k+1}=\mathrm{IK}\!\left(\mathbf p_A;\ (1-u_k)\,\mathbf q_A+u_k\,\mathbf q_B\right),\quad \mathbf p_A=\text{const},\quad \lVert\Delta\mathbf q\rVert_\infty\le 0{,}25\,\mathrm{rad}`,
   manip: String.raw`w=\sqrt{\det\!\left(J\,J^{T}\right)}`,

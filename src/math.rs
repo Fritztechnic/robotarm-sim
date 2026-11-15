@@ -190,11 +190,15 @@ impl App {
             tex!(ui, "ramp");
             note(ui, "Anfahren/Abbremsen mit konstanter Beschleunigung (Rampe 0,35 s), kurze Fahrten erreichen die Nenngeschwindigkeit nicht.");
             tex!(ui, "dp");
-            note(ui, "Welche IK-Lösung (Ellbogen, Handgelenk, Schulter, J1/J4 ±360° versetzt) an jedem Punkt gilt, wählt eine dynamische Programmierung: möglichst wenige Gelenkfahrten, dann kürzester Gelenkweg.");
+            note(ui, "Welche IK-Lösung (Ellbogen, Handgelenk, Schulter, J1/J4/J6 um ±360° versetzt) an jedem Punkt gilt, wählt eine dynamische Programmierung: möglichst wenige Gelenkfahrten, dann kürzester Gelenkweg.");
             tex!(ui, "reor");
             note(ui, "Umorientieren am Punkt: Gelenkinterpolation, jeder Schritt per IK auf den Punkt zurückprojiziert (Spitze bleibt stehen), danach die Gerade.");
             tex!(ui, "wrap");
-            note(ui, "Kürzester Weg: Endlos drehende Gelenke (J1, J4) werden um ganze Umdrehungen verschoben, bis das Ziel der aktuellen Stellung am nächsten liegt (359° → 0° ist +1°, 450° wird als 90° angefahren). Gilt für Gelenkfahrten, Anfahrt und Zielbewegung; Geraden bleiben kontinuierlich. Die Planung läuft im Hintergrund-Thread.");
+            note(ui, "Kürzester Weg: J1, J4 und J6 werden um ganze Umdrehungen verschoben, bis das Ziel der aktuellen Stellung am nächsten liegt (359° → 0° ist +1°, 450° wird als 90° angefahren). Gilt für Gelenkfahrten, Anfahrt und Zielbewegung; Geraden bleiben kontinuierlich. Die Planung läuft im Hintergrund-Thread.");
+            tex!(ui, "rst");
+            note(ui, "Anzeige: Erreicht ein Wert ±360°, springt er auf 0 zurück (gleiche Pose). Intern haben die drei Gelenke ±720° Spielraum, damit eine Gerade oder der kürzeste Weg nie an einer Grenze scheitert.");
+            tex!(ui, "slerp");
+            note(ui, "Mit Werkzeugwinkel (global oder pro Punkt): Position linear, Orientierung per Slerp überblendet; jeder Schritt wird mit vollständiger 6D-IK gelöst. Der Winkel ist dann vollständig festgelegt: kein Umorientieren am Punkt (kein Nullraum), nicht stetig fahrbare Stücke werden zur Gelenkfahrt.");
             note(ui, "Springt ein Gelenk (> 14° pro 2 mm) oder findet die IK keine Lösung, ist die Gerade nicht fahrbar: dann Gelenkfahrt (PTP) mit linearer Interpolation im Gelenkraum. Der Schleifenschluss endet exakt in der Startstellung.");
             if self.plan.segs.is_empty() {
                 note(ui, "Noch kein Plan: Playlist starten.");
@@ -290,14 +294,20 @@ fn formulas_body(ui: &mut egui::Ui) {
     p(ui, "Anfahren und Abbremsen laufen mit konstanter Beschleunigung (v² ∝ Weg) statt als Ruck; kurze Fahrten erreichen die Nenngeschwindigkeit gar nicht erst:");
     tex!(ui, "ramp");
     p(ui, "Welche Konfiguration (Ellbogen, Handgelenk, Schulter) an jedem Punkt gewählt wird, entscheidet eine dynamische Programmierung über alle IK-Lösungen: Gesamtroute mit möglichst wenigen Gelenkfahrten, bei gleich vielen mit kürzestem Gelenkweg. Geht eine Gerade aus der aktuellen Konfiguration nicht, orientiert sich der Arm zuerst AM PUNKT um (Nullraum-Bewegung: Gelenkinterpolation, jeder Schritt per IK zurück auf den Punkt projiziert, die Spitze bleibt stehen) und fährt dann die Gerade. Auch die Schleife schließt so in die Startstellung.");
-    p(ui, "Kandidaten: pro Punkt bis zu ~30 verschiedene IK-Lösungen aus festen Startwerten (deterministisch), bei J1/J4 zusätzlich um ±360° versetzt. Die Route ist ein kürzester Pfad (dynamische Programmierung) über diese Zustände; Kosten = Gelenkweg + 1000 je Gelenkfahrt + 20 je Umorientieren:");
+    p(ui, "Kandidaten: pro Punkt bis zu ~30 verschiedene IK-Lösungen aus festen Startwerten (deterministisch), bei J1/J4 (mit Winkelvorgabe auch J6) zusätzlich um ±360° versetzt. Die Route ist ein kürzester Pfad (dynamische Programmierung) über diese Zustände; Kosten = Gelenkweg + 1000 je Gelenkfahrt + 20 je Umorientieren:");
     tex!(ui, "dp");
     p(ui, "Umorientieren am Punkt (Nullraum-Bewegung): Gelenkinterpolation, jeder Schritt per IK zurück auf den Punkt projiziert, bei höchstens 0,25 rad Sprung:");
     tex!(ui, "reor");
     h(ui, "6b", "Kürzester Weg bei Vollkreis-Gelenken (±360°)");
-    p(ui, "J1 und J4 haben keinen Anschlag: Eine Stellung q und q ± 2π sind dieselbe Pose. Jedes Ziel wird deshalb vor der Bewegung um ganze Umdrehungen verschoben, bis es der Ist-Stellung am nächsten liegt (dabei bleiben die Grenzen gewahrt):");
+    p(ui, "J1, J4 und J6 drehen mehr als eine Umdrehung: Eine Stellung q und q ± 2π sind dieselbe Pose. Jedes Ziel wird deshalb vor der Bewegung um ganze Umdrehungen verschoben, bis es der Ist-Stellung am nächsten liegt (dabei bleiben die internen Grenzen ±720° gewahrt, sodass nie ein langer Umweg nötig wird):");
     tex!(ui, "wrap");
     p(ui, "Beispiele: 359° → 0° dreht +1° (nicht −359°); 450° wird als 90° angefahren. Das gilt für Gelenkfahrten des Planers, die Anfahrt zur ersten Pose und die normale Bewegung zum Zielwert. Gerade Strecken bleiben dagegen stetig – dort würde ein Zurückdrehen die Gerade verlassen. Ein Schleifenschluss kann dadurch um ganze Umdrehungen versetzt enden; die Pose ist identisch.");
+    p(ui, "Rückstellung: Die angezeigte und gesteuerte Stellung wird bei ±360° auf 0 zurückgesetzt (gleiche Pose, nur ein anderer Zahlenwert). Weil die Planung intern bis ±720° rechnet, ist der kürzeste Weg nie durch eine Grenze blockiert – ein hartes Limit bei ±360° würde z. B. 340° → 10° als −330° statt +30° erzwingen:");
+    tex!(ui, "rst");
+    h(ui, "6c", "Werkzeugwinkel im Playbook");
+    p(ui, "Jeder Punkt kann einen eigenen Winkel (Roll, Pitch, Yaw) tragen, sonst gilt der globale Winkel (\"Winkel vorgeben\"); sobald irgendein Punkt einen Winkel hat, erben Punkte ohne Winkel den zuletzt gültigen (zyklisch), der Winkel bleibt also im ganzen Ablauf vorgegeben. Zwischen zwei Punkten wird die Position linear und die Orientierung per Slerp (kürzeste Drehung) überblendet:");
+    tex!(ui, "slerp");
+    p(ui, "Mit festem Winkel hat die Pose nur diskrete IK-Lösungen. Eine Gerade ist fahrbar, wenn dieselbe Konfiguration stetig mitläuft, andernfalls folgt eine Gelenkfahrt. Ein Umorientieren am Punkt (Nullraum) gibt es nicht, J6 wird wie J1/J4 um ±360° verschoben berücksichtigt. Der Schleifenschluss endet direkt in der Startstellung.");
     p(ui, "Bewegungsprofil: Anfahren und Abbremsen mit konstanter Beschleunigung (siehe oben). Die Planung läuft in einem Hintergrund-Thread, die Oberfläche bleibt bedienbar.");
     p(ui, "Die ganze Bahn wird vor dem Start berechnet: Sie hängt nur von Arm und Punkten ab, nicht von Framerate, Geschwindigkeit oder Runde.");
 
