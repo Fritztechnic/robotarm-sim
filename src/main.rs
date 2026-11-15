@@ -165,6 +165,8 @@ impl App {
                 c
             });
         egui_extras::install_image_loaders(&cc.egui_ctx);
+        // Für Screenshots: Zusatzfenster im Hauptfenster einbetten
+        cc.egui_ctx.set_embed_viewports(std::env::var("ROBOTARM_EMBED").is_ok());
         ui::apply_theme(&cc.egui_ctx);
         if let Some(rs) = &cc.wgpu_render_state {
             let gpu = gpu::Gpu::new(&rs.device, rs.target_format);
