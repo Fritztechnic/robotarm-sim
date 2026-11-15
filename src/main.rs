@@ -341,7 +341,9 @@ impl App {
 
     /// Bewegt die Anzeige-Gelenke zur Sollstellung; true solange sie unterwegs sind.
     fn advance(&mut self, dt: f64) -> bool {
-        let max = (0..6).map(|i| (self.q_cmd[i] - self.q_view[i]).abs()).fold(0.0, f64::max);
+        // Endlos drehende Gelenke nehmen den kürzesten Weg zum Ziel (gleiche Pose, evtl. ±360° versetzt)
+        let near = kin::wrap_near(&self.cfg.arm, self.q_cmd, &self.q_view);
+        let max = (0..6).map(|i| (near[i] - self.q_view[i]).abs()).fold(0.0, f64::max);
         if max < 1e-6 {
             self.q_view = self.q_cmd;
             return false;
@@ -349,7 +351,7 @@ impl App {
         let step = self.cfg.speed_dps.to_radians() * dt;
         let k = if self.cfg.speed_dps >= 720.0 { 1.0 } else { (step / max).min(1.0) };
         for i in 0..6 {
-            self.q_view[i] += (self.q_cmd[i] - self.q_view[i]) * k;
+            self.q_view[i] += (near[i] - self.q_view[i]) * k;
         }
         true
     }
@@ -414,7 +416,8 @@ impl App {
             return;
         }
         self.pl_idx = self.plan.first;
-        self.play = Play::Joint { from: self.q_cmd, to: self.plan.start, s: 0.0 };
+        let to = kin::wrap_near(&self.cfg.arm, self.plan.start, &self.q_cmd);
+        self.play = Play::Joint { from: self.q_cmd, to, s: 0.0 };
         self.ik_msg = Some(self.play_msg());
     }
 
@@ -686,7 +689,9 @@ mod tests {
                 assert!(x.q == y.q && x.ptp == y.ptp);
             }
             if let Some(c) = a.segs.last().filter(|s| s.closing) {
-                assert!((0..6).all(|i| (c.q.last().unwrap()[i] - a.start[i]).abs() < 1e-9), "Schleife schließt nicht");
+                // gleiche Pose; endlose Gelenke dürfen um ganze Umdrehungen versetzt enden (kürzester Weg)
+                let end = kin::wrap_near(&arm, *c.q.last().unwrap(), &a.start);
+                assert!((0..6).all(|i| (end[i] - a.start[i]).abs() < 1e-9), "Schleife schließt nicht");
             }
         }
     }

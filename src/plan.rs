@@ -78,7 +78,8 @@ fn march(arm: &Arm, q0: [f64; 6], a: V3, b: V3) -> Option<Vec<[f64; 6]>> {
 }
 
 /// Gelenkfahrt: lineare Interpolation (feiner als 0,5° pro Schritt).
-fn lerp_path(a: [f64; 6], b: [f64; 6]) -> Vec<[f64; 6]> {
+fn lerp_path(arm: &Arm, a: [f64; 6], b: [f64; 6]) -> Vec<[f64; 6]> {
+    let b = kin::wrap_near(arm, b, &a);
     let n = (dq_max(&a, &b) / 0.5f64.to_radians()).ceil().max(1.0) as usize;
     (0..=n).map(|i| std::array::from_fn(|k| a[k] + (b[k] - a[k]) * i as f64 / n as f64)).collect()
 }
@@ -208,8 +209,9 @@ fn route(arm: &Arm, pts: &[V3], cand: &[Vec<[f64; 6]>], s0: [f64; 6], cache: &mu
                 next.push(State { q: *path.last().unwrap(), cost: s.cost + path_len(&path) + if re { REORIENT_COST } else { 0.0 }, parent: si, path, ptp: false });
             }
             for c in &cand[k + 1] {
-                let path = lerp_path(s.q, *c);
-                next.push(State { q: *c, cost: s.cost + PTP_COST + path_len(&path), parent: si, path, ptp: true });
+                let path = lerp_path(arm, s.q, *c);
+                let end = *path.last().unwrap();
+                next.push(State { q: end, cost: s.cost + PTP_COST + path_len(&path), parent: si, path, ptp: true });
             }
         }
         next.sort_by(|a, b| a.cost.total_cmp(&b.cost));
@@ -234,7 +236,7 @@ fn route(arm: &Arm, pts: &[V3], cand: &[Vec<[f64; 6]>], s0: [f64; 6], cache: &mu
         let line = leg(arm, cache, n - 1, pts[n - 1], pts[0], s.q, &cand[n - 1], &fin);
         let (path, ptp) = match line {
             Some((l, _)) => (l, false),
-            None => (lerp_path(s.q, s0), true),
+            None => (lerp_path(arm, s.q, s0), true),
         };
         let cost = s.cost + path_len(&path) + if ptp { PTP_COST } else { 0.0 };
         if best.as_ref().is_none_or(|b| cost < b.0) {

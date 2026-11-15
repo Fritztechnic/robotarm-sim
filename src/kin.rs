@@ -309,6 +309,26 @@ fn errors(arm: &Arm, q: &[f64; 6], target: &M4, orient: bool) -> ([f64; 6], f64,
     ([dp[0], dp[1], dp[2], dr[0], dr[1], dr[2]], pe, re)
 }
 
+/// Endlos drehende Gelenke (Spanne ≥ 360°) um ganze Umdrehungen verschieben, bis `q` dem
+/// Bezug `r` am nächsten liegt (kürzester Weg, 359° → 0° heißt +1°). Grenzen bleiben gewahrt.
+pub fn wrap_near(arm: &Arm, mut q: [f64; 6], r: &[f64; 6]) -> [f64; 6] {
+    let tau = std::f64::consts::TAU;
+    for i in 0..6 {
+        let (lo, hi) = (arm[i].min_deg.to_radians(), arm[i].max_deg.to_radians());
+        if hi - lo >= tau {
+            let mut v = q[i] - ((q[i] - r[i]) / tau).round() * tau;
+            while v > hi {
+                v -= tau;
+            }
+            while v < lo {
+                v += tau;
+            }
+            q[i] = v;
+        }
+    }
+    q
+}
+
 // Motoren nicht über ihre Grenzen prügeln
 fn clamp_q(arm: &Arm, q: &mut [f64; 6]) {
     for i in 0..6 {
@@ -533,6 +553,17 @@ mod tests {
             assert!((n - ang).abs() < 1e-6, "{ang}: {n}");
             assert!(e[0] * a[0] + e[1] * a[1] + e[2] * a[2] > 0.0, "{ang}: Achse falsch herum");
         }
+    }
+
+    #[test]
+    fn wrap_takes_the_short_way() {
+        let arm = cobot_arm();
+        let d = |v: f64| v.to_radians();
+        let q = wrap_near(&arm, [d(0.0), 0.0, 0.0, d(-450.0), 0.0, 0.0], &[d(359.0), 0.0, 0.0, 0.0, 0.0, 0.0]);
+        assert!((q[0].to_degrees() - 360.0).abs() < 1e-9, "{}", q[0].to_degrees());
+        assert!((q[3].to_degrees() + 90.0).abs() < 1e-9, "{}", q[3].to_degrees());
+        // J2 hat Grenzen < 360°: bleibt unverändert
+        assert_eq!(wrap_near(&arm, [0.0, d(100.0), 0.0, 0.0, 0.0, 0.0], &[0.0; 6])[1], d(100.0));
     }
 
     #[test]
