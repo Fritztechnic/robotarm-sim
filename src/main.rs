@@ -79,7 +79,7 @@ impl Default for Config {
 // Wo die Einstellungen liegen. Neue Version = neue Datei, damit alte Configs nix zerschießen
 fn config_path() -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
-    std::path::Path::new(&home).join(".config/robotarm-sim/config-v4.json")
+    std::path::Path::new(&home).join(".config/robotarm-sim/config-v5.json")
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -139,8 +139,8 @@ impl App {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_else(|| {
-                // Migration aus v3: Playlist/Einstellungen behalten, Gelenkgrenzen auf die neuen Standardwerte
-                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v3.json"))
+                // Migration aus v4: Playlist/Einstellungen behalten, Gelenkgrenzen auf die Standardwerte zurück
+                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v4.json"))
                     .ok()
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
