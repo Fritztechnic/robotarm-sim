@@ -381,7 +381,9 @@ impl App {
                 let w = &mut self.cfg.waypoints[i];
                 egui::Frame::new().fill(if cur { BLUE.gamma_multiply(0.12) } else { Color32::TRANSPARENT }).show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.add_sized([16.0, 20.0], egui::Label::new(RichText::new((i + 1).to_string()).strong().color(if cur { BLUE } else { MUTED })));
+                        let skipped = self.skipped.contains(&i);
+                        ui.add_sized([16.0, 20.0], egui::Label::new(RichText::new((i + 1).to_string()).strong().color(if skipped { Color32::from_rgb(200, 40, 40) } else if cur { BLUE } else { MUTED })))
+                            .on_hover_text_at_pointer(if skipped { "Außer Reichweite, wird übersprungen" } else { "" });
                         for (k, v) in w.pos.iter_mut().enumerate() {
                             let r = if k == 2 { 0.0..=900.0 } else { -700.0..=700.0 };
                             ui.add_sized([44.0, 20.0], egui::DragValue::new(v).speed(1.0).range(r).max_decimals(0));

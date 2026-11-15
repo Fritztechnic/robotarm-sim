@@ -124,6 +124,8 @@ struct App {
     play: Play,
     looping: bool,
     pl_idx: usize,
+    /// Punkte, die außer Reichweite lagen und übersprungen wurden (aktueller Durchlauf)
+    skipped: Vec<usize>,
 }
 
 impl App {
@@ -154,6 +156,7 @@ impl App {
             play: Play::Idle,
             looping: true,
             pl_idx: 0,
+            skipped: vec![],
         };
         app.set_pose([0.0, -35.0, 70.0, 0.0, 55.0, 0.0]);
         app.q_view = app.q_cmd;
@@ -278,14 +281,28 @@ impl App {
             self.play = Play::Joint { from: self.q_cmd, to: r.q, s: 0.0 };
             self.ik_msg = Some((true, format!("Playlist · Punkt {} (Gelenkfahrt)", self.pl_idx + 1)));
         } else {
-            self.ik_msg = Some((false, format!("Punkt {} nicht erreichbar", self.pl_idx + 1)));
+            if !self.skipped.contains(&self.pl_idx) {
+                self.skipped.push(self.pl_idx);
+            }
+            self.ik_msg = Some((false, format!("Punkt {} außer Reichweite", self.pl_idx + 1)));
             self.play = Play::Dwell(0.0);
         }
+    }
+
+    /// Statuszeile während der Playlist; rot, wenn Punkte außer Reichweite übersprungen wurden.
+    fn play_msg(&self) -> (bool, String) {
+        let mut s = format!("Playlist · Punkt {}", self.pl_idx + 1);
+        if !self.skipped.is_empty() {
+            let l: Vec<String> = self.skipped.iter().map(|i| (i + 1).to_string()).collect();
+            s += &format!(" · außer Reichweite: {}", l.join(", "));
+        }
+        (self.skipped.is_empty(), s)
     }
 
     fn play_all(&mut self) {
         if !self.cfg.waypoints.is_empty() {
             self.trail.clear();
+            self.skipped.clear();
             self.set_pose([0.0, -35.0, 70.0, 0.0, 55.0, 0.0]);
             self.goto_waypoint(0);
             self.play = Play::Approach;
@@ -358,7 +375,7 @@ impl App {
                     self.q_view = r.q;
                     self.target_pos = p;
                     self.play = if ns >= len { Play::Dwell(wp.dwell) } else { Play::Move { from, s: ns } };
-                    self.ik_msg = Some((true, format!("Playlist · Punkt {}", self.pl_idx + 1)));
+                    self.ik_msg = Some(self.play_msg());
                     break;
                 }
             }
@@ -423,6 +440,7 @@ mod tests {
             play: Play::Idle,
             looping: false,
             pl_idx: 0,
+            skipped: vec![],
         }
     }
 
