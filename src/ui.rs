@@ -94,7 +94,9 @@ fn toggle(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
 fn axis_slider(ui: &mut egui::Ui, label: &str, color: Color32, v: &mut f64, range: std::ops::RangeInclusive<f64>, unit: &str) -> bool {
     ui.horizontal(|ui| {
         ui.label(RichText::new(label).strong().monospace().color(color));
-        ui.add(egui::Slider::new(v, range).suffix(unit).fixed_decimals(1)).changed()
+        let r = ui.add(egui::Slider::new(v, range).suffix(unit).fixed_decimals(1));
+        // egui meldet auch Klemm-Korrekturen als changed – nur echte Eingaben zählen (sonst stoppt die Playlist)
+        r.changed() && (r.is_pointer_button_down_on() || r.dragged() || r.has_focus())
     })
     .inner
 }
