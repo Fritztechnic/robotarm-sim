@@ -303,18 +303,23 @@ impl App {
         const READY: [f64; 6] = [0.0, -35.0, 70.0, 0.0, 55.0, 0.0];
         self.trail.clear();
         self.skipped.clear();
-        let seed = READY.map(f64::to_radians);
         self.q_cmd = self.q_view; // ab hier startet die Bewegung von der gerade sichtbaren Pose
-        let opt = kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 20 };
-        self.wp_q = self
-            .cfg
-            .waypoints
-            .iter()
-            .map(|w| {
-                let r = kin::solve_ik(&self.cfg.arm, &kin::from_xyz_rpy(w.pos, [0.0; 3]), seed, &opt);
-                r.converged.then_some(r.q)
-            })
-            .collect();
+        // Jeder Punkt wird vom vorigen aus gelöst (Warmstart): so bleibt die Gelenkstellung
+        // durchgehend ähnlich und es gibt keine Schleifen durch Konfigurationswechsel.
+        let mut seed = READY.map(f64::to_radians);
+        let mut sols = Vec::new();
+        for w in &self.cfg.waypoints {
+            let t = kin::from_xyz_rpy(w.pos, [0.0; 3]);
+            let mut r = kin::solve_ik(&self.cfg.arm, &t, seed, &kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 });
+            if !r.converged {
+                r = kin::solve_ik(&self.cfg.arm, &t, seed, &kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 20 });
+            }
+            if r.converged {
+                seed = r.q;
+            }
+            sols.push(r.converged.then_some(r.q));
+        }
+        self.wp_q = sols;
         self.skipped = (0..self.wp_q.len()).filter(|&i| self.wp_q[i].is_none()).collect();
         match self.wp_q.iter().position(Option::is_some) {
             Some(first) => self.joint_to(first),
@@ -382,9 +387,11 @@ impl App {
                     self.target_pos = p;
                     self.play = Play::Move { from, s: ns };
                     if ns >= len {
-                        // Am Ziel exakt auf die feste Lösung einrasten (kurze Gelenkfahrt, falls abweichend)
+                        // Am Ziel auf die feste Lösung einrasten (kurze Gelenkfahrt, falls leicht abweichend)
                         let to = self.wp_q.get(self.pl_idx).copied().flatten().unwrap_or(r.q);
                         let off = (0..6).map(|i| (to[i] - r.q[i]).abs()).fold(0.0, f64::max);
+                        // Nur kleine Korrekturen einrasten; große Sprünge wären sichtbare Schleifen im Pfad
+                        let off = if off > 0.5 { 0.0 } else { off };
                         self.play = if off > 1e-3 { Play::Joint { from: r.q, to, s: 0.0 } } else { Play::Dwell(wp.dwell) };
                     }
                     self.ik_msg = Some(self.play_msg());
