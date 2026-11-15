@@ -183,7 +183,7 @@ fn mat(c: [u8; 3], metal: f32, rough: f32) -> Mat {
 }
 
 // Zeichnet den ganzen 3D-Bereich: GPU-Szene, Spur, Playlist-Punkte, Gelenk-Scheiben, Ziel. Plus Mausinteraktion
-pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64; 6], target: &M4, trail: &[V3], wps: &[V3], cur: Option<usize>, reach: (V3, f64, f64)) -> Interaction {
+pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64; 6], target: &M4, trail: &[V3], wps: &[V3], cur: Option<usize>, reach: Option<&kin::Reach>) -> Interaction {
     let rect = ui.available_rect_before_wrap();
     let resp = ui.allocate_rect(rect, Sense::click_and_drag());
     let mut out = Interaction { new_target: None, released: false, dragging: false };
@@ -290,39 +290,8 @@ pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64
         }
     };
     let glow = Color32::from_rgb(0, 120, 212);
-    if st.show_reach {
-        // außen = maximale Reichweite, innen = Totzone (dort kommt die Spitze nicht hin).
-        // Bewusst wenig Linien: Umriss (Silhouette) + Äquator, innen zusätzlich leicht gefüllt.
-        let (c, inner, outer) = reach;
-        let tau = std::f64::consts::TAU;
-        let n = 72;
-        let d = sub(pr.eye, c);
-        let dl = dot(d, d).sqrt().max(1e-6);
-        let dn = scale(d, 1.0 / dl);
-        let a = norm(cross(dn, [0.0, 0.0, 1.0]));
-        let b = cross(a, dn);
-        for (r, col, fill) in [(outer, Color32::from_rgb(0, 120, 212), 0u8), (inner, Color32::from_rgb(220, 80, 20), 38)] {
-            let k = (r / dl).min(0.99);
-            let (sc, sr) = (add(c, scale(dn, r * k)), r * (1.0 - k * k).sqrt());
-            let sil: Vec<Pos2> = (0..n).filter_map(|i| {
-                let t = i as f64 / n as f64 * tau;
-                pr.pt(add(sc, add(scale(a, sr * t.cos()), scale(b, sr * t.sin()))))
-            }).collect();
-            if sil.len() == n {
-                painter.add(egui::Shape::convex_polygon(sil, col.gamma_multiply(fill as f32 / 255.0), Stroke::new(1.6, col.gamma_multiply(0.85))));
-            }
-            let eq: Vec<Pos2> = (0..=n).filter_map(|i| {
-                let t = i as f64 / n as f64 * tau;
-                pr.pt([c[0] + r * t.cos(), c[1] + r * t.sin(), c[2]])
-            }).collect();
-            if eq.len() == n + 1 {
-                painter.add(egui::Shape::line(eq, Stroke::new(1.0, col.gamma_multiply(0.5))));
-            }
-            if let Some(p) = pr.pt([c[0] + r, c[1], c[2]]) {
-                let txt = if r == outer { format!("außen {:.0} mm", r) } else { format!("innen {:.0} mm", r) };
-                painter.text(p + egui::vec2(6.0, -4.0), egui::Align2::LEFT_BOTTOM, txt, egui::FontId::proportional(10.5), col);
-            }
-        }
+    if let (true, Some(rc)) = (st.show_reach, reach) {
+        draw_reach(&painter, &pr, rc);
     }
     if st.show_trail && trail.len() > 1 {
         let n = trail.len();
@@ -438,6 +407,82 @@ mod tests {
         let v = pr.hit(pr.pt(p).unwrap(), p, norm([pr.f[0], pr.f[1], 0.0])).unwrap();
         for i in 0..3 {
             assert!((h[i] - p[i]).abs() < 1e-3 && (v[i] - p[i]).abs() < 1e-3);
+        }
+    }
+}
+
+// Arbeitsraum als echte Hüllflächen: außen = weiteste Stelle je Richtung (türkis),
+// innen = nächste Stelle je Richtung (rot): dazwischen kommt die Spitze hin, innerhalb nicht.
+fn draw_reach(painter: &egui::Painter, pr: &Proj, rc: &kin::Reach) {
+    use kin::{RA, RP};
+    let tau = std::f64::consts::TAU;
+    let dn = norm(sub(pr.eye, rc.c));
+    for (vals, col, name) in [(&rc.hi, Color32::from_rgb(0, 160, 150), "außen"), (&rc.lo, Color32::from_rgb(220, 60, 60), "innen")] {
+        // 3×3-Glättung, sonst wirkt die Stichprobe zackig
+        let at = |i: isize, j: isize| vals[(j.clamp(0, RP as isize - 1) as usize) * RA + i.rem_euclid(RA as isize) as usize];
+        let r: Vec<f64> = (0..RP * RA)
+            .map(|k| {
+                let (i, j) = ((k % RA) as isize, (k / RA) as isize);
+                let mut s = 0.0;
+                for dj in -1..=1 {
+                    for di in -1..=1 {
+                        s += at(i + di, j + dj);
+                    }
+                }
+                s / 9.0
+            })
+            .collect();
+        let dir = |i: usize, j: usize| {
+            let (az, pol) = ((i as f64 + 0.5) / RA as f64 * tau - std::f64::consts::PI, (j as f64 + 0.5) / RP as f64 * std::f64::consts::PI);
+            [pol.sin() * az.cos(), pol.sin() * az.sin(), pol.cos()]
+        };
+        let v3 = |i: usize, j: usize| {
+            let (i, d) = (i % RA, dir(i % RA, j));
+            scale(d, r[j * RA + i]).iter().zip(rc.c).map(|(a, b)| a + b).collect::<Vec<_>>()
+        };
+        let pts: Vec<Option<Pos2>> = (0..RP * (RA + 1)).map(|k| {
+            let (i, j) = (k % (RA + 1), k / (RA + 1));
+            let p = v3(i, j);
+            pr.pt([p[0], p[1], p[2]])
+        }).collect();
+        let idx = |i: usize, j: usize| j * (RA + 1) + i;
+        // Fläche: Rand (Blick streift die Kugel) kräftiger, Mitte fast durchsichtig, so bleibt der Arm lesbar
+        let mut mesh = egui::Mesh::default();
+        for j in 0..RP {
+            for i in 0..=RA {
+                let a = ((1.0 - dot(dir(i % RA, j), dn).abs()) * 46.0 + 8.0) as u8;
+                let c = Color32::from_rgba_unmultiplied(col.r(), col.g(), col.b(), a);
+                mesh.colored_vertex(pts[idx(i, j)].unwrap_or(Pos2::ZERO), c);
+            }
+        }
+        for j in 0..RP - 1 {
+            for i in 0..RA {
+                if [idx(i, j), idx(i + 1, j), idx(i, j + 1), idx(i + 1, j + 1)].iter().all(|k| pts[*k].is_some()) {
+                    let (a, b, c, d) = (idx(i, j) as u32, idx(i + 1, j) as u32, idx(i, j + 1) as u32, idx(i + 1, j + 1) as u32);
+                    mesh.add_triangle(a, b, c);
+                    mesh.add_triangle(b, d, c);
+                }
+            }
+        }
+        painter.add(egui::Shape::mesh(mesh));
+        // Gitterlinien: Breitenkreise und Längenkreise
+        let stroke = Stroke::new(1.0, col.gamma_multiply(0.55));
+        for j in (1..RP).step_by(3) {
+            let l: Vec<Pos2> = (0..=RA).filter_map(|i| pts[idx(i, j)]).collect();
+            if l.len() == RA + 1 {
+                painter.add(egui::Shape::line(l, stroke));
+            }
+        }
+        for i in (0..RA).step_by(4) {
+            let l: Vec<Pos2> = (0..RP).filter_map(|j| pts[idx(i, j)]).collect();
+            if l.len() == RP {
+                painter.add(egui::Shape::line(l, stroke));
+            }
+        }
+        let (rm, p) = (if name == "außen" { rc.outer() } else { rc.dead() }, pr.pt([rc.c[0], rc.c[1], rc.c[2] + if name == "außen" { rc.outer() } else { rc.dead() }]));
+        if let Some(p) = p {
+            let t = if name == "außen" { format!("außen max {rm:.0} mm · überall bis {:.0} mm", rc.full()) } else { format!("innen min {rm:.0} mm") };
+            painter.text(p + egui::vec2(6.0, -4.0), egui::Align2::LEFT_BOTTOM, t, egui::FontId::proportional(10.5), col);
         }
     }
 }

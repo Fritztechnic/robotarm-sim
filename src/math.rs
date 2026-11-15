@@ -66,12 +66,22 @@ fn det3(m: [[f64; 3]; 3]) -> f64 {
 }
 
 impl App {
+    /// Beide Mathe-Fenster sind echte, frei verschiebbare Betriebssystem-Fenster (auch auf zweitem Monitor).
     pub fn math_window(&mut self, ctx: &egui::Context) {
-        let mut open = self.show_math;
-        egui::Window::new("Mathematik · live").open(&mut open).default_size([560.0, 640.0]).default_pos([380.0, 100.0]).show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| self.math_body(ui));
-        });
-        self.show_math = open;
+        if self.show_math {
+            let b = egui::ViewportBuilder::default().with_title("Mathematik · live").with_inner_size([620.0, 720.0]);
+            self.show_math = !ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("math-live"), b, |ui, _| {
+                egui::ScrollArea::vertical().show(ui, |ui| self.math_body(ui));
+                ui.ctx().input(|i| i.viewport().close_requested())
+            });
+        }
+        if self.show_formulas {
+            let b = egui::ViewportBuilder::default().with_title("Mathematik · Formeln").with_inner_size([700.0, 780.0]);
+            self.show_formulas = !ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("math-static"), b, |ui, _| {
+                egui::ScrollArea::vertical().show(ui, |ui| formulas_body(ui));
+                ui.ctx().input(|i| i.viewport().close_requested())
+            });
+        }
     }
 
     fn math_body(&mut self, ui: &mut egui::Ui) {
@@ -192,4 +202,56 @@ impl App {
             }
         });
     }
+}
+
+/// Reine Theorie, ohne Live-Werte: so funktioniert alles in diesem Programm.
+fn formulas_body(ui: &mut egui::Ui) {
+    let h = |ui: &mut egui::Ui, s: &str| {
+        ui.add_space(8.0);
+        ui.label(RichText::new(s).strong().size(15.0));
+        ui.separator();
+    };
+    let p = |ui: &mut egui::Ui, s: &str| {
+        ui.label(RichText::new(s).size(12.5));
+    };
+    h(ui, "1 · Vorwärtskinematik (Denavit-Hartenberg)");
+    p(ui, "Jedes Gelenk i hat vier Parameter: Drehung θ_i (Variable), Versatz d_i entlang z, Länge a_i entlang x und Verdrehung α_i um x.");
+    formula(ui, "A_i = Rz(θ_i) · Tz(d_i) · Tx(a_i) · Rx(α_i)\nθ_i = q_i + Offset_i");
+    formula(ui, "       [ cθ  -sθ·cα   sθ·sα   a·cθ ]\nA_i =  [ sθ   cθ·cα  -cθ·sα   a·sθ ]\n       [ 0    sα       cα      d    ]\n       [ 0    0        0       1    ]");
+    formula(ui, "T_0→6 = A_1 · A_2 · A_3 · A_4 · A_5 · A_6 = [ R  p ; 0  1 ]");
+    p(ui, "R ist die 3×3-Drehmatrix der Werkzeugorientierung, p = (x, y, z) die Position der Werkzeugspitze (TCP).");
+
+    h(ui, "2 · Orientierung (Roll · Pitch · Yaw)");
+    formula(ui, "R = Rz(Y) · Ry(P) · Rx(R)\nP = −asin(R₃₁)\nR = atan2(R₃₂, R₃₃)\nY = atan2(R₂₁, R₁₁)");
+    p(ui, "Bei P = ±90° fallen Roll und Yaw zusammen (Gimbal Lock): dort ist nur ihre Summe bestimmt.");
+
+    h(ui, "3 · Jacobi-Matrix");
+    p(ui, "Verknüpft Gelenkgeschwindigkeiten mit der Spitzengeschwindigkeit. Für Drehgelenke:");
+    formula(ui, "ṗ = J · q̇\nJ_i = z_(i−1) × (p_6 − p_(i−1))        (Spalte i, 3×6)\nz_(i−1) = Drehachse von Gelenk i,  p_(i−1) = dessen Ursprung");
+    formula(ui, "Manipulierbarkeit   w = √det(J · Jᵀ)");
+    p(ui, "w → 0 bedeutet Singularität: der Arm verliert eine Bewegungsrichtung, kleine Spitzenbewegungen brauchen riesige Gelenkwinkel (typisch: Arm ganz gestreckt, Handgelenk gestreckt, Handgelenk über der Schulterachse).");
+
+    h(ui, "4 · Inverse Kinematik");
+    p(ui, "Gesucht: q mit p(q) = p*. Es gibt keine geschlossene Lösung für beliebige Gelenke, deshalb iterativ (Newton mit Dämpfung, Levenberg-Marquardt):");
+    formula(ui, "e = p* − p(q)\nΔq = Jᵀ · (J·Jᵀ + λ²·I)⁻¹ · e\nq ← clamp(q + Δq, q_min, q_max)       Wiederholen bis |e| < ε");
+    p(ui, "λ dämpft die Schritte nahe Singularitäten. Mit Orientierungsvorgabe wird e um den Winkelfehler erweitert (6 Gleichungen, 6 Unbekannte).");
+    p(ui, "Ohne Winkelvorgabe bleiben 3 überzählige Freiheitsgrade. Der Nullraum verschiebt die Spitze nicht:");
+    formula(ui, "Δq_N = (I − J⁺J) · g,   g = −W · q        J⁺ = Jᵀ(J·Jᵀ)⁻¹\nq ← q + α · Δq_N");
+    p(ui, "g zieht die Gelenke zur Komfortstellung (W gewichtet je Gelenk), ohne den Zielpunkt zu verlassen. Mehrere Startwerte (Restarts) finden verschiedene Lösungen (Ellbogen oben/unten, Handgelenk geklappt).");
+
+    h(ui, "5 · Servo-Abbildung");
+    formula(ui, "a = clamp(center + dir · q, 0, range)        (Servowinkel)\nµs = pmin + a / range · (pmax − pmin)   (Pulsbreite)");
+    p(ui, "center = Servo-Winkel bei q = 0, dir = ±1 (Drehrichtung), range = Stellweg des Servos, pmin/pmax = Pulsbreiten der Endlagen.");
+
+    h(ui, "6 · Bahnplanung (Playlist)");
+    formula(ui, "Gerade:      p(s) = A + s · (B − A)/|B − A|,   s ∈ [0, |B − A|],  Schritt 2 mm\nJe Schritt:  q(s_k) = IK(p(s_k); Warmstart q(s_k−1)) + Nullraum-Zug");
+    formula(ui, "Gelenkfahrt: q(u) = q_A + u · (q_B − q_A),   u ∈ [0, 1]");
+    formula(ui, "Zeit je Schritt = max( Δs / v_TCP ,  max_i |Δq_i| / ω_max )");
+    p(ui, "Eine Gerade gilt als fahrbar, wenn die IK an jedem Schritt konvergiert und kein Gelenk mehr als 0,25 rad pro Schritt springt. Sonst Gelenkfahrt. Die gesamte Bahn wird vor dem Start berechnet: sie hängt nur von Arm und Punkten ab, nicht von Framerate, Geschwindigkeit oder Runde.");
+
+    h(ui, "7 · Arbeitsraum (Hüllflächen)");
+    p(ui, "Zufallsstichprobe q ~ U[q_min, q_max]^6 (900 000 Stück, 20 % direkt an den Anschlägen). Jede Position wird relativ zur Schulterachse c in Kugelkoordinaten (Azimut, Polarwinkel) einsortiert:");
+    formula(ui, "r = |p(q) − c|\nr_max(Richtung) = größter r  → äußere Fläche\nr_min(Richtung) = kleinster r → innere Fläche (Totzone)");
+    formula(ui, "r_außen = max r_max       r_innen = min r_min       r_überall = min r_max");
+    p(ui, "Zwischen innerer und äußerer Fläche erreicht die Spitze den Punkt (Position, Winkel frei). Selbstkollisionen und Boden sind nicht berücksichtigt.");
 }

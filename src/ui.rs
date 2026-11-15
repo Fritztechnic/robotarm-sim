@@ -181,8 +181,8 @@ impl App {
             let target = kin::from_xyz_rpy(self.target_pos, self.target_rpy_deg.map(f64::to_radians));
             let wps: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
             let cur = (self.tab == Tab::Playlist || self.playing()).then_some(self.pl_idx);
-            let reach = self.reach();
-            let res = view::draw(ui, &mut self.cam, &self.cfg.style, &self.cfg.arm, &self.q_view, &target, &self.trail, &wps, cur, reach);
+            let reach = self.reach(ui.ctx());
+            let res = view::draw(ui, &mut self.cam, &self.cfg.style, &self.cfg.arm, &self.q_view, &target, &self.trail, &wps, cur, reach.as_deref());
             if let Some(np) = res.new_target {
                 self.play = Play::Idle;
                 self.mode = Mode::Ik;
@@ -194,7 +194,7 @@ impl App {
             }
             self.view_cube(ui, rect);
         });
-        if self.show_math {
+        if self.show_math || self.show_formulas {
             let ctx = ui.ctx().clone();
             self.math_window(&ctx);
         }
@@ -229,7 +229,7 @@ impl App {
                 (Icon::Axes, "Koordinatensysteme", &mut st.show_frames),
                 (Icon::Tag, "Gelenk-Beschriftung", &mut st.show_labels),
                 (Icon::Marker, "Zielmarker", &mut st.show_target),
-                (Icon::Sphere, "Erreichbarkeit (innen/außen)", &mut st.show_reach),
+                (Icon::Sphere, "Arbeitsraum (Hüllflächen innen/außen)", &mut st.show_reach),
             ] {
                 if ibtn(ui, ic, n, *v).clicked() {
                     *v = !*v;
@@ -247,6 +247,9 @@ impl App {
             }
             if ibtn(ui, Icon::Sigma, "Mathematik-Fenster (DH, Matrizen, Jacobi, IK, Planer)", self.show_math).clicked() {
                 self.show_math = !self.show_math;
+            }
+            if ibtn(ui, Icon::Fx, "Formeln (reine Mathematik, nicht live)", self.show_formulas).clicked() {
+                self.show_formulas = !self.show_formulas;
             }
             if !self.status.is_empty() {
                 ui.label(RichText::new(&self.status).size(11.0).color(MUTED));

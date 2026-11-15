@@ -108,6 +108,18 @@ enum Play {
 }
 
 // Der ganze Programmzustand an einem Ort
+enum ReachState {
+    None,
+    Busy(Arm, std::sync::mpsc::Receiver<kin::Reach>),
+    Ready(Arm, std::rc::Rc<kin::Reach>),
+}
+
+impl Default for ReachState {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 struct App {
     cfg: Config,
     q_cmd: [f64; 6],
@@ -131,8 +143,9 @@ struct App {
     plan: plan::Plan,
     /// Mathe-Fenster sichtbar?
     show_math: bool,
+    show_formulas: bool,
     /// Zwischenspeicher der Erreichbarkeit (gilt nur für die gespeicherte Arm-Geometrie)
-    reach_cache: std::cell::RefCell<Option<(Arm, (V3, f64, f64))>>,
+    reach_cache: std::cell::RefCell<ReachState>,
 }
 
 impl App {
@@ -176,6 +189,7 @@ impl App {
             skipped: vec![],
             plan: plan::Plan::default(),
             show_math: false,
+            show_formulas: false,
             reach_cache: Default::default(),
         };
         app.set_pose([0.0, -35.0, 70.0, 0.0, 55.0, 0.0]);
@@ -200,23 +214,40 @@ impl App {
             }
         }
         app.show_math = std::env::var("ROBOTARM_MATH").is_ok();
+        app.show_formulas = std::env::var("ROBOTARM_FORMULAS").is_ok();
         if std::env::var("ROBOTARM_PLAY").is_ok() {
             app.play_all();
         }
         app
     }
 
-    /// Erreichbarkeit (Mittelpunkt, innen, außen); neu berechnet nur, wenn sich der Aufbau ändert.
-    fn reach(&self) -> (V3, f64, f64) {
+    /// Arbeitsraum-Hülle; wird im Hintergrund berechnet (ca. 1 s) und nur bei geändertem Aufbau neu.
+    fn reach(&self, ctx: &egui::Context) -> Option<std::rc::Rc<kin::Reach>> {
         let mut c = self.reach_cache.borrow_mut();
-        match &*c {
-            Some((arm, r)) if *arm == self.cfg.arm => *r,
-            _ => {
-                let r = kin::reach(&self.cfg.arm);
-                *c = Some((self.cfg.arm, r));
-                r
+        if let ReachState::Ready(arm, r) = &*c {
+            if *arm == self.cfg.arm {
+                return Some(r.clone());
             }
         }
+        if let ReachState::Busy(arm, rx) = &*c {
+            if *arm == self.cfg.arm {
+                if let Ok(r) = rx.try_recv() {
+                    let r = std::rc::Rc::new(r);
+                    *c = ReachState::Ready(self.cfg.arm, r.clone());
+                    return Some(r);
+                }
+                ctx.request_repaint_after(std::time::Duration::from_millis(150));
+                return None;
+            }
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        let arm = self.cfg.arm;
+        std::thread::spawn(move || {
+            let _ = tx.send(kin::reach(&arm));
+        });
+        *c = ReachState::Busy(self.cfg.arm, rx);
+        ctx.request_repaint_after(std::time::Duration::from_millis(150));
+        None
     }
 
     fn sync_target_from_q(&mut self) {
@@ -446,6 +477,7 @@ mod tests {
             skipped: vec![],
             plan: plan::Plan::default(),
             show_math: false,
+            show_formulas: false,
             reach_cache: Default::default(),
         }
     }

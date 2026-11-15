@@ -114,9 +114,35 @@ pub fn cobot_arm() -> Arm {
 // So stand der Arm im Modell, als du ihn runtergeladen hast. Daraus wird das 3D-Bild 'geeicht'
 pub const COBOT_REST_THETA_DEG: [f64; 6] = [-57.797, -83.942, -156.059, -175.644, -73.088, 0.0];
 
-/// Erreichbarkeit der Werkzeugspitze (nur Position) innerhalb der Gelenkgrenzen:
-/// Mittelpunkt (Schulterachse), kleinster und größter Abstand. Per Zufallsstichprobe, deterministisch.
-pub fn reach(arm: &Arm) -> (V3, f64, f64) {
+/// Arbeitsraum der Werkzeugspitze (nur Position) als Hüllfläche um die Schulterachse:
+/// für jede Richtung (Azimut × Polarwinkel) der kleinste und größte erreichbare Abstand.
+pub const RA: usize = 48;
+pub const RP: usize = 24;
+
+#[derive(Clone)]
+pub struct Reach {
+    pub c: V3,
+    pub lo: Vec<f64>,
+    pub hi: Vec<f64>,
+}
+
+impl Reach {
+    /// Außenradius: weiteste Stelle des Arbeitsraums.
+    pub fn outer(&self) -> f64 {
+        self.hi.iter().cloned().fold(0.0, f64::max)
+    }
+    /// Totzone: kleinster Abstand, den die Spitze irgendwo erreicht.
+    pub fn dead(&self) -> f64 {
+        self.lo.iter().cloned().fold(f64::MAX, f64::min)
+    }
+    /// Bis zu diesem Radius ist JEDE Richtung erreichbar (Kugel ohne Lücken).
+    pub fn full(&self) -> f64 {
+        self.hi.iter().cloned().fold(f64::MAX, f64::min)
+    }
+}
+
+/// Zufallsstichprobe im Gelenkraum (deterministisch). Gelenkgrenzen werden eingehalten.
+pub fn reach(arm: &Arm) -> Reach {
     let c = pos(&fk_frames(arm, &[0.0; 6])[1]);
     let mut s = 0x2545F4914F6CDD1Du64;
     let mut rnd = move || {
@@ -125,18 +151,32 @@ pub fn reach(arm: &Arm) -> (V3, f64, f64) {
         s ^= s << 17;
         (s >> 11) as f64 / (1u64 << 53) as f64
     };
-    let (mut lo, mut hi) = (f64::MAX, 0.0f64);
-    for _ in 0..60_000 {
+    let (mut lo, mut hi) = (vec![f64::MAX; RA * RP], vec![0.0f64; RA * RP]);
+    for _ in 0..900_000 {
         let q: [f64; 6] = std::array::from_fn(|i| {
             let j = &arm[i];
-            (j.min_deg + (j.max_deg - j.min_deg) * rnd()).to_radians()
+            // Ein Teil der Proben sitzt direkt an den Anschlägen: dort liegen die Extreme
+            let t = if rnd() < 0.2 { (rnd() < 0.5) as u8 as f64 } else { rnd() };
+            (j.min_deg + (j.max_deg - j.min_deg) * t).to_radians()
         });
         let p = pos(&fk(arm, &q));
-        let d = ((p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) + (p[2] - c[2]).powi(2)).sqrt();
-        lo = lo.min(d);
-        hi = hi.max(d);
+        let d: V3 = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
+        let r = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+        if r < 1e-9 {
+            continue;
+        }
+        let az = ((d[1].atan2(d[0]) / std::f64::consts::TAU + 0.5) * RA as f64) as usize % RA;
+        let pol = (((d[2] / r).clamp(-1.0, 1.0).acos() / std::f64::consts::PI) * RP as f64) as usize;
+        let k = pol.min(RP - 1) * RA + az;
+        lo[k] = lo[k].min(r);
+        hi[k] = hi[k].max(r);
     }
-    (c, lo, hi)
+    for v in lo.iter_mut() {
+        if *v == f64::MAX {
+            *v = 0.0;
+        }
+    }
+    Reach { c, lo, hi }
 }
 
 /// Inverse einer starren Transformation.
