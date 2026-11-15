@@ -3,6 +3,8 @@
 mod gpu;
 mod icons;
 mod kin;
+mod math;
+mod plan;
 mod ui;
 mod view;
 
@@ -94,13 +96,14 @@ enum Mode {
     Fk,
 }
 
-/// Ablauf der Playlist: gerade Linie zum Zielpunkt, dann Wartezeit.
+/// Ablauf der Playlist: Strecke abfahren, dann Wartezeit am Zielpunkt.
 #[derive(Clone, Copy, PartialEq)]
 enum Play {
     Idle,
-    Move { from: V3, s: f64 },
-    /// Ausweichbewegung im Gelenkraum, wenn die Gerade nicht fahrbar ist (Singularität, Grenze, Schleifenende)
+    /// Anfahrt zur ersten Stellung im Gelenkraum
     Joint { from: [f64; 6], to: [f64; 6], s: f64 },
+    /// Vorberechnete Strecke k des Plans, u = Position (Sample-Index mit Bruchteil)
+    Seg { k: usize, u: f64 },
     Dwell(f64),
 }
 
@@ -124,8 +127,10 @@ struct App {
     pl_idx: usize,
     /// Punkte, die außer Reichweite lagen und übersprungen wurden (aktueller Durchlauf)
     skipped: Vec<usize>,
-    /// Pro Punkt die feste Gelenklösung (vom selben Startpunkt aus gelöst), None = außer Reichweite
-    wp_q: Vec<Option<[f64; 6]>>,
+    /// Vorausberechnete Trajektorie der Playlist
+    plan: plan::Plan,
+    /// Mathe-Fenster sichtbar?
+    show_math: bool,
 }
 
 impl App {
@@ -157,7 +162,8 @@ impl App {
             looping: true,
             pl_idx: 0,
             skipped: vec![],
-            wp_q: vec![],
+            plan: plan::Plan::default(),
+            show_math: false,
         };
         app.set_pose([0.0, -35.0, 70.0, 0.0, 55.0, 0.0]);
         app.q_view = app.q_cmd;
@@ -180,6 +186,7 @@ impl App {
                 app.set_pose(std::array::from_fn(|i| n[i]));
             }
         }
+        app.show_math = std::env::var("ROBOTARM_MATH").is_ok();
         if std::env::var("ROBOTARM_PLAY").is_ok() {
             app.play_all();
         }
@@ -266,37 +273,14 @@ impl App {
         self.play != Play::Idle
     }
 
-    // Gerade Linie von hier zu Punkt i starten
-    fn start_move(&mut self, i: usize) {
-        self.pl_idx = i;
-        self.play = Play::Move { from: self.tcp(), s: 0.0 };
-    }
-
-    /// Nächster erreichbarer Punkt nach `i` (bei Schleife mit Umlauf), sonst None.
-    fn next_reachable(&self, i: usize) -> Option<usize> {
-        let n = self.cfg.waypoints.len();
-        let range = if self.looping { 1..=n } else { 1..=n.saturating_sub(1 + i) };
-        range.map(|k| (i + k) % n).find(|&j| self.wp_q.get(j).is_some_and(Option::is_some))
-    }
-
-    /// Im Gelenkraum zur festen Lösung von Punkt i fahren, danach Wartezeit.
-    fn joint_to(&mut self, i: usize) {
-        self.pl_idx = i;
-        // Ziel-Lösung möglichst nah an der aktuellen Stellung wählen (kleinste Gelenkfahrt, kein Umdrehen)
-        let near = self.cfg.waypoints.get(i).and_then(|w| {
-            let t = kin::from_xyz_rpy(w.pos, [0.0; 3]);
-            let o = kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 };
-            let r = kin::solve_ik(&self.cfg.arm, &t, self.q_cmd, &o);
-            r.converged.then_some(r.q)
-        });
-        let to = near.or(self.wp_q.get(i).copied().flatten()).unwrap_or(self.q_cmd);
-        self.play = Play::Joint { from: self.q_cmd, to, s: 0.0 };
-        self.ik_msg = Some(self.play_msg());
-    }
-
     /// Statuszeile während der Playlist; rot, wenn Punkte außer Reichweite übersprungen wurden.
     fn play_msg(&self) -> (bool, String) {
         let mut s = format!("Playlist · Punkt {}", self.pl_idx + 1);
+        if let Play::Seg { k, .. } = self.play {
+            if self.plan.segs[k].ptp {
+                s += " · Gelenkfahrt";
+            }
+        }
         if !self.skipped.is_empty() {
             let l: Vec<String> = self.skipped.iter().map(|i| (i + 1).to_string()).collect();
             s += &format!(" · außer Reichweite: {}", l.join(", "));
@@ -304,119 +288,73 @@ impl App {
         (self.skipped.is_empty(), s)
     }
 
-    // Playlist von vorn. Jeder Punkt wird einmal fest gelöst (immer von der Bereit-Pose aus),
-    // damit der Arm nie zufällig die Ellenbogenseite wechselt oder abdriftet.
+    // Playlist von vorn: erst alles vorausberechnen (plan.rs), dann nur noch abspielen.
     fn play_all(&mut self) {
-        const READY: [f64; 6] = [0.0, -35.0, 70.0, 0.0, 55.0, 0.0];
         self.trail.clear();
-        self.skipped.clear();
-        self.q_cmd = self.q_view; // ab hier startet die Bewegung von der gerade sichtbaren Pose
-        // Jeder Punkt wird vom vorigen aus gelöst (Warmstart): so bleibt die Gelenkstellung
-        // durchgehend ähnlich und es gibt keine Schleifen durch Konfigurationswechsel.
-        let mut seed = READY.map(f64::to_radians);
-        let mut sols = Vec::new();
-        for w in &self.cfg.waypoints {
-            let t = kin::from_xyz_rpy(w.pos, [0.0; 3]);
-            let mut r = kin::solve_ik(&self.cfg.arm, &t, seed, &kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 });
-            if !r.converged {
-                r = kin::solve_ik(&self.cfg.arm, &t, seed, &kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 20 });
-            }
-            if r.converged {
-                seed = r.q;
-            }
-            sols.push(r.converged.then_some(r.q));
+        self.q_cmd = self.q_view; // Start von der gerade sichtbaren Pose
+        let pts: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
+        self.plan = plan::build(&self.cfg.arm, &pts);
+        self.skipped = self.plan.unreachable.clone();
+        if self.plan.unreachable.len() == pts.len() {
+            self.play = Play::Idle;
+            self.ik_msg = Some((false, "Kein Punkt erreichbar".into()));
+            return;
         }
-        // Schleife: Startpunkt nahe der Stellung des letzten Punkts lösen, sonst dreht das Handgelenk beim Umlauf
-        if let (true, Some(Some(last)), Some(w)) = (self.looping, sols.last().copied(), self.cfg.waypoints.first()) {
-            let o = kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 };
-            let r = kin::solve_ik(&self.cfg.arm, &kin::from_xyz_rpy(w.pos, [0.0; 3]), last, &o);
-            if r.converged && sols.len() > 1 {
-                sols[0] = Some(r.q);
+        self.pl_idx = self.plan.first;
+        self.play = Play::Joint { from: self.q_cmd, to: self.plan.start, s: 0.0 };
+        self.ik_msg = Some(self.play_msg());
+    }
+
+    /// Nächste Strecke nach Punkt `pl_idx` starten (oder Ende).
+    fn next_seg(&mut self) {
+        let k = self.plan.segs.iter().position(|s| s.from == self.pl_idx);
+        match k {
+            Some(k) if !self.plan.segs[k].closing || self.looping => {
+                self.pl_idx = self.plan.segs[k].to;
+                self.play = Play::Seg { k, u: 0.0 };
+                self.ik_msg = Some(self.play_msg());
             }
-        }
-        self.wp_q = sols;
-        self.skipped = (0..self.wp_q.len()).filter(|&i| self.wp_q[i].is_none()).collect();
-        match self.wp_q.iter().position(Option::is_some) {
-            Some(first) => self.joint_to(first),
-            None => self.ik_msg = Some((false, "Kein Punkt erreichbar".into())),
+            _ => self.play = Play::Idle,
         }
     }
 
-    /// Ein Schritt der Playlist: Gerade zum Zielpunkt mit konstanter TCP-Geschwindigkeit,
-    /// begrenzt durch die maximale Gelenkgeschwindigkeit; Gelenkwinkel per IK mit Warmstart.
+    /// Ein Schritt der Playlist: nur noch Abspielen der vorberechneten Trajektorie.
     fn playlist_step(&mut self, dt: f64) {
-        let Some(wp) = self.cfg.waypoints.get(self.pl_idx).cloned() else {
+        if self.play == Play::Idle {
+            return;
+        }
+        let pts: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
+        if pts != self.plan.pts {
+            // Punkte wurden während der Fahrt geändert: Plan wäre veraltet
             self.play = Play::Idle;
             return;
-        };
+        }
+        let dwell = |i: usize| self.cfg.waypoints[i].dwell;
         match self.play {
             Play::Idle => {}
             Play::Dwell(t) => {
                 if t - dt > 0.0 {
                     self.play = Play::Dwell(t - dt);
-                } else if let Some(n) = self.next_reachable(self.pl_idx) {
-                    self.start_move(n);
                 } else {
-                    self.play = Play::Idle;
+                    self.next_seg();
                 }
             }
             Play::Joint { from, to, s } => {
                 let far = (0..6).map(|i| (to[i] - from[i]).abs()).fold(1e-9, f64::max);
-                let rate = self.cfg.speed_dps.to_radians().max(1.5);
+                let rate = self.cfg.speed_dps.to_radians().max(0.05);
                 let ns = (s + rate * dt / far).min(1.0);
                 self.q_cmd = std::array::from_fn(|i| from[i] + (to[i] - from[i]) * ns);
                 self.q_view = self.q_cmd;
                 self.target_pos = self.tcp();
-                self.play = if ns >= 1.0 { Play::Dwell(wp.dwell) } else { Play::Joint { from, to, s: ns } };
+                self.play = if ns >= 1.0 { Play::Dwell(dwell(self.pl_idx)) } else { Play::Joint { from, to, s: ns } };
             }
-            Play::Move { from, s } => {
-                let d: V3 = std::array::from_fn(|k| wp.pos[k] - from[k]);
-                let len = d.iter().map(|v| v * v).sum::<f64>().sqrt();
-                if len < 1e-6 {
-                    self.play = Play::Dwell(wp.dwell);
-                    return;
-                }
-                let limit = self.cfg.speed_dps.to_radians().max(0.05) * dt;
-                let mut step = self.cfg.tcp_speed.max(1.0) * dt;
-                let opt = kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 };
-                for attempt in 0..2 {
-                    let ns = (s + step).min(len);
-                    let p: V3 = std::array::from_fn(|k| from[k] + d[k] * ns / len);
-                    let tgt = kin::from_xyz_rpy(p, [0.0; 3]);
-                    let mut r = kin::solve_ik(&self.cfg.arm, &tgt, self.q_cmd, &opt);
-                    if r.converged {
-                        // Nullraum-Zug: Handgelenke sanft zur Komfortstellung, damit der Arm über Runden nicht abdriftet
-                        r = kin::polish(&self.cfg.arm, &tgt, r, &opt, 2);
-                    }
-                    if !r.converged {
-                        self.joint_to(self.pl_idx);
-                        return;
-                    }
-                    let dq = (0..6).map(|i| (r.q[i] - self.q_cmd[i]).abs()).fold(0.0, f64::max);
-                    if dq > limit && attempt == 0 {
-                        step *= limit / dq;
-                        continue;
-                    }
-                    if dq > 2.0 * limit {
-                        // Sprung im Gelenkraum: Singularität oder Lösungswechsel
-                        self.joint_to(self.pl_idx);
-                        return;
-                    }
-                    self.q_cmd = r.q;
-                    self.q_view = r.q;
-                    self.target_pos = p;
-                    self.play = Play::Move { from, s: ns };
-                    if ns >= len {
-                        // Am Ziel auf die feste Lösung einrasten (kurze Gelenkfahrt, falls leicht abweichend)
-                        let to = self.wp_q.get(self.pl_idx).copied().flatten().unwrap_or(r.q);
-                        let off = (0..6).map(|i| (to[i] - r.q[i]).abs()).fold(0.0, f64::max);
-                        // Nur kleine Korrekturen einrasten; große Sprünge wären sichtbare Schleifen im Pfad
-                        let off = if off > 0.5 { 0.0 } else { off };
-                        self.play = if off > 1e-3 { Play::Joint { from: r.q, to, s: 0.0 } } else { Play::Dwell(wp.dwell) };
-                    }
-                    self.ik_msg = Some(self.play_msg());
-                    break;
-                }
+            Play::Seg { k, u } => {
+                let seg = &self.plan.segs[k];
+                let (nu, end) = plan::advance(&self.cfg.arm, seg, u, dt, self.cfg.tcp_speed, self.cfg.speed_dps);
+                self.q_cmd = plan::sample(seg, nu);
+                self.q_view = self.q_cmd;
+                self.target_pos = self.tcp();
+                self.play = if end { Play::Dwell(dwell(seg.to)) } else { Play::Seg { k, u: nu } };
             }
         }
     }
@@ -480,7 +418,8 @@ mod tests {
             looping: false,
             pl_idx: 0,
             skipped: vec![],
-            wp_q: vec![],
+            plan: plan::Plan::default(),
+            show_math: false,
         }
     }
 
@@ -548,6 +487,7 @@ mod tests {
             a.play_all();
             let (mut t, mut prev, mut dwells, mut worst) = (0.0, a.q_view, 0, 0.0f64);
             let mut in_dwell = false;
+            let mut seen: Vec<Option<[f64; 6]>> = vec![None; a.cfg.waypoints.len()];
             while t < 120.0 {
                 a.playlist_step(dt);
                 a.advance(dt);
@@ -561,11 +501,32 @@ mod tests {
                     let w = a.cfg.waypoints[a.pl_idx].pos;
                     let e = (0..3).map(|k| (w[k] - a.tcp()[k]).powi(2)).sum::<f64>().sqrt();
                     assert!(e < 1.0, "dt {dt}: Punkt {} um {e:.1} mm verfehlt", a.pl_idx + 1);
+                    // jede Runde identisch: derselbe Punkt wird immer mit denselben Gelenkwinkeln erreicht
+                    let q = *seen[a.pl_idx].get_or_insert(a.q_cmd);
+                    assert!((0..6).all(|i| (q[i] - a.q_cmd[i]).abs() < 1e-9), "dt {dt}: Punkt {} Runde für Runde verschieden", a.pl_idx + 1);
                 }
                 in_dwell = d;
             }
             assert!(dwells >= 40, "dt {dt}: nur {dwells} Punkte in 120 s");
             assert!(worst < 0.5, "dt {dt}: Gelenksprung {:.0}° pro Frame", worst.to_degrees());
+        }
+    }
+
+    #[test]
+    fn plan_is_deterministic_and_closed() {
+        let mut s = 7u64;
+        let mut rnd = move || { s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (s >> 33) as f64 / (1u64 << 31) as f64 };
+        for _ in 0..30 {
+            let pts: Vec<V3> = (0..8).map(|_| { let (r, t) = (150.0 + rnd() * 400.0, rnd() * 6.283); [r * t.cos(), r * t.sin(), 100.0 + rnd() * 480.0] }).collect();
+            let arm = kin::cobot_arm();
+            let (a, b) = (plan::build(&arm, &pts), plan::build(&arm, &pts));
+            assert_eq!(a.segs.len(), b.segs.len());
+            for (x, y) in a.segs.iter().zip(&b.segs) {
+                assert!(x.q == y.q && x.ptp == y.ptp);
+            }
+            if let Some(c) = a.segs.last().filter(|s| s.closing) {
+                assert!((0..6).all(|i| (c.q.last().unwrap()[i] - a.start[i]).abs() < 1e-9), "Schleife schließt nicht");
+            }
         }
     }
 }

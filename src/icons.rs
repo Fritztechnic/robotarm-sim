@@ -45,5 +45,6 @@ icons! {
     Top => r##"<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3l8 4.5-8 4.5-8-4.5z" fill="#fff"/>"##,
     Sliders => r##"<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>"##,
     List => r##"<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="#fff"/><circle cx="4.5" cy="12" r="1" fill="#fff"/><circle cx="4.5" cy="18" r="1" fill="#fff"/>"##,
+    Sigma => r##"<path d="M18 5H7l6 7-6 7h11"/>"##,
     Eye => r##"<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>"##,
 }

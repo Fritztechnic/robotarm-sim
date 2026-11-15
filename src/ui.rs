@@ -193,6 +193,10 @@ impl App {
             }
             self.view_cube(ui, rect);
         });
+        if self.show_math {
+            let ctx = ui.ctx().clone();
+            self.math_window(&ctx);
+        }
     }
 
     // Toolbar mit Posen, Ansichten, Anzeige-Schaltern
@@ -238,6 +242,9 @@ impl App {
                     Ok(_) => "Gespeichert".into(),
                     Err(e) => format!("Fehler: {e}"),
                 };
+            }
+            if ibtn(ui, Icon::Sigma, "Mathematik-Fenster (DH, Matrizen, Jacobi, IK, Planer)", self.show_math).clicked() {
+                self.show_math = !self.show_math;
             }
             if !self.status.is_empty() {
                 ui.label(RichText::new(&self.status).size(11.0).color(MUTED));
