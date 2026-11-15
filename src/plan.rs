@@ -7,6 +7,8 @@
 //!   2. Jeder Punkt per gedämpftem Newton (Warmstart vom vorigen) + Nullraum-Zug lösen.
 //!   3. Schlägt ein Schritt fehl oder springt ein Gelenk (Singularität/Zweigwechsel),
 //!      wird die Strecke als Gelenkfahrt (PTP) geplant: lineare Interpolation im Gelenkraum.
+//!   0. Welche der vielen IK-Lösungen (Ellbogen/Handgelenk-Varianten) an jedem Punkt genommen wird,
+//!      entscheidet `route` per dynamischer Programmierung: möglichst wenige Gelenkfahrten.
 //!   4. Der Schleifenschluss (letzter→erster Punkt) endet exakt in der Startstellung; passt
 //!      die Gerade dort nicht hin, wird auch er zur Gelenkfahrt. So ist jede Runde identisch.
 
@@ -87,49 +89,157 @@ fn nearest(arm: &Arm, p: V3, q: [f64; 6]) -> Option<[f64; 6]> {
     r.converged.then_some(r.q)
 }
 
+/// Alle deutlich verschiedenen IK-Lösungen für `p` (Ellbogen oben/unten, Handgelenk geklappt, Schulter gedreht).
+/// Feste Startwerte, daher deterministisch.
+fn candidates(arm: &Arm, p: V3) -> Vec<[f64; 6]> {
+    let t = target(p);
+    let mut out: Vec<[f64; 6]> = vec![];
+    let mut seeds = vec![READY.map(f64::to_radians)];
+    for j1 in [0.0, 90.0, -90.0, 180.0] {
+        for j2 in [-35.0, 35.0] {
+            for j3 in [70.0, -70.0] {
+                for j5 in [55.0, -55.0] {
+                    seeds.push([j1, j2, j3, 0.0, j5, 0.0].map(f64::to_radians));
+                }
+            }
+        }
+    }
+    for s in seeds {
+        let r = kin::solve_ik(arm, &t, s, &opt(0));
+        if r.converged && out.iter().all(|o| dq_max(o, &r.q) > 0.1) {
+            out.push(r.q);
+        }
+    }
+    out
+}
+
+struct State {
+    q: [f64; 6],
+    cost: f64,
+    parent: usize,
+    path: Vec<[f64; 6]>,
+    ptp: bool,
+}
+
+const PTP_COST: f64 = 1000.0;
+const KEEP: usize = 10;
+/// Zustände, die sich weniger als das unterscheiden, gelten als dieselbe Konfiguration (rad).
+const SAME: f64 = 0.3;
+/// Größte Abweichung der Spitze (mm) beim Einpendeln in die Startstellung; mehr gilt als Gelenkfahrt.
+const SETTLE: f64 = 5.0;
+
+fn key(k: usize, q: &[f64; 6]) -> (usize, [i64; 6]) {
+    (k, q.map(|v| (v * 1e4).round() as i64))
+}
+
+fn path_len(p: &[[f64; 6]]) -> f64 {
+    p.windows(2).map(|w| dq_max(&w[0], &w[1])).sum()
+}
+
+type Cache = std::collections::HashMap<(usize, [i64; 6]), Option<Vec<[f64; 6]>>>;
+
+/// Bester Weg durch alle Punkte ab Startstellung `s0`: Dynamische Programmierung über die
+/// Konfigurationen. Gerade = fast kostenlos, Gelenkfahrt = teuer, also möglichst wenige davon.
+fn route(arm: &Arm, pts: &[V3], cand: &[Vec<[f64; 6]>], s0: [f64; 6], cache: &mut Cache) -> (f64, Vec<(Vec<[f64; 6]>, bool)>) {
+    let n = pts.len();
+    let mut layers: Vec<Vec<State>> = vec![vec![State { q: s0, cost: 0.0, parent: usize::MAX, path: vec![], ptp: false }]];
+    for k in 0..n - 1 {
+        let mut next: Vec<State> = vec![];
+        for (si, s) in layers[k].iter().enumerate() {
+            let line = cache.entry(key(k, &s.q)).or_insert_with(|| march(arm, s.q, pts[k], pts[k + 1])).clone();
+            if let Some(path) = line {
+                next.push(State { q: *path.last().unwrap(), cost: s.cost + path_len(&path), parent: si, path, ptp: false });
+            }
+            for c in &cand[k + 1] {
+                let path = lerp_path(s.q, *c);
+                next.push(State { q: *c, cost: s.cost + PTP_COST + path_len(&path), parent: si, path, ptp: true });
+            }
+        }
+        next.sort_by(|a, b| a.cost.total_cmp(&b.cost));
+        let mut kept: Vec<State> = vec![];
+        for s in next {
+            if kept.len() < KEEP && kept.iter().all(|o| dq_max(&o.q, &s.q) > SAME) {
+                kept.push(s);
+            }
+        }
+        layers.push(kept);
+    }
+    // Schleifenschluss: muss exakt in s0 enden, sonst Gelenkfahrt dorthin
+    let mut best: Option<(f64, usize, Vec<[f64; 6]>, bool)> = None;
+    for (si, s) in layers[n - 1].iter().enumerate() {
+        // Gerade zurück zum Startpunkt; endet sie in einer anderen Konfiguration, pendelt der Arm dort
+        // kurz in die Startstellung ein (damit jede Runde exakt gleich beginnt)
+        let line = cache.entry(key(n - 1, &s.q)).or_insert_with(|| march(arm, s.q, pts[n - 1], pts[0])).clone().and_then(|mut l| {
+            let tail = lerp_path(*l.last().unwrap(), s0);
+            let dev = tail.iter().map(|q| (0..3).map(|k| (kin::pos(&kin::fk(arm, q))[k] - pts[0][k]).powi(2)).sum::<f64>().sqrt()).fold(0.0, f64::max);
+            (dev < SETTLE).then(|| {
+                l.extend(tail.into_iter().skip(1));
+                l
+            })
+        });
+        let (path, ptp) = match line {
+            Some(l) => (l, false),
+            None => (lerp_path(s.q, s0), true),
+        };
+        let cost = s.cost + path_len(&path) + if ptp { PTP_COST } else { 0.0 };
+        if best.as_ref().is_none_or(|b| cost < b.0) {
+            best = Some((cost, si, path, ptp));
+        }
+    }
+    let (cost, mut si, cpath, cptp) = best.unwrap();
+    let mut segs = vec![(cpath, cptp)];
+    for k in (1..n).rev() {
+        let s = &layers[k][si];
+        segs.push((s.path.clone(), s.ptp));
+        si = s.parent;
+    }
+    segs.reverse();
+    (cost, segs)
+}
+
 pub fn build(arm: &Arm, pts: &[V3]) -> Plan {
     let mut plan = Plan { pts: pts.to_vec(), ..Plan::default() };
     let ready = READY.map(f64::to_radians);
-    let mut q = ready;
-    let mut order: Vec<usize> = vec![];
-    let mut sol: Vec<[f64; 6]> = vec![];
-    // Erreichbarkeit: jeder Punkt wird von der Bereit-Pose und vom vorigen Punkt aus versucht
+    let (mut order, mut cand): (Vec<usize>, Vec<Vec<[f64; 6]>>) = (vec![], vec![]);
     for (i, &p) in pts.iter().enumerate() {
-        match nearest(arm, p, q).or_else(|| nearest(arm, p, ready)) {
-            Some(s) => {
-                q = s;
-                order.push(i);
-                sol.push(s);
-            }
-            None => plan.unreachable.push(i),
+        let mut c = candidates(arm, p);
+        if c.is_empty() {
+            c.extend(nearest(arm, p, ready));
+        }
+        if c.is_empty() {
+            plan.unreachable.push(i);
+        } else {
+            order.push(i);
+            cand.push(c);
         }
     }
     let Some(&first) = order.first() else { return plan };
     plan.first = first;
-    plan.start = sol[0];
-    let mut cur = sol[0];
-    for k in 0..order.len() {
-        let closing = k + 1 == order.len();
-        if closing && order.len() < 2 {
+    let op: Vec<V3> = order.iter().map(|&i| pts[i]).collect();
+    if op.len() < 2 {
+        plan.start = cand[0][0];
+        return plan;
+    }
+    // Startkonfiguration: die mit der besten Gesamtroute (Bereit-Pose am nächsten zuerst: deterministische Reihenfolge)
+    let mut starts = cand[0].clone();
+    starts.sort_by(|a, b| dq_max(a, &ready).total_cmp(&dq_max(b, &ready)));
+    let mut cache = Cache::new();
+    let mut best: Option<(f64, [f64; 6], Vec<(Vec<[f64; 6]>, bool)>)> = None;
+    for s0 in starts.into_iter().take(6) {
+        let (cost, segs) = route(arm, &op, &cand, s0, &mut cache);
+        if best.as_ref().is_none_or(|b| cost < b.0 - 1e-9) {
+            best = Some((cost, s0, segs));
+        }
+        if best.as_ref().is_some_and(|b| b.0 < PTP_COST) {
             break;
         }
-        let (a, b) = (order[k], order[(k + 1) % order.len()]);
-        let goal = if closing { Some(plan.start) } else { None };
-        let line = march(arm, cur, pts[a], pts[b]).filter(|l| goal.is_none_or(|g| dq_max(l.last().unwrap(), &g) < 0.02));
-        let (q, ptp) = match line {
-            Some(mut l) => {
-                if let Some(g) = goal {
-                    *l.last_mut().unwrap() = g;
-                }
-                (l, false)
-            }
-            None => {
-                let end = goal.or_else(|| nearest(arm, pts[b], cur)).unwrap_or(cur);
-                (lerp_path(cur, end), true)
-            }
-        };
-        cur = *q.last().unwrap();
-        plan.segs.push(Seg { from: a, to: b, q, ptp, closing });
+    }
+    let (_, s0, segs) = best.unwrap();
+    plan.start = s0;
+    let n = op.len();
+    for (k, (q, ptp)) in segs.into_iter().enumerate() {
+        let closing = k + 1 == n;
+        plan.segs.push(Seg { from: order[k], to: order[(k + 1) % n], q, ptp, closing });
     }
     plan
 }
@@ -175,3 +285,4 @@ pub fn sample(seg: &Seg, u: f64) -> [f64; 6] {
     let f = u - i as f64;
     std::array::from_fn(|k| seg.q[i][k] + (seg.q[j][k] - seg.q[i][k]) * f)
 }
+

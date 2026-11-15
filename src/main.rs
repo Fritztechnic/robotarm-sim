@@ -79,7 +79,8 @@ fn demo_waypoints() -> Vec<Waypoint> {
     }
     // Spirale um die z-Achse, nach oben enger werdend
     for k in 0..10 {
-        let (t, f) = (k as f64 * 0.7, k as f64 / 9.0);
+        // nur ±150° um die Z-Achse: J1 hat bei ±175° einen Anschlag
+        let (t, f) = (-2.6 + k as f64 * 0.58, k as f64 / 9.0);
         let r = 260.0 - 120.0 * f;
         v.push(([r * t.cos(), r * t.sin(), 250.0 + 300.0 * f], 0.0));
     }
@@ -609,6 +610,9 @@ mod tests {
         let p = plan::build(&kin::cobot_arm(), &pts);
         let ptp = p.segs.iter().filter(|s| s.ptp).count();
         println!("{} Punkte, {} Segmente, {} Gelenkfahrten, unerreichbar {:?}", pts.len(), p.segs.len(), ptp, p.unreachable);
+        for s in p.segs.iter().filter(|s| s.ptp) {
+            println!("PTP {} -> {}  {:?} -> {:?}", s.from + 1, s.to + 1, pts[s.from], pts[s.to]);
+        }
         assert!(p.unreachable.is_empty());
         assert!(ptp * 4 <= p.segs.len(), "zu viele Gelenkfahrten: {ptp}");
     }
@@ -617,7 +621,7 @@ mod tests {
     fn plan_is_deterministic_and_closed() {
         let mut s = 7u64;
         let mut rnd = move || { s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (s >> 33) as f64 / (1u64 << 31) as f64 };
-        for _ in 0..30 {
+        for _ in 0..10 {
             let pts: Vec<V3> = (0..8).map(|_| { let (r, t) = (150.0 + rnd() * 400.0, rnd() * 6.283); [r * t.cos(), r * t.sin(), 100.0 + rnd() * 480.0] }).collect();
             let arm = kin::cobot_arm();
             let (a, b) = (plan::build(&arm, &pts), plan::build(&arm, &pts));

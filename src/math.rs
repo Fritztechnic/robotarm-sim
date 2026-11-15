@@ -283,6 +283,7 @@ fn formulas_body(ui: &mut egui::Ui) {
     tex!(ui, "ptp");
     p(ui, "Die Zeit je Schritt begrenzt entweder die Spitzengeschwindigkeit oder die schnellste Gelenkbewegung:");
     tex!(ui, "time");
+    p(ui, "Welche Konfiguration (Ellbogen, Handgelenk, Schulter) an jedem Punkt gewählt wird, entscheidet eine dynamische Programmierung über alle IK-Lösungen: Gesamtroute mit möglichst wenigen Gelenkfahrten, bei gleich vielen mit kürzestem Gelenkweg. Die Schleife schließt mit kurzem Einpendeln in die Startstellung (Spitze weicht < 5 mm ab).");
     p(ui, "Die ganze Bahn wird vor dem Start berechnet: Sie hängt nur von Arm und Punkten ab, nicht von Framerate, Geschwindigkeit oder Runde.");
 
     h(ui, "7", "Arbeitsraum (Hüllflächen)");
