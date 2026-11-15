@@ -36,6 +36,8 @@ icons! {
     Grid => r##"<path d="M4 4h16v16H4zM4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/>"##,
     Shadow => r##"<circle cx="10" cy="9" r="4"/><ellipse cx="13" cy="18" rx="7" ry="2.5" fill="#fff" fill-opacity=".5"/>"##,
     Trail => r##"<path d="M3 19c4 0 3-12 8-12s3 10 9 10"/><circle cx="20" cy="17" r="1.6" fill="#fff"/>"##,
+    PanelL => r##"<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>"##,
+    PanelR => r##"<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>"##,
     Axes => r##"<path d="M12 12V3M12 12l8 5M12 12l-8 5"/>"##,
     Tag => r##"<path d="M4 4h8l8 8-8 8-8-8z"/><circle cx="8.5" cy="8.5" r="1.3" fill="#fff"/>"##,
     Marker => r##"<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="1.8" fill="#fff"/>"##,

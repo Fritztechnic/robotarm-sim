@@ -146,6 +146,7 @@ impl App {
         egui::Panel::bottom("timeline").frame(bar(BAR).stroke(Stroke::new(1.0, BORDER))).show(ui, |ui| {
             ui.horizontal(|ui| self.timeline(ui));
         });
+        if self.show_left {
         egui::Panel::left("left").exact_size(362.0).frame(side()).show(ui, |ui| {
             panel_title(ui, match self.tab {
                 Tab::Control => "STEUERUNG",
@@ -162,10 +163,13 @@ impl App {
                 });
             });
         });
+        }
+        if self.show_right {
         egui::Panel::right("right").exact_size(230.0).frame(side()).show(ui, |ui| {
             panel_title(ui, "MOTOREN");
             egui::Frame::new().inner_margin(8).show(ui, |ui| self.motors(ui));
         });
+        }
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| {
             let rect = ui.max_rect();
             let tcp = self.tcp();
@@ -235,6 +239,14 @@ impl App {
                 if ibtn(ui, ic, n, *v).clicked() {
                     *v = !*v;
                 }
+            }
+        });
+        group(ui, "PANELS", |ui| {
+            if ibtn(ui, Icon::PanelL, "Linkes Panel ein-/ausklappen", self.show_left).clicked() {
+                self.show_left = !self.show_left;
+            }
+            if ibtn(ui, Icon::PanelR, "Rechtes Panel (Motoren) ein-/ausklappen", self.show_right).clicked() {
+                self.show_right = !self.show_right;
             }
         });
         group(ui, "KONFIGURATION", |ui| {
@@ -380,8 +392,9 @@ impl App {
                 dv(ui, &mut self.cfg.tcp_speed, " mm/s", 5.0);
                 self.cfg.tcp_speed = self.cfg.tcp_speed.clamp(1.0, 2000.0);
             });
-            ui.label(RichText::new("Gerade Linien zwischen den Punkten, Werkzeugwinkel automatisch. Start/Stopp in der Zeitleiste unten.").size(11.0).color(MUTED));
+            ui.label(RichText::new("Gerade Linien zwischen den Punkten. Winkel: automatisch, global (Werkzeugwinkel „vorgeben“ in der Steuerung bleibt im ganzen Ablauf konstant) oder pro Punkt (Achsen-Symbol). Start/Stopp in der Zeitleiste unten.").size(11.0).color(MUTED));
         });
+        let cur_rpy = self.target_rpy_deg;
         let (mut del, mut up, mut go, mut dup) = (None, None, None, None);
         card(ui, Some("Zielpunkte (mm)"), |ui| {
             ui.spacing_mut().item_spacing.x = 3.0;
@@ -417,6 +430,23 @@ impl App {
                             del = Some(i);
                         }
                     });
+                    ui.horizontal(|ui| {
+                        ui.add_space(19.0);
+                        if ibtn(ui, Icon::Axes, "Eigenen Werkzeugwinkel für diesen Punkt vorgeben", w.rpy_deg.is_some()).clicked() {
+                            w.rpy_deg = if w.rpy_deg.is_some() { None } else { Some(cur_rpy) };
+                        }
+                        match &mut w.rpy_deg {
+                            Some(r) => {
+                                for (v, n) in r.iter_mut().zip(["R", "P", "Y"]) {
+                                    let lim = if n == "P" { 90.0 } else { 180.0 };
+                                    ui.add_sized([58.0, 20.0], egui::DragValue::new(v).speed(0.5).range(-lim..=lim).prefix(format!("{n} ")).suffix("°").max_decimals(0));
+                                }
+                            }
+                            None => {
+                                ui.label(RichText::new(if self.use_orientation { "globaler Winkel" } else { "Winkel automatisch" }).size(10.0).color(MUTED));
+                            }
+                        }
+                    });
                 });
             }
             if self.cfg.waypoints.is_empty() {
@@ -441,10 +471,10 @@ impl App {
         ui.horizontal_wrapped(|ui| {
             if tbtn(ui, Icon::Plus, "Punkt").clicked() {
                 let pos = self.cfg.waypoints.last().map_or(self.target_pos, |w| [w.pos[0], w.pos[1], w.pos[2] + 50.0]);
-                self.cfg.waypoints.push(Waypoint { pos, dwell: 0.3 });
+                self.cfg.waypoints.push(Waypoint { pos, dwell: 0.3, rpy_deg: None });
             }
             if tbtn(ui, Icon::Goto, "Aktuelles Ziel").clicked() {
-                self.cfg.waypoints.push(Waypoint { pos: self.target_pos, dwell: 0.3 });
+                self.cfg.waypoints.push(Waypoint { pos: self.target_pos, dwell: 0.3, rpy_deg: None });
             }
             if tbtn(ui, Icon::Reset, "Demo").clicked() {
                 self.cfg.waypoints = demo_waypoints();

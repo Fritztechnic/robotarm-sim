@@ -52,13 +52,16 @@ struct Waypoint {
     pos: V3,
     /// Wartezeit nach Ankunft in Sekunden
     dwell: f64,
+    /// Eigener Werkzeugwinkel (Roll, Pitch, Yaw in °); None = Winkel des vorigen Punktes bzw. der globale Werkzeugwinkel
+    #[serde(default)]
+    rpy_deg: Option<V3>,
 }
 
 // Einfache Demo: ein Rechteck und ein Ausreißer nach oben (die Tests nutzen sie als Grundlage)
 #[cfg(test)]
 fn demo_simple() -> Vec<Waypoint> {
     [[300.0, -150.0, 250.0], [300.0, 150.0, 250.0], [300.0, 150.0, 450.0], [300.0, -150.0, 450.0], [150.0, 0.0, 600.0]]
-        .map(|pos| Waypoint { pos, dwell: 0.3 })
+        .map(|pos| Waypoint { pos, dwell: 0.3, rpy_deg: None })
         .to_vec()
 }
 
@@ -89,7 +92,7 @@ fn demo_waypoints() -> Vec<Waypoint> {
         let t = std::f64::consts::FRAC_PI_2 + k as f64 * 2.0 * std::f64::consts::TAU / 5.0;
         v.push(([220.0, 160.0 * t.cos(), 500.0 + 110.0 * t.sin()], 0.15));
     }
-    v.into_iter().map(|(pos, dwell)| Waypoint { pos, dwell }).collect()
+    v.into_iter().map(|(pos, dwell)| Waypoint { pos, dwell, rpy_deg: None }).collect()
 }
 
 impl Default for Config {
@@ -110,7 +113,7 @@ impl Default for Config {
 // Wo die Einstellungen liegen. Neue Version = neue Datei, damit alte Configs nix zerschießen
 fn config_path() -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
-    std::path::Path::new(&home).join(".config/robotarm-sim/config-v6.json")
+    std::path::Path::new(&home).join(".config/robotarm-sim/config-v7.json")
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -163,6 +166,8 @@ struct App {
     target_rpy_deg: V3,
     /// An: Werkzeugwinkel wird vorgegeben (6D). Aus: IK wählt den Winkel selbst (3D-Position).
     use_orientation: bool,
+    show_left: bool,
+    show_right: bool,
     ik_msg: Option<(bool, String)>,
     cam: Camera,
     trail: Vec<V3>,
@@ -188,12 +193,12 @@ impl App {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_else(|| {
-                // Migration aus v5: alles behalten, nur J1 und J4 werden endlos drehend (±720°)
-                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v5.json"))
+                // Migration aus v6: alles behalten, nur J6 wird endlos drehend (±720°)
+                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v6.json"))
                     .ok()
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
-                for i in [0, 3] {
+                for i in [5] {
                     (c.arm[i].min_deg, c.arm[i].max_deg) = (-720.0, 720.0);
                 }
                 c
@@ -215,6 +220,8 @@ impl App {
             target_pos: [0.0; 3],
             target_rpy_deg: [0.0; 3],
             use_orientation: false,
+            show_left: true,
+            show_right: true,
             ik_msg: None,
             cam: Camera::default(),
             trail: vec![],
@@ -365,6 +372,24 @@ impl App {
         self.solve(20);
     }
 
+    /// Zielposen der Playlist. Eigener Winkel des Punktes, sonst der globale Werkzeugwinkel (wenn aktiv).
+    /// Sobald irgendein Punkt einen Winkel hat, behält jeder Punkt ohne eigenen den zuletzt gültigen
+    /// (zyklisch): der Werkzeugwinkel bleibt dann während der ganzen Fahrt vorgegeben.
+    fn poses(&self) -> Vec<plan::Pose> {
+        let global = self.use_orientation.then_some(self.target_rpy_deg);
+        let mut o: Vec<Option<V3>> = self.cfg.waypoints.iter().map(|w| w.rpy_deg.or(global).map(|d| d.map(f64::to_radians))).collect();
+        if let Some(last) = o.iter().rev().flatten().next().copied() {
+            let mut cur = last;
+            for v in o.iter_mut() {
+                match v {
+                    Some(r) => cur = *r,
+                    None => *v = Some(cur),
+                }
+            }
+        }
+        self.cfg.waypoints.iter().zip(o).map(|(w, r)| (w.pos, r)).collect()
+    }
+
     fn playing(&self) -> bool {
         self.play != Play::Idle
     }
@@ -388,7 +413,7 @@ impl App {
     fn play_all(&mut self) {
         self.trail.clear();
         self.q_cmd = self.q_view; // Start von der gerade sichtbaren Pose
-        let pts: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
+        let pts = self.poses();
         let arm = self.cfg.arm;
         let (s, r) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -446,8 +471,7 @@ impl App {
             }
             return;
         }
-        let pts: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
-        if pts != self.plan.pts {
+        if self.poses() != self.plan.poses {
             // Punkte wurden während der Fahrt geändert: Plan wäre veraltet
             self.play = Play::Idle;
             return;
@@ -582,7 +606,7 @@ mod tests {
         a.cfg.tcp_speed = 400.0;
         a.cfg.speed_dps = 720.0;
         a.cfg.waypoints = [[300.0, 0.0, 300.0], [-300.0, 0.0, 300.0], [0.0, 300.0, 500.0], [0.0, -300.0, 500.0]]
-            .map(|pos| Waypoint { pos, dwell: 0.1 })
+            .map(|pos| Waypoint { pos, dwell: 0.1, rpy_deg: None })
             .to_vec();
         a.looping = true;
         a.play_all();
@@ -608,7 +632,7 @@ mod tests {
     fn loop_is_stable_over_many_rounds() {
         let mut pts = demo_simple();
         for pos in [[-50.0, 3.0, 579.0], [171.0, 209.0, 579.0], [236.0, 19.0, 579.0], [222.0, 249.0, 579.0]] {
-            pts.push(Waypoint { pos, dwell: 0.3 });
+            pts.push(Waypoint { pos, dwell: 0.3, rpy_deg: None });
         }
         for dt in [0.004, 0.016, 0.1] {
             let mut a = app();
@@ -646,7 +670,7 @@ mod tests {
     #[test]
     fn big_demo_is_fully_reachable() {
         let pts: Vec<V3> = demo_waypoints().iter().map(|w| w.pos).collect();
-        let p = plan::build(&kin::cobot_arm(), &pts);
+        let p = plan::build(&kin::cobot_arm(), &free(&pts));
         let ptp = p.segs.iter().filter(|s| s.ptp).count();
         println!("{} Punkte, {} Segmente, {} Gelenkfahrten, unerreichbar {:?}", pts.len(), p.segs.len(), ptp, p.unreachable);
         for s in p.segs.iter().filter(|s| s.ptp) {
@@ -666,7 +690,7 @@ mod tests {
         for _ in 0..60 {
             let mut pt = || { let (r, t) = (200.0 + rnd() * 250.0, (rnd() - 0.5) * 2.4); [r * t.cos(), r * t.sin(), 150.0 + rnd() * 350.0] };
             let pts = [pt(), pt()];
-            let p = plan::build(&arm, &pts);
+            let p = plan::build(&arm, &free(&pts));
             if !p.unreachable.is_empty() { continue; }
             n += 1;
             let k = p.segs.iter().filter(|s| s.ptp).count();
@@ -676,6 +700,29 @@ mod tests {
         assert!(bad == 0, "{bad} von {n} Paaren mit Gelenkfahrt");
     }
 
+    fn free(p: &[V3]) -> Vec<plan::Pose> {
+        p.iter().map(|&p| (p, None)).collect()
+    }
+
+    #[test]
+    fn fixed_tool_angle_holds_during_the_whole_path() {
+        let arm = kin::cobot_arm();
+        let rpy = [0.0, 80f64.to_radians(), 0.3];
+        let pts: Vec<plan::Pose> = [[300.0, -150.0, 300.0], [300.0, 150.0, 300.0], [320.0, 150.0, 450.0], [250.0, -100.0, 420.0]].iter().map(|&p| (p, Some(rpy))).collect();
+        let p = plan::build(&arm, &pts);
+        assert!(p.unreachable.is_empty());
+        let want = kin::from_xyz_rpy([0.0; 3], rpy);
+        let mut worst = 0.0f64;
+        for s in p.segs.iter().filter(|s| !s.ptp) {
+            for q in &s.q {
+                let e = kin::rot_error(&want, &kin::fk(&arm, q));
+                worst = worst.max(e.iter().map(|v| v * v).sum::<f64>().sqrt());
+            }
+        }
+        println!("größte Winkelabweichung {:.5} rad, Gelenkfahrten {}", worst, p.segs.iter().filter(|s| s.ptp).count());
+        assert!(worst < 1e-3, "Werkzeugwinkel driftet: {worst}");
+    }
+
     #[test]
     fn plan_is_deterministic_and_closed() {
         let mut s = 7u64;
@@ -683,7 +730,7 @@ mod tests {
         for _ in 0..10 {
             let pts: Vec<V3> = (0..8).map(|_| { let (r, t) = (150.0 + rnd() * 400.0, rnd() * 6.283); [r * t.cos(), r * t.sin(), 100.0 + rnd() * 480.0] }).collect();
             let arm = kin::cobot_arm();
-            let (a, b) = (plan::build(&arm, &pts), plan::build(&arm, &pts));
+            let (a, b) = (plan::build(&arm, &free(&pts)), plan::build(&arm, &free(&pts)));
             assert_eq!(a.segs.len(), b.segs.len());
             for (x, y) in a.segs.iter().zip(&b.segs) {
                 assert!(x.q == y.q && x.ptp == y.ptp);

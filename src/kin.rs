@@ -100,7 +100,7 @@ pub fn fk_frames(arm: &Arm, q: &[f64; 6]) -> [M4; 7] {
 /// Elfin-Cobot (aus dem importierten Modell abgeleitet): DH-Werte und Gesamt-θ der Modell-Ruhepose.
 pub fn cobot_arm() -> Arm {
     // Anschläge: schützen vor Kollisionen des Arms mit sich selbst (im Aufbau-Reiter änderbar).
-    // J1 und J4 drehen endlos: ±720° = zwei volle Umdrehungen in jede Richtung, praktisch ohne Grenze.
+    // J1, J4 und J6 drehen endlos: ±720° = zwei volle Umdrehungen in jede Richtung, praktisch ohne Grenze.
     let j = |a, al, d, off, lim: f64| Joint { a, alpha_deg: al, d, offset_deg: off, min_deg: -lim, max_deg: lim };
     [
         j(0.278, -90.0, 131.673, 0.0, 720.0),
@@ -108,7 +108,7 @@ pub fn cobot_arm() -> Arm {
         j(0.757, 89.157, -1.113, 90.0, 150.0),
         j(3.826, -93.323, 261.045, 180.0, 720.0),
         j(0.133, 91.621, 3.769, 0.0, 120.0),
-        j(0.0, 0.0, 83.335, 0.0, 175.0),
+        j(0.0, 0.0, 83.335, 0.0, 720.0),
     ]
 }
 
@@ -221,7 +221,7 @@ pub fn jacobian(arm: &Arm, q: &[f64; 6]) -> [[f64; 6]; 6] {
 }
 
 /// Rotationsvektor (Achse·Winkel) der Rotation R_t · R_cᵀ.
-fn rot_error(t: &M4, c: &M4) -> V3 {
+pub fn rot_error(t: &M4, c: &M4) -> V3 {
     let mut re = [[0.0; 3]; 3];
     for i in 0..3 {
         for j in 0..3 {
