@@ -152,7 +152,7 @@ impl App {
             note(ui, "Mit Winkelvorgabe kommt der Orientierungsfehler als Rotationsvektor dazu (nahe 180° wird die Achse aus der Diagonale bestimmt, damit sie stabil bleibt):");
             tex!(ui, "roterr");
             tex!(ui, "ik6");
-            note(ui, "Anschläge: J1, J4 und J6 laufen von −360° bis +360° (360° = 0°, kürzester Weg), die übrigen Gelenke haben ihre Grenzen. Zufalls-Neustarts nutzen für diese Gelenke eine Umdrehung (±180°).");
+            note(ui, "Anschläge: J1, J4 und J6 haben intern ±720° Spielraum, damit der kürzeste Weg nie an einer Grenze scheitert; die Anzeige springt bei ±360° auf 0 zurück. Die übrigen Gelenke haben ihre Grenzen. Zufalls-Neustarts nutzen für diese Gelenke eine Umdrehung (±180°).");
             note(ui, "Ohne Winkelvorgabe hat der Arm 3 überzählige Freiheitsgrade (6 Gelenke, 3 Positionsgleichungen). Im Nullraum bewegt sich der Arm, ohne die Spitze zu verschieben: das nutzt der Zug der Handgelenke J4/J6 zur Komfortstellung. W = diag(0, 0.1, 0.1, 1, 0.3, 1).");
             let t = self.target_pos;
             let p = kin::pos(&frames[6]);
@@ -272,7 +272,7 @@ fn formulas_body(ui: &mut egui::Ui) {
     p(ui, "Mit Winkelvorgabe kommt der Orientierungsfehler als Rotationsvektor (Achse · Winkel) der Restdrehung R* Rᵀ hinzu. Nahe 180° verschwindet der antisymmetrische Anteil, dort wird die Achse stattdessen aus der Diagonale (R = 2 n nᵀ − I) bestimmt, ihr Vorzeichen aus v. Beide Anteile werden mit L vergleichbar gemacht:");
     tex!(ui, "roterr");
     tex!(ui, "ik6");
-    p(ui, "Anschläge: J1, J4 und J6 laufen von −360° bis +360° (360° entspricht 0°, es gilt der kürzeste Weg), die anderen Gelenke haben eigene Grenzen, auf die jeder Schritt geklemmt wird. Zufalls-Neustarts nutzen für diese Gelenke eine Umdrehung (±180°).");
+    p(ui, "Anschläge: J1, J4 und J6 haben intern ±720° Spielraum (damit der kürzeste Weg nie an einer Grenze scheitert, z. B. 340° → 10° = +30°); die Anzeige springt bei ±360° auf 0 zurück. Die anderen Gelenke haben eigene Grenzen, auf die jeder Schritt geklemmt wird. Zufalls-Neustarts nutzen für diese Gelenke eine Umdrehung (±180°).");
     p(ui, "Mehrere Startwerte (Restarts) finden verschiedene Lösungen: Ellbogen oben/unten, Handgelenk geklappt.");
 
     h(ui, "5", "Servo-Abbildung");

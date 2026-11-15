@@ -366,7 +366,7 @@ impl App {
                 for i in 0..6 {
                     let j = self.cfg.arm[i];
                     let mut deg = self.q_cmd[i].to_degrees();
-                    ch |= axis_slider(ui, &format!("J{}", i + 1), MUTED, &mut deg, j.min_deg..=j.max_deg, "°");
+                    ch |= axis_slider(ui, &format!("J{}", i + 1), MUTED, &mut deg, j.min_deg.max(-360.0)..=j.max_deg.min(360.0), "°");
                     self.q_cmd[i] = deg.to_radians();
                 }
                 if ch {
@@ -478,6 +478,10 @@ impl App {
             }
             if tbtn(ui, Icon::Reset, "Demo").clicked() {
                 self.cfg.waypoints = demo_waypoints();
+                self.play = Play::Idle;
+            }
+            if tbtn(ui, Icon::Reset, "Extrem").clicked() {
+                self.cfg.waypoints = demo_extreme();
                 self.play = Play::Idle;
             }
             if tbtn(ui, Icon::Close, "Leeren").clicked() {

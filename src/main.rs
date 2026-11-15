@@ -95,6 +95,44 @@ fn demo_waypoints() -> Vec<Waypoint> {
     v.into_iter().map(|(pos, dwell)| Waypoint { pos, dwell, rpy_deg: None }).collect()
 }
 
+/// Sehr anspruchsvoller Ablauf: Umrundung des Sockels (J1 über ±180°), Lissajous, Doppelhelix, Zickzack
+/// durch den Rücken des Arms und ein Stück mit festem Werkzeugwinkel.
+fn demo_extreme() -> Vec<Waypoint> {
+    use std::f64::consts::TAU;
+    let mut v: Vec<(V3, f64, Option<V3>)> = vec![([300.0, 0.0, 400.0], 0.5, None)];
+    // Umrundung des Sockels: J1 läuft einmal komplett herum (zweimal die ±180°-Naht)
+    for k in 0..24 {
+        let t = k as f64 / 24.0 * TAU * 1.25;
+        v.push(([300.0 * t.cos(), 300.0 * t.sin(), 320.0 + 60.0 * (2.0 * t).sin()], 0.0, None));
+    }
+    // Lissajous-Figur vor dem Arm
+    for k in 0..20 {
+        let t = k as f64 / 20.0 * TAU;
+        v.push(([330.0, 170.0 * (3.0 * t).sin(), 380.0 + 120.0 * (2.0 * t).cos()], 0.0, None));
+    }
+    // Doppelhelix um die z-Achse, erst hoch, dann gegenläufig wieder runter
+    for k in 0..16 {
+        let (t, f) = (k as f64 * 0.65, k as f64 / 15.0);
+        v.push(([(260.0 - 30.0 * f) * t.cos(), (260.0 - 30.0 * f) * t.sin(), 280.0 + 200.0 * f], 0.0, None));
+    }
+    for k in 0..16 {
+        let (t, f) = (-(k as f64) * 0.65, 1.0 - k as f64 / 15.0);
+        v.push(([(260.0 - 30.0 * f) * t.cos(), (260.0 - 30.0 * f) * t.sin(), 280.0 + 200.0 * f], 0.0, None));
+    }
+    // Zickzack hinter dem Sockel
+    for (x, y) in [(-230.0, -130.0), (-230.0, 130.0), (-270.0, 130.0), (-270.0, -130.0), (-300.0, -80.0), (-300.0, 80.0)] {
+        v.push(([x, y, 300.0], 0.1, None));
+    }
+    // Fester Werkzeugwinkel (waagerecht) auf einem Rechteck vor dem Arm
+    let r = Some([0.0, 80.0, 0.0]);
+    for (y, z) in [(-140.0, 280.0), (140.0, 280.0), (140.0, 440.0), (-140.0, 440.0), (-140.0, 280.0)] {
+        v.push(([320.0, y, z], 0.2, r));
+    }
+    // Rückkehr durch die Mitte
+    v.push(([200.0, 0.0, 520.0], 0.3, None));
+    v.into_iter().map(|(pos, dwell, rpy_deg)| Waypoint { pos, dwell, rpy_deg }).collect()
+}
+
 impl Default for Config {
     fn default() -> Self {
         // Servo deckt ±180° ab; Mitte 1500 µs entspricht Gelenkwinkel 0
@@ -113,7 +151,7 @@ impl Default for Config {
 // Wo die Einstellungen liegen. Neue Version = neue Datei, damit alte Configs nix zerschießen
 fn config_path() -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
-    std::path::Path::new(&home).join(".config/robotarm-sim/config-v8.json")
+    std::path::Path::new(&home).join(".config/robotarm-sim/config-v9.json")
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -193,13 +231,13 @@ impl App {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_else(|| {
-                // Migration aus v7: alles behalten, J1/J4/J6 auf ±360° begrenzen
-                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v7.json"))
+                // Migration aus v8: alles behalten, J1/J4/J6 intern wieder ±720° (Rückstellung bei ±360° erledigt advance)
+                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v8.json"))
                     .ok()
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
                 for i in [0, 3, 5] {
-                    (c.arm[i].min_deg, c.arm[i].max_deg) = (-360.0, 360.0);
+                    (c.arm[i].min_deg, c.arm[i].max_deg) = (-720.0, 720.0);
                 }
                 c
             });
@@ -732,6 +770,32 @@ mod tests {
         }
         println!("größte Winkelabweichung {:.5} rad, Gelenkfahrten {}", worst, p.segs.iter().filter(|s| s.ptp).count());
         assert!(worst < 1e-3, "Werkzeugwinkel driftet: {worst}");
+    }
+
+    #[test]
+    fn extreme_demo_never_spins_the_long_way() {
+        let arm = kin::cobot_arm();
+        let mut a = app();
+        a.cfg.waypoints = demo_extreme();
+        let p = plan::build(&arm, &a.poses());
+        let ptp = p.segs.iter().filter(|s| s.ptp).count();
+        println!("{} Punkte, {} Gelenkfahrten, unerreichbar {:?}", a.cfg.waypoints.len(), ptp, p.unreachable);
+        assert!(p.unreachable.is_empty() && ptp <= 6, "unerreichbar {:?}, Gelenkfahrten {ptp}", p.unreachable);
+        for s in p.segs.iter().filter(|s| s.ptp) {
+            let (f, l) = (s.q.first().unwrap(), s.q.last().unwrap());
+            for i in [0, 3, 5] {
+                assert!((l[i] - f[i]).abs() <= std::f64::consts::PI + 1e-6, "Gelenkfahrt {}→{} dreht J{} den langen Weg", s.from, s.to, i + 1);
+            }
+        }
+        for s in p.segs.iter().filter(|s| !s.ptp) {
+            for w in s.q.windows(2) {
+                assert!(dq_max_t(&w[0], &w[1]) < 0.3, "Sprung in gerader Strecke {}→{}", s.from, s.to);
+            }
+        }
+    }
+
+    fn dq_max_t(a: &[f64; 6], b: &[f64; 6]) -> f64 {
+        (0..6).map(|i| (a[i] - b[i]).abs()).fold(0.0, f64::max)
     }
 
     #[test]

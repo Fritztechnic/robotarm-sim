@@ -17,5 +17,5 @@ Dev-Hooks: `ROBOTARM_SHOT=/pfad.ppm` (Screenshot), `ROBOTARM_TAB`, `ROBOTARM_VIE
 
 ## Werkzeugwinkel im Playbook, Vollkreis-Gelenke
 - Winkel pro Punkt (Achsen-Symbol in der Playbook-Zeile) oder global („Winkel vorgeben“ in der Steuerung, gilt für den ganzen Ablauf). Zwischen Punkten mit verschiedenen Winkeln wird per Slerp überblendet. Bei vorgegebenem Winkel gibt es keine Nullraum-Umorientierung; ist der Pfad nicht stetig erreichbar, folgt eine Gelenkfahrt.
-- J1, J4 und J6 laufen von −360° bis +360° (360° = 0°, bei ±360° springt der Winkel auf 0); es wird stets der kürzeste Weg gewählt (359° → 0° = +1°).
+- J1, J4 und J6: Anzeige springt bei ±360° auf 0, intern ±720° Spielraum; es wird stets der kürzeste Weg gewählt (359° → 0° = +1°).
 - Linkes und rechtes Panel lassen sich über die Gruppe PANELS in der Werkzeugleiste ein-/ausklappen.
