@@ -67,21 +67,6 @@ fn note(ui: &mut egui::Ui, s: &str) {
     ui.label(RichText::new(s).size(11.5).color(MUTED));
 }
 
-/// Positions-Jacobi 3×6 per zentraler Differenz (mm/rad).
-fn jacobian(arm: &kin::Arm, q: &[f64; 6]) -> [[f64; 6]; 3] {
-    let mut j = [[0.0; 6]; 3];
-    for c in 0..6 {
-        let (mut a, mut b) = (*q, *q);
-        a[c] += 1e-6;
-        b[c] -= 1e-6;
-        let (pa, pb) = (kin::pos(&kin::fk(arm, &a)), kin::pos(&kin::fk(arm, &b)));
-        for r in 0..3 {
-            j[r][c] = (pa[r] - pb[r]) / 2e-6;
-        }
-    }
-    j
-}
-
 fn det3(m: [[f64; 3]; 3]) -> f64 {
     m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
 }
@@ -146,8 +131,9 @@ impl App {
         });
 
         egui::CollapsingHeader::new(RichText::new("2 · Jacobi-Matrix & Singularität").strong()).default_open(true).show(ui, |ui| {
-            let j = jacobian(&arm, &q);
+            let j = kin::jacobian(&arm, &q);
             tex!(ui, "jac1");
+            note(ui, "Analytisch berechnet (exakt): oben 3 Zeilen Spitzengeschwindigkeit in mm/rad, unten 3 Zeilen Winkelgeschwindigkeit (Drehachsen z_(i−1)).");
             matrix(ui, "jac", &j.iter().map(|r| r.iter().map(|v| format!("{v:+8.1}")).collect()).collect::<Vec<_>>());
             let jjt: [[f64; 3]; 3] = std::array::from_fn(|a| std::array::from_fn(|b| (0..6).map(|k| j[a][k] * j[b][k]).sum()));
             let w = det3(jjt).max(0.0).sqrt();
@@ -163,6 +149,10 @@ impl App {
             tex!(ui, "ik_e");
             tex!(ui, "ik_dq");
             tex!(ui, "null");
+            note(ui, "Mit Winkelvorgabe kommt der Orientierungsfehler als Rotationsvektor dazu (nahe 180° wird die Achse aus der Diagonale bestimmt, damit sie stabil bleibt):");
+            tex!(ui, "roterr");
+            tex!(ui, "ik6");
+            note(ui, "Anschläge: J1 und J4 drehen endlos (±720°), die übrigen Gelenke haben ihre Grenzen. Zufalls-Neustarts nutzen für endlose Gelenke eine Umdrehung (±180°).");
             note(ui, "Ohne Winkelvorgabe hat der Arm 3 überzählige Freiheitsgrade (6 Gelenke, 3 Positionsgleichungen). Im Nullraum bewegt sich der Arm, ohne die Spitze zu verschieben: das nutzt der Zug der Handgelenke J4/J6 zur Komfortstellung. W = diag(0, 0.1, 0.1, 1, 0.3, 1).");
             let t = self.target_pos;
             let p = kin::pos(&frames[6]);
@@ -197,6 +187,14 @@ impl App {
             tex!(ui, "line");
             tex!(ui, "step");
             tex!(ui, "time");
+            tex!(ui, "ramp");
+            note(ui, "Anfahren/Abbremsen mit konstanter Beschleunigung (Rampe 0,35 s), kurze Fahrten erreichen die Nenngeschwindigkeit nicht.");
+            tex!(ui, "dp");
+            note(ui, "Welche IK-Lösung (Ellbogen, Handgelenk, Schulter, J1/J4 ±360° versetzt) an jedem Punkt gilt, wählt eine dynamische Programmierung: möglichst wenige Gelenkfahrten, dann kürzester Gelenkweg.");
+            tex!(ui, "reor");
+            note(ui, "Umorientieren am Punkt: Gelenkinterpolation, jeder Schritt per IK auf den Punkt zurückprojiziert (Spitze bleibt stehen), danach die Gerade.");
+            tex!(ui, "wrap");
+            note(ui, "Kürzester Weg: Endlos drehende Gelenke (J1, J4) werden um ganze Umdrehungen verschoben, bis das Ziel der aktuellen Stellung am nächsten liegt (359° → 0° ist +1°, 450° wird als 90° angefahren). Gilt für Gelenkfahrten, Anfahrt und Zielbewegung; Geraden bleiben kontinuierlich. Die Planung läuft im Hintergrund-Thread.");
             note(ui, "Springt ein Gelenk (> 14° pro 2 mm) oder findet die IK keine Lösung, ist die Gerade nicht fahrbar: dann Gelenkfahrt (PTP) mit linearer Interpolation im Gelenkraum. Der Schleifenschluss endet exakt in der Startstellung.");
             if self.plan.segs.is_empty() {
                 note(ui, "Noch kein Plan: Playlist starten.");
@@ -271,6 +269,10 @@ fn formulas_body(ui: &mut egui::Ui) {
     tex!(ui, "ik_dq");
     p(ui, "λ dämpft die Schritte nahe Singularitäten. Mit Winkelvorgabe wird e um den Orientierungsfehler erweitert (6 Gleichungen, 6 Unbekannte). Ohne Vorgabe bleiben 3 überzählige Freiheitsgrade; der Nullraum verschiebt die Spitze nicht und zieht die Gelenke zur Komfortstellung:");
     tex!(ui, "null");
+    p(ui, "Mit Winkelvorgabe kommt der Orientierungsfehler als Rotationsvektor (Achse · Winkel) der Restdrehung R* Rᵀ hinzu. Nahe 180° verschwindet der antisymmetrische Anteil, dort wird die Achse stattdessen aus der Diagonale (R = 2 n nᵀ − I) bestimmt, ihr Vorzeichen aus v. Beide Anteile werden mit L vergleichbar gemacht:");
+    tex!(ui, "roterr");
+    tex!(ui, "ik6");
+    p(ui, "Anschläge: J1 und J4 drehen endlos (±720° als praktisch unbegrenzt), die anderen Gelenke haben eigene Grenzen, auf die jeder Schritt geklemmt wird. Zufalls-Neustarts nutzen für endlose Gelenke eine Umdrehung (±180°).");
     p(ui, "Mehrere Startwerte (Restarts) finden verschiedene Lösungen: Ellbogen oben/unten, Handgelenk geklappt.");
 
     h(ui, "5", "Servo-Abbildung");
@@ -288,6 +290,15 @@ fn formulas_body(ui: &mut egui::Ui) {
     p(ui, "Anfahren und Abbremsen laufen mit konstanter Beschleunigung (v² ∝ Weg) statt als Ruck; kurze Fahrten erreichen die Nenngeschwindigkeit gar nicht erst:");
     tex!(ui, "ramp");
     p(ui, "Welche Konfiguration (Ellbogen, Handgelenk, Schulter) an jedem Punkt gewählt wird, entscheidet eine dynamische Programmierung über alle IK-Lösungen: Gesamtroute mit möglichst wenigen Gelenkfahrten, bei gleich vielen mit kürzestem Gelenkweg. Geht eine Gerade aus der aktuellen Konfiguration nicht, orientiert sich der Arm zuerst AM PUNKT um (Nullraum-Bewegung: Gelenkinterpolation, jeder Schritt per IK zurück auf den Punkt projiziert, die Spitze bleibt stehen) und fährt dann die Gerade. Auch die Schleife schließt so in die Startstellung.");
+    p(ui, "Kandidaten: pro Punkt bis zu ~30 verschiedene IK-Lösungen aus festen Startwerten (deterministisch), bei J1/J4 zusätzlich um ±360° versetzt. Die Route ist ein kürzester Pfad (dynamische Programmierung) über diese Zustände; Kosten = Gelenkweg + 1000 je Gelenkfahrt + 20 je Umorientieren:");
+    tex!(ui, "dp");
+    p(ui, "Umorientieren am Punkt (Nullraum-Bewegung): Gelenkinterpolation, jeder Schritt per IK zurück auf den Punkt projiziert, bei höchstens 0,25 rad Sprung:");
+    tex!(ui, "reor");
+    h(ui, "6b", "Kürzester Weg bei endlosen Gelenken");
+    p(ui, "J1 und J4 haben keinen Anschlag: Eine Stellung q und q ± 2π sind dieselbe Pose. Jedes Ziel wird deshalb vor der Bewegung um ganze Umdrehungen verschoben, bis es der Ist-Stellung am nächsten liegt (dabei bleiben die Grenzen gewahrt):");
+    tex!(ui, "wrap");
+    p(ui, "Beispiele: 359° → 0° dreht +1° (nicht −359°); 450° wird als 90° angefahren. Das gilt für Gelenkfahrten des Planers, die Anfahrt zur ersten Pose und die normale Bewegung zum Zielwert. Gerade Strecken bleiben dagegen stetig – dort würde ein Zurückdrehen die Gerade verlassen. Ein Schleifenschluss kann dadurch um ganze Umdrehungen versetzt enden; die Pose ist identisch.");
+    p(ui, "Bewegungsprofil: Anfahren und Abbremsen mit konstanter Beschleunigung (siehe oben). Die Planung läuft in einem Hintergrund-Thread, die Oberfläche bleibt bedienbar.");
     p(ui, "Die ganze Bahn wird vor dem Start berechnet: Sie hängt nur von Arm und Punkten ab, nicht von Framerate, Geschwindigkeit oder Runde.");
 
     h(ui, "7", "Arbeitsraum (Hüllflächen)");
