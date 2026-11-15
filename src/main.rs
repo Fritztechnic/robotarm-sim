@@ -80,10 +80,9 @@ fn demo_waypoints() -> Vec<Waypoint> {
     }
     // Spirale um die z-Achse, nach oben enger werdend
     for k in 0..10 {
-        // nur ±150° um die Z-Achse: J1 hat bei ±175° einen Anschlag
-        let (t, f) = (-2.6 + k as f64 * 0.58, k as f64 / 9.0);
-        let r = 260.0 - 120.0 * f;
-        v.push(([r * t.cos(), r * t.sin(), 250.0 + 300.0 * f], 0.0));
+        let (t, f) = (k as f64 * 0.7, k as f64 / 9.0);
+        let r = 260.0 - 80.0 * f;
+        v.push(([r * t.cos(), r * t.sin(), 250.0 + 240.0 * f], 0.0));
     }
     // Fünfzackiger Stern hoch über dem Arm (jeder zweite Eckpunkt)
     for k in 0..5 {
@@ -111,7 +110,7 @@ impl Default for Config {
 // Wo die Einstellungen liegen. Neue Version = neue Datei, damit alte Configs nix zerschießen
 fn config_path() -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
-    std::path::Path::new(&home).join(".config/robotarm-sim/config-v5.json")
+    std::path::Path::new(&home).join(".config/robotarm-sim/config-v6.json")
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -186,13 +185,13 @@ impl App {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_else(|| {
-                // Migration aus v4: Playlist/Einstellungen behalten, Gelenkgrenzen auf die Standardwerte zurück
-                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v4.json"))
+                // Migration aus v5: alles behalten, nur J1 und J4 werden endlos drehend (±720°)
+                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v5.json"))
                     .ok()
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
-                for (j, d) in c.arm.iter_mut().zip(kin::cobot_arm()) {
-                    (j.min_deg, j.max_deg) = (d.min_deg, d.max_deg);
+                for i in [0, 3] {
+                    (c.arm[i].min_deg, c.arm[i].max_deg) = (-720.0, 720.0);
                 }
                 c
             });

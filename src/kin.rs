@@ -99,13 +99,14 @@ pub fn fk_frames(arm: &Arm, q: &[f64; 6]) -> [M4; 7] {
 
 /// Elfin-Cobot (aus dem importierten Modell abgeleitet): DH-Werte und Gesamt-θ der Modell-Ruhepose.
 pub fn cobot_arm() -> Arm {
-    // Anschläge: schützen vor Kollisionen des Arms mit sich selbst (im Aufbau-Reiter änderbar)
+    // Anschläge: schützen vor Kollisionen des Arms mit sich selbst (im Aufbau-Reiter änderbar).
+    // J1 und J4 drehen endlos: ±720° = zwei volle Umdrehungen in jede Richtung, praktisch ohne Grenze.
     let j = |a, al, d, off, lim: f64| Joint { a, alpha_deg: al, d, offset_deg: off, min_deg: -lim, max_deg: lim };
     [
-        j(0.278, -90.0, 131.673, 0.0, 175.0),
+        j(0.278, -90.0, 131.673, 0.0, 720.0),
         j(240.342, 0.0, 0.0, -90.0, 120.0),
         j(0.757, 89.157, -1.113, 90.0, 150.0),
-        j(3.826, -93.323, 261.045, 180.0, 175.0),
+        j(3.826, -93.323, 261.045, 180.0, 720.0),
         j(0.133, 91.621, 3.769, 0.0, 120.0),
         j(0.0, 0.0, 83.335, 0.0, 175.0),
     ]
@@ -157,7 +158,11 @@ pub fn reach(arm: &Arm) -> Reach {
             let j = &arm[i];
             // Ein Teil der Proben sitzt direkt an den Anschlägen: dort liegen die Extreme
             let t = if rnd() < 0.2 { (rnd() < 0.5) as u8 as f64 } else { rnd() };
-            (j.min_deg + (j.max_deg - j.min_deg) * t).to_radians()
+            {
+                // Endlos drehende Gelenke: eine Umdrehung genügt für die Stichprobe
+                let (lo, hi) = (j.min_deg.max(-180.0), j.max_deg.min(180.0));
+                (lo + (hi - lo) * t).to_radians()
+            }
         });
         let p = pos(&fk(arm, &q));
         let d: V3 = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
@@ -403,7 +408,7 @@ fn search(arm: &Arm, target: &M4, q_start: [f64; 6], o: &IkOptions) -> IkResult 
         tries += 1;
         let mut q = [0.0; 6];
         for i in 0..6 {
-            let (lo, hi) = (arm[i].min_deg.to_radians(), arm[i].max_deg.to_radians());
+            let (lo, hi) = (arm[i].min_deg.max(-180.0).to_radians(), arm[i].max_deg.min(180.0).to_radians());
             q[i] = lo + rnd() * (hi - lo);
         }
         let r = iterate(arm, target, q, o);

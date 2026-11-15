@@ -112,6 +112,19 @@ fn candidates(arm: &Arm, p: V3) -> Vec<[f64; 6]> {
             out.push(r.q);
         }
     }
+    // J1/J4 drehen endlos: dieselbe Pose gibt es auch ±360° versetzt (nötig für Fahrten über den Rücken)
+    let base = out.clone();
+    for q in base {
+        for i in [0usize] {
+            for s in [-1.0, 1.0] {
+                let mut c = q;
+                c[i] += s * std::f64::consts::TAU;
+                if c[i].to_degrees().abs() <= arm[i].max_deg {
+                    out.push(c);
+                }
+            }
+        }
+    }
     out
 }
 
@@ -126,7 +139,7 @@ struct State {
 const PTP_COST: f64 = 1000.0;
 /// Umorientieren am Punkt kostet etwas, ist aber viel besser als eine Gelenkfahrt.
 const REORIENT_COST: f64 = 20.0;
-const KEEP: usize = 10;
+const KEEP: usize = 30;
 /// Zustände, die sich weniger als das unterscheiden, gelten als dieselbe Konfiguration (rad).
 const SAME: f64 = 0.3;
 
