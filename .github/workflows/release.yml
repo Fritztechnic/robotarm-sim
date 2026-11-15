@@ -1,0 +1,19 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release
+      - run: Copy-Item target/release/robotarm-sim.exe robotarm-sim-windows-x64.exe
+      - run: gh release create ${{ github.ref_name }} robotarm-sim-windows-x64.exe --title "${{ github.ref_name }}" --notes "Windows-exe (x64). Modell ist eingebettet, einfach starten."
+        env:
+          GH_TOKEN: ${{ github.token }}
