@@ -317,7 +317,7 @@ fn iterate(arm: &Arm, target: &M4, q0: [f64; 6], o: &IkOptions) -> IkResult {
 pub fn solve_ik(arm: &Arm, target: &M4, q_start: [f64; 6], o: &IkOptions) -> IkResult {
     let mut r = search(arm, target, q_start, o);
     if r.converged && !o.use_orientation && o.restarts > 0 {
-        r = polish(arm, target, r, o);
+        r = polish(arm, target, r, o, 25);
     }
     r
 }
@@ -362,9 +362,9 @@ fn inv3(m: [[f64; 3]; 3]) -> Option<[[f64; 3]; 3]> {
 /// Nur Position vorgegeben: der Arm hat 3 überzählige Freiheitsgrade. Im Nullraum der
 /// Positions-Jacobi-Matrix werden die Handgelenke weg von Anschlägen und Singularitäten
 /// zur Komfortstellung gezogen, ohne die Zielposition zu verlassen.
-fn polish(arm: &Arm, target: &M4, mut r: IkResult, o: &IkOptions) -> IkResult {
+pub fn polish(arm: &Arm, target: &M4, mut r: IkResult, o: &IkOptions, iters: usize) -> IkResult {
     const W: [f64; 6] = [0.0, 0.1, 0.1, 1.0, 0.3, 1.0];
-    for _ in 0..25 {
+    for _ in 0..iters {
         let mut jac = [[0.0; 6]; 3];
         for j in 0..6 {
             let (mut a, mut b) = (r.q, r.q);

@@ -282,7 +282,14 @@ impl App {
     /// Im Gelenkraum zur festen Lösung von Punkt i fahren, danach Wartezeit.
     fn joint_to(&mut self, i: usize) {
         self.pl_idx = i;
-        let to = self.wp_q.get(i).copied().flatten().unwrap_or(self.q_cmd);
+        // Ziel-Lösung möglichst nah an der aktuellen Stellung wählen (kleinste Gelenkfahrt, kein Umdrehen)
+        let near = self.cfg.waypoints.get(i).and_then(|w| {
+            let t = kin::from_xyz_rpy(w.pos, [0.0; 3]);
+            let o = kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 };
+            let r = kin::solve_ik(&self.cfg.arm, &t, self.q_cmd, &o);
+            r.converged.then_some(r.q)
+        });
+        let to = near.or(self.wp_q.get(i).copied().flatten()).unwrap_or(self.q_cmd);
         self.play = Play::Joint { from: self.q_cmd, to, s: 0.0 };
         self.ik_msg = Some(self.play_msg());
     }
@@ -318,6 +325,14 @@ impl App {
                 seed = r.q;
             }
             sols.push(r.converged.then_some(r.q));
+        }
+        // Schleife: Startpunkt nahe der Stellung des letzten Punkts lösen, sonst dreht das Handgelenk beim Umlauf
+        if let (true, Some(Some(last)), Some(w)) = (self.looping, sols.last().copied(), self.cfg.waypoints.first()) {
+            let o = kin::IkOptions { use_orientation: false, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 };
+            let r = kin::solve_ik(&self.cfg.arm, &kin::from_xyz_rpy(w.pos, [0.0; 3]), last, &o);
+            if r.converged && sols.len() > 1 {
+                sols[0] = Some(r.q);
+            }
         }
         self.wp_q = sols;
         self.skipped = (0..self.wp_q.len()).filter(|&i| self.wp_q[i].is_none()).collect();
@@ -367,7 +382,12 @@ impl App {
                 for attempt in 0..2 {
                     let ns = (s + step).min(len);
                     let p: V3 = std::array::from_fn(|k| from[k] + d[k] * ns / len);
-                    let r = kin::solve_ik(&self.cfg.arm, &kin::from_xyz_rpy(p, [0.0; 3]), self.q_cmd, &opt);
+                    let tgt = kin::from_xyz_rpy(p, [0.0; 3]);
+                    let mut r = kin::solve_ik(&self.cfg.arm, &tgt, self.q_cmd, &opt);
+                    if r.converged {
+                        // Nullraum-Zug: Handgelenke sanft zur Komfortstellung, damit der Arm über Runden nicht abdriftet
+                        r = kin::polish(&self.cfg.arm, &tgt, r, &opt, 2);
+                    }
                     if !r.converged {
                         self.joint_to(self.pl_idx);
                         return;
