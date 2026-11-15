@@ -554,6 +554,8 @@ mod tests {
 
     fn app() -> App {
         App {
+            show_left: true,
+            show_right: true,
             cfg: Config::default(),
             q_cmd: [0.0; 6],
             q_view: [0.0; 6],
