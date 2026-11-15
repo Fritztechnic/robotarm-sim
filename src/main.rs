@@ -348,6 +348,15 @@ impl App {
 
     /// Bewegt die Anzeige-Gelenke zur Sollstellung; true solange sie unterwegs sind.
     fn advance(&mut self, dt: f64) -> bool {
+        // Vollkreis-Gelenke: bei ±360° springt der Winkel auf 0 zurück (gleiche Pose)
+        let tau = std::f64::consts::TAU;
+        for q in [&mut self.q_cmd, &mut self.q_view] {
+            for i in [0, 3, 5] {
+                if q[i].abs() >= tau - 1e-9 {
+                    q[i] -= tau * q[i].signum();
+                }
+            }
+        }
         // Endlos drehende Gelenke nehmen den kürzesten Weg zum Ziel (gleiche Pose, evtl. ±360° versetzt)
         let near = kin::wrap_near(&self.cfg.arm, self.q_cmd, &self.q_view);
         let max = (0..6).map(|i| (near[i] - self.q_view[i]).abs()).fold(0.0, f64::max);
