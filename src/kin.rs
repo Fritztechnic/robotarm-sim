@@ -201,6 +201,25 @@ pub fn fk(arm: &Arm, q: &[f64; 6]) -> M4 {
     fk_frames(arm, q)[6]
 }
 
+/// Geometrische Jacobi-Matrix (exakt, analytisch): Spalte i = [zᵢ × (p_e − oᵢ); zᵢ],
+/// wobei zᵢ die Drehachse und oᵢ der Ursprung des Gelenks i im Weltsystem ist.
+/// Zeilen 0-2: Spitzengeschwindigkeit (mm/rad), Zeilen 3-5: Winkelgeschwindigkeit (rad/rad).
+pub fn jacobian(arm: &Arm, q: &[f64; 6]) -> [[f64; 6]; 6] {
+    let f = fk_frames(arm, q);
+    let pe = pos(&f[6]);
+    let mut j = [[0.0; 6]; 6];
+    for i in 0..6 {
+        let (z, o) = (col(&f[i], 2), pos(&f[i]));
+        let r = [pe[0] - o[0], pe[1] - o[1], pe[2] - o[2]];
+        let v = [z[1] * r[2] - z[2] * r[1], z[2] * r[0] - z[0] * r[2], z[0] * r[1] - z[1] * r[0]];
+        for k in 0..3 {
+            j[k][i] = v[k];
+            j[3 + k][i] = z[k];
+        }
+    }
+    j
+}
+
 /// Rotationsvektor (Achse·Winkel) der Rotation R_t · R_cᵀ.
 fn rot_error(t: &M4, c: &M4) -> V3 {
     let mut re = [[0.0; 3]; 3];
@@ -217,13 +236,13 @@ fn rot_error(t: &M4, c: &M4) -> V3 {
     let s = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
     let cos = (re[0][0] + re[1][1] + re[2][2] - 1.0) / 2.0;
     let angle = s.atan2(cos);
-    if s > 1e-9 {
+    if s > 1e-3 || (s > 1e-9 && cos > 0.0) {
         let k = angle / s;
         [v[0] * k, v[1] * k, v[2] * k]
     } else if cos > 0.0 {
         [0.0; 3]
     } else {
-        // 180°: Achse aus der Diagonale
+        // ~180°: Achse aus der Diagonale (R = 2aaᵀ − I), Vorzeichen aus dem antisymmetrischen Anteil
         let mut ax = [0.0; 3];
         let i = (0..3).max_by(|&a, &b| re[a][a].total_cmp(&re[b][b])).unwrap();
         ax[i] = ((re[i][i] + 1.0) / 2.0).max(0.0).sqrt();
@@ -231,6 +250,9 @@ fn rot_error(t: &M4, c: &M4) -> V3 {
             if j != i {
                 ax[j] = re[i][j] / (2.0 * ax[i]);
             }
+        }
+        if ax[0] * v[0] + ax[1] * v[1] + ax[2] * v[2] < 0.0 {
+            ax = ax.map(|c| -c);
         }
         [ax[0] * angle, ax[1] * angle, ax[2] * angle]
     }
@@ -308,24 +330,10 @@ fn iterate(arm: &Arm, target: &M4, q0: [f64; 6], o: &IkOptions) -> IkResult {
             break;
         }
         it += 1;
-        // Jacobi-Matrix per zentraler Differenz
-        let mut jac = [[0.0; 6]; 6];
-        let h = 1e-6;
-        for j in 0..6 {
-            let (mut qa, mut qb) = (q, q);
-            qa[j] += h;
-            qb[j] -= h;
-            let (fa, fb) = (fk(arm, &qa), fk(arm, &qb));
-            let (pa, pb) = (pos(&fa), pos(&fb));
-            for k in 0..3 {
-                jac[k][j] = (pa[k] - pb[k]) / (2.0 * h);
-            }
-            if o.use_orientation {
-                // d(rot)/dq aus R(q+h)·R(q-h)ᵀ
-                let r = rot_error(&fa, &fb);
-                for k in 0..3 {
-                    jac[3 + k][j] = L * r[k] / (2.0 * h);
-                }
+        let mut jac = jacobian(arm, &q);
+        for k in 3..6 {
+            for j in 0..6 {
+                jac[k][j] = if o.use_orientation { jac[k][j] * L } else { 0.0 };
             }
         }
         let mut ew = e;
@@ -436,16 +444,8 @@ fn inv3(m: [[f64; 3]; 3]) -> Option<[[f64; 3]; 3]> {
 pub fn polish(arm: &Arm, target: &M4, mut r: IkResult, o: &IkOptions, iters: usize) -> IkResult {
     const W: [f64; 6] = [0.0, 0.1, 0.1, 1.0, 0.3, 1.0];
     for _ in 0..iters {
-        let mut jac = [[0.0; 6]; 3];
-        for j in 0..6 {
-            let (mut a, mut b) = (r.q, r.q);
-            a[j] += 1e-6;
-            b[j] -= 1e-6;
-            let (pa, pb) = (pos(&fk(arm, &a)), pos(&fk(arm, &b)));
-            for k in 0..3 {
-                jac[k][j] = (pa[k] - pb[k]) / 2e-6;
-            }
-        }
+        let jf = jacobian(arm, &r.q);
+        let jac: [[f64; 6]; 3] = std::array::from_fn(|k| jf[k]);
         let mut jjt = [[0.0; 3]; 3];
         for i in 0..3 {
             for j in 0..3 {
@@ -492,6 +492,46 @@ mod tests {
         let want = [0.0, 0.0, 400.0];
         for i in 0..3 {
             assert!((p[i] - want[i]).abs() < 1e-9, "{p:?}");
+        }
+    }
+
+    #[test]
+    fn analytic_jacobian_matches_finite_differences() {
+        let arm = cobot_arm();
+        let q = [0.4, -0.9, 1.1, 0.7, -0.5, 0.3];
+        let jac = jacobian(&arm, &q);
+        let h = 1e-6;
+        for i in 0..6 {
+            let (mut a, mut b) = (q, q);
+            a[i] += h;
+            b[i] -= h;
+            let (fa, fb) = (fk(&arm, &a), fk(&arm, &b));
+            let r = rot_error(&fa, &fb);
+            for k in 0..3 {
+                let dp = (pos(&fa)[k] - pos(&fb)[k]) / (2.0 * h);
+                assert!((dp - jac[k][i]).abs() < 1e-4, "pos {k},{i}: {dp} vs {}", jac[k][i]);
+                assert!((r[k] / (2.0 * h) - jac[3 + k][i]).abs() < 1e-6, "rot {k},{i}");
+            }
+        }
+    }
+
+    #[test]
+    fn rot_error_is_exact_near_180_degrees() {
+        for ang in [3.0f64, 3.1, 3.14, std::f64::consts::PI - 1e-5] {
+            let (s, c) = ang.sin_cos();
+            // Drehung um die Achse (1,2,2)/3 mit dem Winkel ang (Rodrigues)
+            let a = [1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0];
+            let mut t = IDENT;
+            for i in 0..3 {
+                for j in 0..3 {
+                    let k = [[0.0, -a[2], a[1]], [a[2], 0.0, -a[0]], [-a[1], a[0], 0.0]][i][j];
+                    t[i][j] = (i == j) as u8 as f64 * c + (1.0 - c) * a[i] * a[j] + s * k;
+                }
+            }
+            let e = rot_error(&t, &IDENT);
+            let n = (e[0] * e[0] + e[1] * e[1] + e[2] * e[2]).sqrt();
+            assert!((n - ang).abs() < 1e-6, "{ang}: {n}");
+            assert!(e[0] * a[0] + e[1] * a[1] + e[2] * a[2] > 0.0, "{ang}: Achse falsch herum");
         }
     }
 

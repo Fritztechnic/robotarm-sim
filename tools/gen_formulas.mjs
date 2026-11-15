@@ -13,6 +13,8 @@ const F = {
   t06: String.raw`T_{0\to6}=A_1A_2A_3A_4A_5A_6=\begin{bmatrix}R & \mathbf p\\ \mathbf 0^{T} & 1\end{bmatrix}`,
   rpy: String.raw`\begin{aligned}R&=R_z(Y)\,R_y(P)\,R_x(R_{oll})\\ P&=-\arcsin R_{31},\quad R_{oll}=\operatorname{atan2}(R_{32},R_{33}),\quad Y=\operatorname{atan2}(R_{21},R_{11})\end{aligned}`,
   jac1: String.raw`\dot{\mathbf p}=J\,\dot{\mathbf q},\qquad J_i=\mathbf z_{i-1}\times(\mathbf p_6-\mathbf p_{i-1})\quad(3\times6)`,
+  jac6: String.raw`J=\begin{bmatrix}\mathbf z_{0}\times(\mathbf p_6-\mathbf p_{0}) & \cdots & \mathbf z_{5}\times(\mathbf p_6-\mathbf p_{5})\\ \mathbf z_{0} & \cdots & \mathbf z_{5}\end{bmatrix},\qquad \begin{bmatrix}\mathbf v\\ \boldsymbol\omega\end{bmatrix}=J\,\dot{\mathbf q}`,
+  ramp: String.raw`\dot s(\tau)=v\cdot\min\!\left(1,\ \sqrt{\frac{\min(\tau,\,T-\tau)}{T_r}}\right),\qquad T_r=0{,}35\,\mathrm{s}`,
   manip: String.raw`w=\sqrt{\det\!\left(J\,J^{T}\right)}`,
   ik_e: String.raw`\mathbf e=\mathbf p^{*}-\mathbf p(\mathbf q)`,
   ik_dq: String.raw`\Delta\mathbf q=J^{T}\!\left(J\,J^{T}+\lambda^{2}I\right)^{-1}\mathbf e,\qquad \mathbf q\leftarrow\operatorname{clamp}(\mathbf q+\Delta\mathbf q,\;\mathbf q_{min},\,\mathbf q_{max})`,

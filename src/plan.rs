@@ -311,26 +311,47 @@ pub fn step_time(arm: &Arm, a: &[f64; 6], b: &[f64; 6], ptp: bool, tcp_speed: f6
     tj.max(mm / tcp_speed.max(1.0))
 }
 
+/// Zeit (s), in der die Fahrt auf Nenngeschwindigkeit beschleunigt bzw. wieder abbremst.
+pub const RAMP: f64 = 0.35;
+
+/// Geschwindigkeitsfaktor 0..1 bei Nennzeit `tau` einer Fahrt der Nenndauer `total`.
+/// Konstante Beschleunigung (v² ∝ zurückgelegter Weg): sanftes Anfahren und Abbremsen
+/// statt Ruck von 0 auf volle Geschwindigkeit. Kurze Fahrten erreichen Vollgas gar nicht erst.
+pub fn ramp(tau: f64, total: f64) -> f64 {
+    ((tau.min(total - tau) / RAMP).max(0.0).sqrt()).clamp(0.04, 1.0)
+}
+
 /// Läuft `dt` Sekunden auf der Strecke weiter. Rückgabe: neuer Index `u` (Bruchteil = Position
 /// zwischen zwei Samples) und true, wenn das Ende erreicht ist.
-pub fn advance(arm: &Arm, seg: &Seg, mut u: f64, mut dt: f64, tcp_speed: f64, speed_dps: f64) -> (f64, bool) {
-    let last = (seg.q.len() - 1) as f64;
-    while dt > 0.0 {
-        let i = u.floor() as usize;
-        if i as f64 >= last {
-            return (last, true);
+pub fn advance(arm: &Arm, seg: &Seg, u: f64, dt: f64, tcp_speed: f64, speed_dps: f64) -> (f64, bool) {
+    let n = seg.q.len() - 1;
+    let times: Vec<f64> = (0..n).map(|i| step_time(arm, &seg.q[i], &seg.q[i + 1], seg.ptp, tcp_speed, speed_dps)).collect();
+    let total: f64 = times.iter().sum();
+    let at = |u: f64| -> f64 {
+        let i = (u.floor() as usize).min(n);
+        times[..i].iter().sum::<f64>() + times.get(i).map_or(0.0, |t| t * (u - i as f64))
+    };
+    // Nennzeit τ in Sample-Index zurückrechnen
+    let back = |mut tau: f64| -> f64 {
+        for (i, t) in times.iter().enumerate() {
+            if tau <= *t {
+                return i as f64 + if *t > 0.0 { tau / t } else { 0.0 };
+            }
+            tau -= t;
         }
-        let full = step_time(arm, &seg.q[i], &seg.q[i + 1], seg.ptp, tcp_speed, speed_dps);
-        let left = full * (i as f64 + 1.0 - u);
-        if left <= dt {
-            dt -= left;
-            u = i as f64 + 1.0;
-        } else {
-            u += dt / full;
-            dt = 0.0;
-        }
+        n as f64
+    };
+    let mut tau = at(u);
+    let mut left = dt;
+    while left > 0.0 && tau < total {
+        let h = left.min(0.004);
+        tau = (tau + h * ramp(tau, total)).min(total);
+        left -= h;
     }
-    (u, u >= last)
+    if tau >= total - 1e-9 {
+        return (n as f64, true);
+    }
+    (back(tau), false)
 }
 
 /// Gelenkstellung an der Stelle `u` der Strecke.

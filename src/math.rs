@@ -259,6 +259,8 @@ fn formulas_body(ui: &mut egui::Ui) {
     h(ui, "3", "Jacobi-Matrix und Singularitäten");
     p(ui, "Verknüpft Gelenkgeschwindigkeiten mit der Spitzengeschwindigkeit. z_(i−1) ist die Drehachse von Gelenk i, p_(i−1) dessen Ursprung.");
     tex!(ui, "jac1");
+    p(ui, "Vollständig (analytisch, exakt – keine Differenzenquotienten) mit den Drehachsen für die Orientierung; die IK nutzt genau diese Matrix:");
+    tex!(ui, "jac6");
     p(ui, "Die Manipulierbarkeit w misst, wie gut sich die Spitze in alle Richtungen bewegen lässt:");
     tex!(ui, "manip");
     p(ui, "w → 0 ist eine Singularität: Der Arm verliert eine Bewegungsrichtung, kleine Spitzenbewegungen brauchen riesige Gelenkwinkel (typisch: Arm gestreckt oder Handgelenk über der Schulterachse).");
@@ -283,6 +285,8 @@ fn formulas_body(ui: &mut egui::Ui) {
     tex!(ui, "ptp");
     p(ui, "Die Zeit je Schritt begrenzt entweder die Spitzengeschwindigkeit oder die schnellste Gelenkbewegung:");
     tex!(ui, "time");
+    p(ui, "Anfahren und Abbremsen laufen mit konstanter Beschleunigung (v² ∝ Weg) statt als Ruck; kurze Fahrten erreichen die Nenngeschwindigkeit gar nicht erst:");
+    tex!(ui, "ramp");
     p(ui, "Welche Konfiguration (Ellbogen, Handgelenk, Schulter) an jedem Punkt gewählt wird, entscheidet eine dynamische Programmierung über alle IK-Lösungen: Gesamtroute mit möglichst wenigen Gelenkfahrten, bei gleich vielen mit kürzestem Gelenkweg. Geht eine Gerade aus der aktuellen Konfiguration nicht, orientiert sich der Arm zuerst AM PUNKT um (Nullraum-Bewegung: Gelenkinterpolation, jeder Schritt per IK zurück auf den Punkt projiziert, die Spitze bleibt stehen) und fährt dann die Gerade. Auch die Schleife schließt so in die Startstellung.");
     p(ui, "Die ganze Bahn wird vor dem Start berechnet: Sie hängt nur von Arm und Punkten ab, nicht von Framerate, Geschwindigkeit oder Runde.");
 

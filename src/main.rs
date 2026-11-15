@@ -432,7 +432,12 @@ impl App {
             Play::Joint { from, to, s } => {
                 let far = (0..6).map(|i| (to[i] - from[i]).abs()).fold(1e-9, f64::max);
                 let rate = self.cfg.speed_dps.to_radians().max(0.05);
-                let ns = (s + rate * dt / far).min(1.0);
+                let total = far / rate;
+                let mut ns = s;
+                let n = (dt / 0.004).ceil().max(1.0);
+                for _ in 0..n as usize {
+                    ns = (ns + dt / n / total * plan::ramp(ns * total, total)).min(1.0);
+                }
                 self.q_cmd = std::array::from_fn(|i| from[i] + (to[i] - from[i]) * ns);
                 self.q_view = self.q_cmd;
                 self.target_pos = self.tcp();
