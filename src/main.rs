@@ -131,6 +131,8 @@ struct App {
     plan: plan::Plan,
     /// Mathe-Fenster sichtbar?
     show_math: bool,
+    /// Zwischenspeicher der Erreichbarkeit (gilt nur für die gespeicherte Arm-Geometrie)
+    reach_cache: std::cell::RefCell<Option<(Arm, (V3, f64, f64))>>,
 }
 
 impl App {
@@ -174,6 +176,7 @@ impl App {
             skipped: vec![],
             plan: plan::Plan::default(),
             show_math: false,
+            reach_cache: Default::default(),
         };
         app.set_pose([0.0, -35.0, 70.0, 0.0, 55.0, 0.0]);
         app.q_view = app.q_cmd;
@@ -201,6 +204,19 @@ impl App {
             app.play_all();
         }
         app
+    }
+
+    /// Erreichbarkeit (Mittelpunkt, innen, außen); neu berechnet nur, wenn sich der Aufbau ändert.
+    fn reach(&self) -> (V3, f64, f64) {
+        let mut c = self.reach_cache.borrow_mut();
+        match &*c {
+            Some((arm, r)) if *arm == self.cfg.arm => *r,
+            _ => {
+                let r = kin::reach(&self.cfg.arm);
+                *c = Some((self.cfg.arm, r));
+                r
+            }
+        }
     }
 
     fn sync_target_from_q(&mut self) {
@@ -430,6 +446,7 @@ mod tests {
             skipped: vec![],
             plan: plan::Plan::default(),
             show_math: false,
+            reach_cache: Default::default(),
         }
     }
 

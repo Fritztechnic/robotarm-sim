@@ -20,6 +20,12 @@ pub struct Style {
     pub show_target: bool,
     pub show_trail: bool,
     pub show_shadow: bool,
+    #[serde(default = "yes")]
+    pub show_reach: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl Default for Style {
@@ -35,6 +41,7 @@ impl Default for Style {
             show_target: true,
             show_trail: true,
             show_shadow: true,
+            show_reach: true,
         }
     }
 }
@@ -176,7 +183,7 @@ fn mat(c: [u8; 3], metal: f32, rough: f32) -> Mat {
 }
 
 // Zeichnet den ganzen 3D-Bereich: GPU-Szene, Spur, Playlist-Punkte, Gelenk-Scheiben, Ziel. Plus Mausinteraktion
-pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64; 6], target: &M4, trail: &[V3], wps: &[V3], cur: Option<usize>) -> Interaction {
+pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64; 6], target: &M4, trail: &[V3], wps: &[V3], cur: Option<usize>, reach: (V3, f64, f64)) -> Interaction {
     let rect = ui.available_rect_before_wrap();
     let resp = ui.allocate_rect(rect, Sense::click_and_drag());
     let mut out = Interaction { new_target: None, released: false, dragging: false };
@@ -283,6 +290,31 @@ pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64
         }
     };
     let glow = Color32::from_rgb(0, 120, 212);
+    if st.show_reach {
+        // Kugeln der Erreichbarkeit: außen = maximale Reichweite, innen = Totzone (Minimalabstand)
+        let (c, inner, outer) = reach;
+        for (r, col) in [(outer, Color32::from_rgb(0, 120, 212)), (inner, Color32::from_rgb(214, 80, 30))] {
+            let n = 64;
+            let ring = |f: &dyn Fn(f64) -> V3, a: f32| {
+                let pts: Vec<Pos2> = (0..=n).filter_map(|k| pr.pt(f(k as f64 / n as f64 * std::f64::consts::TAU))).collect();
+                if pts.len() == n + 1 {
+                    painter.add(egui::Shape::line(pts, Stroke::new(1.0, col.gamma_multiply(a))));
+                }
+            };
+            for lat in [-60.0f64, -30.0, 0.0, 30.0, 60.0] {
+                let (z, rr) = (r * lat.to_radians().sin(), r * lat.to_radians().cos());
+                ring(&|t| [c[0] + rr * t.cos(), c[1] + rr * t.sin(), c[2] + z], if lat == 0.0 { 0.55 } else { 0.28 });
+            }
+            for k in 0..6 {
+                let az = k as f64 * std::f64::consts::PI / 6.0;
+                ring(&|t| [c[0] + r * t.cos() * az.cos(), c[1] + r * t.cos() * az.sin(), c[2] + r * t.sin()], 0.22);
+            }
+            if let Some(p) = pr.pt([c[0], c[1], c[2] + r]) {
+                let txt = if r == outer { format!("außen {:.0} mm", r) } else { format!("innen {:.0} mm", r) };
+                painter.text(p + egui::vec2(6.0, -4.0), egui::Align2::LEFT_BOTTOM, txt, egui::FontId::proportional(10.5), col);
+            }
+        }
+    }
     if st.show_trail && trail.len() > 1 {
         let n = trail.len();
         for (k, w) in trail.windows(2).enumerate() {

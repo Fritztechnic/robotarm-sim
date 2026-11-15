@@ -74,7 +74,7 @@ pub fn to_rpy(m: &M4) -> V3 {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Joint {
     pub a: f64,
     pub alpha_deg: f64,
@@ -113,6 +113,31 @@ pub fn cobot_arm() -> Arm {
 
 // So stand der Arm im Modell, als du ihn runtergeladen hast. Daraus wird das 3D-Bild 'geeicht'
 pub const COBOT_REST_THETA_DEG: [f64; 6] = [-57.797, -83.942, -156.059, -175.644, -73.088, 0.0];
+
+/// Erreichbarkeit der Werkzeugspitze (nur Position) innerhalb der Gelenkgrenzen:
+/// Mittelpunkt (Schulterachse), kleinster und größter Abstand. Per Zufallsstichprobe, deterministisch.
+pub fn reach(arm: &Arm) -> (V3, f64, f64) {
+    let c = pos(&fk_frames(arm, &[0.0; 6])[1]);
+    let mut s = 0x2545F4914F6CDD1Du64;
+    let mut rnd = move || {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        (s >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let (mut lo, mut hi) = (f64::MAX, 0.0f64);
+    for _ in 0..60_000 {
+        let q: [f64; 6] = std::array::from_fn(|i| {
+            let j = &arm[i];
+            (j.min_deg + (j.max_deg - j.min_deg) * rnd()).to_radians()
+        });
+        let p = pos(&fk(arm, &q));
+        let d = ((p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) + (p[2] - c[2]).powi(2)).sqrt();
+        lo = lo.min(d);
+        hi = hi.max(d);
+    }
+    (c, lo, hi)
+}
 
 /// Inverse einer starren Transformation.
 pub fn inv(m: &M4) -> M4 {

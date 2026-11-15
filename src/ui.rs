@@ -181,7 +181,8 @@ impl App {
             let target = kin::from_xyz_rpy(self.target_pos, self.target_rpy_deg.map(f64::to_radians));
             let wps: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
             let cur = (self.tab == Tab::Playlist || self.playing()).then_some(self.pl_idx);
-            let res = view::draw(ui, &mut self.cam, &self.cfg.style, &self.cfg.arm, &self.q_view, &target, &self.trail, &wps, cur);
+            let reach = self.reach();
+            let res = view::draw(ui, &mut self.cam, &self.cfg.style, &self.cfg.arm, &self.q_view, &target, &self.trail, &wps, cur, reach);
             if let Some(np) = res.new_target {
                 self.play = Play::Idle;
                 self.mode = Mode::Ik;
@@ -228,6 +229,7 @@ impl App {
                 (Icon::Axes, "Koordinatensysteme", &mut st.show_frames),
                 (Icon::Tag, "Gelenk-Beschriftung", &mut st.show_labels),
                 (Icon::Marker, "Zielmarker", &mut st.show_target),
+                (Icon::Sphere, "Erreichbarkeit (innen/außen)", &mut st.show_reach),
             ] {
                 if ibtn(ui, ic, n, *v).clicked() {
                     *v = !*v;
