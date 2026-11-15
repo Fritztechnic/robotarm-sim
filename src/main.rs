@@ -55,6 +55,7 @@ struct Waypoint {
 }
 
 // Einfache Demo: ein Rechteck und ein Ausreißer nach oben (die Tests nutzen sie als Grundlage)
+#[cfg(test)]
 fn demo_simple() -> Vec<Waypoint> {
     [[300.0, -150.0, 250.0], [300.0, 150.0, 250.0], [300.0, 150.0, 450.0], [300.0, -150.0, 450.0], [150.0, 0.0, 600.0]]
         .map(|pos| Waypoint { pos, dwell: 0.3 })
@@ -615,6 +616,26 @@ mod tests {
         }
         assert!(p.unreachable.is_empty());
         assert!(ptp * 4 <= p.segs.len(), "zu viele Gelenkfahrten: {ptp}");
+    }
+
+    #[test]
+    fn two_points_need_no_joint_move() {
+        // vorne liegende Punkte (J1 kreuzt keinen Anschlag): jede Gerade muss nach Umorientieren am Startpunkt gehen
+        let mut s = 99u64;
+        let mut rnd = move || { s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (s >> 33) as f64 / (1u64 << 31) as f64 };
+        let arm = kin::cobot_arm();
+        let (mut bad, mut n) = (0, 0);
+        for _ in 0..60 {
+            let mut pt = || { let (r, t) = (200.0 + rnd() * 250.0, (rnd() - 0.5) * 2.4); [r * t.cos(), r * t.sin(), 150.0 + rnd() * 350.0] };
+            let pts = [pt(), pt()];
+            let p = plan::build(&arm, &pts);
+            if !p.unreachable.is_empty() { continue; }
+            n += 1;
+            let k = p.segs.iter().filter(|s| s.ptp).count();
+            if k > 0 { bad += 1; println!("PTP bei {:?}", pts); }
+        }
+        println!("{bad} von {n} Paaren mit Gelenkfahrt");
+        assert!(bad == 0, "{bad} von {n} Paaren mit Gelenkfahrt");
     }
 
     #[test]

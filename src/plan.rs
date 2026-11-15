@@ -9,6 +9,8 @@
 //!      wird die Strecke als Gelenkfahrt (PTP) geplant: lineare Interpolation im Gelenkraum.
 //!   0. Welche der vielen IK-Lösungen (Ellbogen/Handgelenk-Varianten) an jedem Punkt genommen wird,
 //!      entscheidet `route` per dynamischer Programmierung: möglichst wenige Gelenkfahrten.
+//!      Geht eine Gerade aus der aktuellen Konfiguration nicht, wird am Startpunkt zuerst umorientiert
+//!      (`reorient`: Nullraum-Bewegung, Spitze bleibt auf dem Punkt), dann die Gerade gefahren.
 //!   4. Der Schleifenschluss (letzter→erster Punkt) endet exakt in der Startstellung; passt
 //!      die Gerade dort nicht hin, wird auch er zur Gelenkfahrt. So ist jede Runde identisch.
 
@@ -122,11 +124,11 @@ struct State {
 }
 
 const PTP_COST: f64 = 1000.0;
+/// Umorientieren am Punkt kostet etwas, ist aber viel besser als eine Gelenkfahrt.
+const REORIENT_COST: f64 = 20.0;
 const KEEP: usize = 10;
 /// Zustände, die sich weniger als das unterscheiden, gelten als dieselbe Konfiguration (rad).
 const SAME: f64 = 0.3;
-/// Größte Abweichung der Spitze (mm) beim Einpendeln in die Startstellung; mehr gilt als Gelenkfahrt.
-const SETTLE: f64 = 5.0;
 
 fn key(k: usize, q: &[f64; 6]) -> (usize, [i64; 6]) {
     (k, q.map(|v| (v * 1e4).round() as i64))
@@ -138,6 +140,49 @@ fn path_len(p: &[[f64; 6]]) -> f64 {
 
 type Cache = std::collections::HashMap<(usize, [i64; 6]), Option<Vec<[f64; 6]>>>;
 
+/// Umorientieren am Punkt: die Spitze bleibt auf `p`, nur die Konfiguration (Handgelenk, Ellbogen…)
+/// wechselt von `q0` nach `q1`. Gelenkinterpolation, jeder Schritt wird per IK zurück auf den Punkt
+/// projiziert, also Nullraum-Bewegung. None, wenn das ohne Sprung/Verlassen des Punktes nicht geht.
+fn reorient(arm: &Arm, p: V3, q0: [f64; 6], q1: [f64; 6]) -> Option<Vec<[f64; 6]>> {
+    let n = (dq_max(&q0, &q1) / 2f64.to_radians()).ceil().max(1.0) as usize;
+    let t = target(p);
+    let mut out = vec![q0];
+    for i in 1..n {
+        let f = i as f64 / n as f64;
+        let qt: [f64; 6] = std::array::from_fn(|k| q0[k] + (q1[k] - q0[k]) * f);
+        let r = kin::solve_ik(arm, &t, qt, &opt(0));
+        if !r.converged || dq_max(&r.q, out.last().unwrap()) > MAX_JUMP {
+            return None;
+        }
+        out.push(r.q);
+    }
+    (dq_max(out.last().unwrap(), &q1) <= MAX_JUMP).then(|| {
+        out.push(q1);
+        out
+    })
+}
+
+/// Eine Strecke von `pa` nach `pb` ab Stellung `q`: erst direkt als Gerade. Geht das nicht, am Startpunkt
+/// erst in eine passende Konfiguration umorientieren (ohne den Punkt zu verlassen), dann Gerade.
+/// `fin` prüft/ergänzt das Streckenende (Schleifenschluss). Rückgabe: Pfad und ob umorientiert wurde.
+fn leg(arm: &Arm, cache: &mut Cache, k: usize, pa: V3, pb: V3, q: [f64; 6], cand: &[[f64; 6]], fin: &dyn Fn(Vec<[f64; 6]>) -> Option<Vec<[f64; 6]>>) -> Option<(Vec<[f64; 6]>, bool)> {
+    let mut line = |q0: [f64; 6]| cache.entry(key(k, &q0)).or_insert_with(|| march(arm, q0, pa, pb)).clone().and_then(fin);
+    if let Some(l) = line(q) {
+        return Some((l, false));
+    }
+    let mut cs: Vec<[f64; 6]> = cand.iter().copied().filter(|c| dq_max(c, &q) > 1e-3).collect();
+    cs.sort_by(|a, b| dq_max(a, &q).total_cmp(&dq_max(b, &q)));
+    for c in cs.into_iter().take(14) {
+        if let Some(l) = line(c) {
+            if let Some(mut r) = reorient(arm, pa, q, c) {
+                r.extend(l.into_iter().skip(1));
+                return Some((r, true));
+            }
+        }
+    }
+    None
+}
+
 /// Bester Weg durch alle Punkte ab Startstellung `s0`: Dynamische Programmierung über die
 /// Konfigurationen. Gerade = fast kostenlos, Gelenkfahrt = teuer, also möglichst wenige davon.
 fn route(arm: &Arm, pts: &[V3], cand: &[Vec<[f64; 6]>], s0: [f64; 6], cache: &mut Cache) -> (f64, Vec<(Vec<[f64; 6]>, bool)>) {
@@ -146,9 +191,8 @@ fn route(arm: &Arm, pts: &[V3], cand: &[Vec<[f64; 6]>], s0: [f64; 6], cache: &mu
     for k in 0..n - 1 {
         let mut next: Vec<State> = vec![];
         for (si, s) in layers[k].iter().enumerate() {
-            let line = cache.entry(key(k, &s.q)).or_insert_with(|| march(arm, s.q, pts[k], pts[k + 1])).clone();
-            if let Some(path) = line {
-                next.push(State { q: *path.last().unwrap(), cost: s.cost + path_len(&path), parent: si, path, ptp: false });
+            if let Some((path, re)) = leg(arm, cache, k, pts[k], pts[k + 1], s.q, &cand[k], &Some) {
+                next.push(State { q: *path.last().unwrap(), cost: s.cost + path_len(&path) + if re { REORIENT_COST } else { 0.0 }, parent: si, path, ptp: false });
             }
             for c in &cand[k + 1] {
                 let path = lerp_path(s.q, *c);
@@ -169,16 +213,14 @@ fn route(arm: &Arm, pts: &[V3], cand: &[Vec<[f64; 6]>], s0: [f64; 6], cache: &mu
     for (si, s) in layers[n - 1].iter().enumerate() {
         // Gerade zurück zum Startpunkt; endet sie in einer anderen Konfiguration, pendelt der Arm dort
         // kurz in die Startstellung ein (damit jede Runde exakt gleich beginnt)
-        let line = cache.entry(key(n - 1, &s.q)).or_insert_with(|| march(arm, s.q, pts[n - 1], pts[0])).clone().and_then(|mut l| {
-            let tail = lerp_path(*l.last().unwrap(), s0);
-            let dev = tail.iter().map(|q| (0..3).map(|k| (kin::pos(&kin::fk(arm, q))[k] - pts[0][k]).powi(2)).sum::<f64>().sqrt()).fold(0.0, f64::max);
-            (dev < SETTLE).then(|| {
-                l.extend(tail.into_iter().skip(1));
-                l
-            })
-        });
+        let fin = |mut l: Vec<[f64; 6]>| {
+            let tail = reorient(arm, pts[0], *l.last().unwrap(), s0)?;
+            l.extend(tail.into_iter().skip(1));
+            Some(l)
+        };
+        let line = leg(arm, cache, n - 1, pts[n - 1], pts[0], s.q, &cand[n - 1], &fin);
         let (path, ptp) = match line {
-            Some(l) => (l, false),
+            Some((l, _)) => (l, false),
             None => (lerp_path(s.q, s0), true),
         };
         let cost = s.cost + path_len(&path) + if ptp { PTP_COST } else { 0.0 };
@@ -285,4 +327,5 @@ pub fn sample(seg: &Seg, u: f64) -> [f64; 6] {
     let f = u - i as f64;
     std::array::from_fn(|k| seg.q[i][k] + (seg.q[j][k] - seg.q[i][k]) * f)
 }
+
 
