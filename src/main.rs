@@ -113,7 +113,7 @@ impl Default for Config {
 // Wo die Einstellungen liegen. Neue Version = neue Datei, damit alte Configs nix zerschießen
 fn config_path() -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
-    std::path::Path::new(&home).join(".config/robotarm-sim/config-v7.json")
+    std::path::Path::new(&home).join(".config/robotarm-sim/config-v8.json")
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -193,13 +193,13 @@ impl App {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_else(|| {
-                // Migration aus v6: alles behalten, nur J6 wird endlos drehend (±720°)
-                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v6.json"))
+                // Migration aus v7: alles behalten, J1/J4/J6 auf ±360° begrenzen
+                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v7.json"))
                     .ok()
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
-                for i in [5] {
-                    (c.arm[i].min_deg, c.arm[i].max_deg) = (-720.0, 720.0);
+                for i in [0, 3, 5] {
+                    (c.arm[i].min_deg, c.arm[i].max_deg) = (-360.0, 360.0);
                 }
                 c
             });
@@ -738,7 +738,7 @@ mod tests {
                 assert!(x.q == y.q && x.ptp == y.ptp);
             }
             if let Some(c) = a.segs.last().filter(|s| s.closing) {
-                // gleiche Pose; endlose Gelenke dürfen um ganze Umdrehungen versetzt enden (kürzester Weg)
+                // gleiche Pose; Vollkreis-Gelenke dürfen um ganze Umdrehungen versetzt enden (kürzester Weg)
                 let end = kin::wrap_near(&arm, *c.q.last().unwrap(), &a.start);
                 assert!((0..6).all(|i| (end[i] - a.start[i]).abs() < 1e-9), "Schleife schließt nicht");
             }

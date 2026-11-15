@@ -100,15 +100,15 @@ pub fn fk_frames(arm: &Arm, q: &[f64; 6]) -> [M4; 7] {
 /// Elfin-Cobot (aus dem importierten Modell abgeleitet): DH-Werte und Gesamt-θ der Modell-Ruhepose.
 pub fn cobot_arm() -> Arm {
     // Anschläge: schützen vor Kollisionen des Arms mit sich selbst (im Aufbau-Reiter änderbar).
-    // J1, J4 und J6 drehen endlos: ±720° = zwei volle Umdrehungen in jede Richtung, praktisch ohne Grenze.
+    // J1, J4 und J6: ±360° (eine volle Umdrehung je Richtung); 360° entspricht 0°, es wird stets der kürzeste Weg gewählt.
     let j = |a, al, d, off, lim: f64| Joint { a, alpha_deg: al, d, offset_deg: off, min_deg: -lim, max_deg: lim };
     [
-        j(0.278, -90.0, 131.673, 0.0, 720.0),
+        j(0.278, -90.0, 131.673, 0.0, 360.0),
         j(240.342, 0.0, 0.0, -90.0, 120.0),
         j(0.757, 89.157, -1.113, 90.0, 150.0),
-        j(3.826, -93.323, 261.045, 180.0, 720.0),
+        j(3.826, -93.323, 261.045, 180.0, 360.0),
         j(0.133, 91.621, 3.769, 0.0, 120.0),
-        j(0.0, 0.0, 83.335, 0.0, 720.0),
+        j(0.0, 0.0, 83.335, 0.0, 360.0),
     ]
 }
 

@@ -152,7 +152,7 @@ impl App {
             note(ui, "Mit Winkelvorgabe kommt der Orientierungsfehler als Rotationsvektor dazu (nahe 180° wird die Achse aus der Diagonale bestimmt, damit sie stabil bleibt):");
             tex!(ui, "roterr");
             tex!(ui, "ik6");
-            note(ui, "Anschläge: J1 und J4 drehen endlos (±720°), die übrigen Gelenke haben ihre Grenzen. Zufalls-Neustarts nutzen für endlose Gelenke eine Umdrehung (±180°).");
+            note(ui, "Anschläge: J1, J4 und J6 laufen von −360° bis +360° (360° = 0°, kürzester Weg), die übrigen Gelenke haben ihre Grenzen. Zufalls-Neustarts nutzen für diese Gelenke eine Umdrehung (±180°).");
             note(ui, "Ohne Winkelvorgabe hat der Arm 3 überzählige Freiheitsgrade (6 Gelenke, 3 Positionsgleichungen). Im Nullraum bewegt sich der Arm, ohne die Spitze zu verschieben: das nutzt der Zug der Handgelenke J4/J6 zur Komfortstellung. W = diag(0, 0.1, 0.1, 1, 0.3, 1).");
             let t = self.target_pos;
             let p = kin::pos(&frames[6]);
@@ -272,7 +272,7 @@ fn formulas_body(ui: &mut egui::Ui) {
     p(ui, "Mit Winkelvorgabe kommt der Orientierungsfehler als Rotationsvektor (Achse · Winkel) der Restdrehung R* Rᵀ hinzu. Nahe 180° verschwindet der antisymmetrische Anteil, dort wird die Achse stattdessen aus der Diagonale (R = 2 n nᵀ − I) bestimmt, ihr Vorzeichen aus v. Beide Anteile werden mit L vergleichbar gemacht:");
     tex!(ui, "roterr");
     tex!(ui, "ik6");
-    p(ui, "Anschläge: J1 und J4 drehen endlos (±720° als praktisch unbegrenzt), die anderen Gelenke haben eigene Grenzen, auf die jeder Schritt geklemmt wird. Zufalls-Neustarts nutzen für endlose Gelenke eine Umdrehung (±180°).");
+    p(ui, "Anschläge: J1, J4 und J6 laufen von −360° bis +360° (360° entspricht 0°, es gilt der kürzeste Weg), die anderen Gelenke haben eigene Grenzen, auf die jeder Schritt geklemmt wird. Zufalls-Neustarts nutzen für diese Gelenke eine Umdrehung (±180°).");
     p(ui, "Mehrere Startwerte (Restarts) finden verschiedene Lösungen: Ellbogen oben/unten, Handgelenk geklappt.");
 
     h(ui, "5", "Servo-Abbildung");
@@ -294,7 +294,7 @@ fn formulas_body(ui: &mut egui::Ui) {
     tex!(ui, "dp");
     p(ui, "Umorientieren am Punkt (Nullraum-Bewegung): Gelenkinterpolation, jeder Schritt per IK zurück auf den Punkt projiziert, bei höchstens 0,25 rad Sprung:");
     tex!(ui, "reor");
-    h(ui, "6b", "Kürzester Weg bei endlosen Gelenken");
+    h(ui, "6b", "Kürzester Weg bei Vollkreis-Gelenken (±360°)");
     p(ui, "J1 und J4 haben keinen Anschlag: Eine Stellung q und q ± 2π sind dieselbe Pose. Jedes Ziel wird deshalb vor der Bewegung um ganze Umdrehungen verschoben, bis es der Ist-Stellung am nächsten liegt (dabei bleiben die Grenzen gewahrt):");
     tex!(ui, "wrap");
     p(ui, "Beispiele: 359° → 0° dreht +1° (nicht −359°); 450° wird als 90° angefahren. Das gilt für Gelenkfahrten des Planers, die Anfahrt zur ersten Pose und die normale Bewegung zum Zielwert. Gerade Strecken bleiben dagegen stetig – dort würde ein Zurückdrehen die Gerade verlassen. Ein Schleifenschluss kann dadurch um ganze Umdrehungen versetzt enden; die Pose ist identisch.");
