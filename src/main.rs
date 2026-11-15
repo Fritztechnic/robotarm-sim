@@ -131,6 +131,8 @@ enum Mode {
 #[derive(Clone, Copy, PartialEq)]
 enum Play {
     Idle,
+    /// Bahn wird im Hintergrund berechnet
+    Planning,
     /// Anfahrt zur ersten Stellung im Gelenkraum
     Joint { from: [f64; 6], to: [f64; 6], s: f64 },
     /// Vorberechnete Strecke k des Plans, u = Position (Sample-Index mit Bruchteil)
@@ -175,6 +177,7 @@ struct App {
     /// Mathe-Fenster sichtbar?
     show_math: bool,
     show_formulas: bool,
+    plan_rx: Option<std::sync::mpsc::Receiver<plan::Plan>>,
     /// Zwischenspeicher der Erreichbarkeit (gilt nur für die gespeicherte Arm-Geometrie)
     reach_cache: std::cell::RefCell<ReachState>,
 }
@@ -223,6 +226,7 @@ impl App {
             plan: plan::Plan::default(),
             show_math: false,
             show_formulas: false,
+            plan_rx: None,
             reach_cache: Default::default(),
         };
         app.set_pose([0.0, -35.0, 70.0, 0.0, 55.0, 0.0]);
@@ -383,9 +387,28 @@ impl App {
         self.trail.clear();
         self.q_cmd = self.q_view; // Start von der gerade sichtbaren Pose
         let pts: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
-        self.plan = plan::build(&self.cfg.arm, &pts);
+        let arm = self.cfg.arm;
+        let (s, r) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = s.send(plan::build(&arm, &pts));
+        });
+        self.plan_rx = Some(r);
+        self.play = Play::Planning;
+        self.ik_msg = Some((true, "Bahn wird berechnet …".into()));
+        // Tests laufen ohne Ereignisschleife: dort synchron warten
+        #[cfg(test)]
+        while self.play == Play::Planning {
+            self.playlist_step(0.0);
+            std::thread::yield_now();
+        }
+    }
+
+    /// Plan aus dem Hintergrund-Thread übernehmen und die Anfahrt starten.
+    fn plan_ready(&mut self, plan: plan::Plan) {
+        let n = plan.pts.len();
+        self.plan = plan;
         self.skipped = self.plan.unreachable.clone();
-        if self.plan.unreachable.len() == pts.len() {
+        if self.plan.unreachable.len() == n {
             self.play = Play::Idle;
             self.ik_msg = Some((false, "Kein Punkt erreichbar".into()));
             return;
@@ -413,6 +436,13 @@ impl App {
         if self.play == Play::Idle {
             return;
         }
+        if self.play == Play::Planning {
+            if let Some(Ok(plan)) = self.plan_rx.as_ref().map(|r| r.try_recv()) {
+                self.plan_rx = None;
+                self.plan_ready(plan);
+            }
+            return;
+        }
         let pts: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
         if pts != self.plan.pts {
             // Punkte wurden während der Fahrt geändert: Plan wäre veraltet
@@ -421,7 +451,7 @@ impl App {
         }
         let dwell = |i: usize| self.cfg.waypoints[i].dwell;
         match self.play {
-            Play::Idle => {}
+            Play::Idle | Play::Planning => {}
             Play::Dwell(t) => {
                 if t - dt > 0.0 {
                     self.play = Play::Dwell(t - dt);
@@ -516,6 +546,7 @@ mod tests {
             plan: plan::Plan::default(),
             show_math: false,
             show_formulas: false,
+            plan_rx: None,
             reach_cache: Default::default(),
         }
     }

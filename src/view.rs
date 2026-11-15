@@ -22,6 +22,8 @@ pub struct Style {
     pub show_shadow: bool,
     #[serde(default = "yes")]
     pub show_reach: bool,
+    #[serde(default = "yes")]
+    pub show_playlist: bool,
 }
 
 fn yes() -> bool {
@@ -42,6 +44,7 @@ impl Default for Style {
             show_trail: true,
             show_shadow: true,
             show_reach: true,
+            show_playlist: true,
         }
     }
 }
@@ -300,12 +303,12 @@ pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64
             line(w[0], w[1], Stroke::new(1.5, glow.gamma_multiply(0.15 + 0.7 * a)));
         }
     }
-    if wps.len() > 1 {
+    if st.show_playlist && wps.len() > 1 {
         for w in wps.windows(2) {
             line(w[0], w[1], Stroke::new(1.0, glow.gamma_multiply(0.45)));
         }
     }
-    for (i, w) in wps.iter().enumerate() {
+    for (i, w) in wps.iter().enumerate().filter(|_| st.show_playlist) {
         if let Some(p) = pr.pt(*w) {
             let on = cur == Some(i);
             painter.circle(p, 8.0, if on { glow } else { Color32::WHITE }, Stroke::new(1.5, glow));

@@ -226,6 +226,7 @@ impl App {
                 (Icon::Grid, "Raster", &mut st.show_grid),
                 (Icon::Shadow, "Schatten", &mut st.show_shadow),
                 (Icon::Trail, "TCP-Spur", &mut st.show_trail),
+                (Icon::List, "Playlist-Linien und Punkte", &mut st.show_playlist),
                 (Icon::Axes, "Koordinatensysteme", &mut st.show_frames),
                 (Icon::Tag, "Gelenk-Beschriftung", &mut st.show_labels),
                 (Icon::Marker, "Zielmarker", &mut st.show_target),
