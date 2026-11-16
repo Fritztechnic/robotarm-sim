@@ -351,12 +351,12 @@ ${T(pr([rp * Math.cos(ph + rad(th / 2)) * 0.6, rp * Math.sin(ph + rad(th / 2)) *
   },
 
   dhframes() {
-    const q = [35, 50, -70, 40, 60, 30], Ts = fk(q), pts = [[0, 0, 0], [150, 0, 0], [0, 150, 0], [0, 0, 150]];
+    const q = [35, 75, -45, 40, 60, 30], Ts = fk(q), pts = [[0, 0, 0], [150, 0, 0], [0, 150, 0], [0, 0, 150]];
     Ts.forEach((M) => { const o = org(M); pts.push(o, add(o, col(M, 0), 70), add(o, col(M, 1), 70), add(o, col(M, 2), 70)); });
-    const pr = fitCam(-50, 22, pts, 720, 500, 40);
+    const pr = fitCam(-55, 24, pts, 720, 500, 30);
     const arm = armDrawing(pr, q, { frames: true, tri: 70 }), tcp = org(Ts[6]);
-    return fig(720, 560, 'DH-Koordinatensysteme am Elfin (q = 35°, 50°, −70°, 40°, 60°, 30°)',
-      `${floor3d(pr, 300, 100)}${axes3d(pr, 150)}${arm.svg}
+    return fig(720, 560, 'DH-Koordinatensysteme am Elfin (q = 35°, 75°, −45°, 40°, 60°, 30°)',
+      `${floor3d(pr, 240, 80)}${axes3d(pr, 150)}${arm.svg}
 ${T([20, 540], 'x rot · y grün · z blau (Gelenkachse)', 'tx s', 'start')}${T([700, 540], 'TCP = (' + fm(tcp[0], 1) + ' | ' + fm(tcp[1], 1) + ' | ' + fm(tcp[2], 1) + ') mm', 'tx c s', 'end')}`,
       'Jedes Glied trägt ein eigenes Koordinatensystem; z ist stets die Drehachse des Gelenks. Die Lage jedes Systems ist das Matrizenprodukt A₁···Aᵢ – mit der echten Elfin-Tabelle berechnet.');
   },
