@@ -7,8 +7,9 @@
 //!      ohne ≤ 4 (Werkzeugrichtung nach der festen Auto-Regel, siehe `kin`).
 //!   2. Jede Gerade A→B aus jeder Haltung an A verfolgen: Position linear, Orientierung per Slerp,
 //!      Schritte von höchstens `STEP` mm bzw. `ROT_STEP`; je Schritt die nächstgelegene exakte Lösung.
-//!      Springt ein Gelenk um mehr als `MAX_JUMP` (auch nach feiner Unterteilung), ist die Gerade aus dieser
-//!      Haltung nicht stetig fahrbar (Anschlag, Singularität, Haltungswechsel).
+//!      Springt ein Gelenk um mehr als `MAX_JUMP`, wird der Schritt halbiert (bis ~0,1 µm). Ein verbleibender
+//!      Sprung ist nur IN einer Singularität erlaubt, wenn die Pose dabei stehen bleibt (Handgelenk dreht durch);
+//!      sonst ist die Gerade aus dieser Haltung nicht fahrbar (Anschlag, Haltungswechsel).
 //!   3. Graph über alle Punkte × Haltungen: Gerade = Gelenkweg, Gelenkfahrt (PTP) = `PTP_COST` + Gelenkweg.
 //!      Kürzester Rundweg per dynamischer Programmierung, exakt (keine Kürzung der Zustände), für jede
 //!      Starthaltung. Ergebnis: zuerst möglichst wenige Gelenkfahrten, dann möglichst wenig Gelenkweg.
@@ -22,8 +23,6 @@ pub const STEP: f64 = 2.0;
 const ROT_STEP: f64 = 0.0175;
 /// Größter erlaubter Gelenksprung pro Schritt (rad), sonst gilt die Gerade als nicht fahrbar.
 const MAX_JUMP: f64 = 0.25;
-/// Feinunterteilung eines Schritts mit großem Sprung: stetig, aber schnell (Nähe einer Singularität)?
-const SUBDIV: usize = 8;
 /// Kosten einer Gelenkfahrt: mehr als jeder denkbare Gelenkweg auf Geraden.
 const PTP_COST: f64 = 1000.0;
 pub const READY: [f64; 6] = [0.0, -35.0, 70.0, 0.0, 55.0, 0.0];
@@ -98,29 +97,48 @@ fn follow(arm: &Arm, t: &M4, ori: bool, q: &[f64; 6]) -> Option<[f64; 6]> {
 
 /// Gerade von `a` nach `b`, Start in Stellung `q0`. None = aus dieser Haltung nicht stetig fahrbar.
 fn track(arm: &Arm, q0: [f64; 6], a: &Pose, b: &Pose) -> Option<Vec<[f64; 6]>> {
-    let ori = a.1.is_some();
     let len = (0..3).map(|k| (b.0[k] - a.0[k]).powi(2)).sum::<f64>().sqrt();
     let n = ((len / STEP).max(turn(a, b) / ROT_STEP)).ceil().max(1.0) as usize;
     let mut out = vec![q0];
-    let mut q = q0;
     for i in 1..=n {
-        let next = follow(arm, &pose_at(a, b, i as f64 / n as f64), ori, &q)?;
-        if dq_max(&next, &q) <= MAX_JUMP {
-            q = next;
-            out.push(q);
-            continue;
-        }
-        for j in 1..=SUBDIV {
-            let s = (i as f64 - 1.0 + j as f64 / SUBDIV as f64) / n as f64;
-            let next = follow(arm, &pose_at(a, b, s), ori, &q)?;
-            if dq_max(&next, &q) > MAX_JUMP {
-                return None;
-            }
-            q = next;
-            out.push(q);
-        }
+        refine(arm, a, b, (i - 1) as f64 / n as f64, i as f64 / n as f64, DEPTH, &mut out)?;
     }
     Some(out)
+}
+
+/// Größte Verfeinerungstiefe: 2 mm / 2¹⁴ ≈ 0,1 µm.
+const DEPTH: u32 = 14;
+/// Toleranz der Pose beim Durchdrehen einer Singularität (mm, rad).
+const SING_P: f64 = 0.01;
+const SING_R: f64 = 1e-4;
+
+/// Abschnitt s0→s1 der Geraden an `out` anhängen. Springt ein Gelenk um mehr als `MAX_JUMP`, wird der
+/// Abschnitt halbiert – nahe einer Singularität drehen Gelenke schnell, aber stetig. Bleibt auch bei
+/// kleinster Teilung ein Sprung, liegt die Stelle IN einer Singularität (z. B. J5 = 0: nur J4 + J6 zählt).
+/// Dort ist die Drehung zulässig, wenn die Pose dabei stehen bleibt: dann dreht nur das Handgelenk durch,
+/// die Spitze verlässt die Gerade nicht. Sonst (Anschlag, Haltungswechsel) ist die Gerade nicht fahrbar.
+fn refine(arm: &Arm, a: &Pose, b: &Pose, s0: f64, s1: f64, depth: u32, out: &mut Vec<[f64; 6]>) -> Option<()> {
+    let q = *out.last().unwrap();
+    let t = pose_at(a, b, s1);
+    let ori = a.1.is_some();
+    let next = follow(arm, &t, ori, &q)?;
+    if dq_max(&next, &q) <= MAX_JUMP {
+        out.push(next);
+        return Some(());
+    }
+    if depth > 0 {
+        let m = 0.5 * (s0 + s1);
+        refine(arm, a, b, s0, m, depth - 1, out)?;
+        return refine(arm, a, b, m, s1, depth - 1, out);
+    }
+    let path = lerp_path(arm, q, next);
+    let holds = path.iter().all(|x| {
+        let f = kin::fk(arm, x);
+        let dp = (0..3).map(|k| (f[k][3] - t[k][3]).powi(2)).sum::<f64>().sqrt();
+        let dr = if ori { kin::rot_error(&t, &f).iter().map(|v| v * v).sum::<f64>().sqrt() } else { 0.0 };
+        dp < SING_P && dr < SING_R
+    });
+    holds.then(|| out.extend_from_slice(&path[1..]))
 }
 
 /// Gelenkfahrt: lineare Interpolation im Gelenkraum (feiner als 0,5° pro Schritt), endlose Gelenke kurz herum.

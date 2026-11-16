@@ -202,7 +202,7 @@ impl App {
             note(ui, "Anzeige: Erreicht ein Wert ±360°, springt er auf 0 zurück (gleiche Pose). Intern haben die drei Gelenke ±720° Spielraum, damit eine Gerade oder der kürzeste Weg nie an einer Grenze scheitert.");
             tex!(ui, "slerp");
             note(ui, "Mit Werkzeugwinkel (global oder pro Punkt): Position linear, Orientierung per Slerp überblendet; jeder Schritt wird mit vollständiger 6D-IK gelöst. Schrittzahl richtet sich nach Weg (2 mm) UND Drehwinkel (1°), auch reine Drehungen werden fein abgefahren.");
-            note(ui, "Springt ein Gelenk (> 14° pro Schritt, auch nach 8-facher Unterteilung) oder findet die IK keine Lösung, ist die Gerade nicht fahrbar: dann Gelenkfahrt (PTP) mit linearer Interpolation im Gelenkraum. Der Schleifenschluss endet exakt in der Startstellung.");
+            note(ui, "Springt ein Gelenk um mehr als 14° pro Schritt, wird der Schritt rekursiv halbiert (bis ≈ 0,1 µm): nahe einer Singularität drehen J4/J6 schnell, aber stetig. Bleibt ein Sprung, liegt die Stelle genau in der Singularität (J5 = 0) – zulässig, wenn die Spitze dabei stehen bleibt (Handgelenk dreht durch, < 0,01 mm). Sonst (Gelenkanschlag, keine Lösung) ist die Gerade aus dieser Haltung nicht fahrbar: dann Gelenkfahrt (PTP) mit linearer Interpolation im Gelenkraum. Der Schleifenschluss endet exakt in der Startstellung. Bleibt trotz optimaler Haltungswahl eine Gelenkfahrt, ist sie unvermeidbar: Jede Haltung stößt irgendwo auf der Schleife an eine Grenze (Elfin: J2 ±134°, J3 ±149°, J5 ±146°), der Haltungswechsel wird an die günstigste Stelle gelegt.");
             if self.plan.segs.is_empty() {
                 note(ui, "Noch kein Plan: Playlist starten.");
             } else {
@@ -302,7 +302,7 @@ fn formulas_body(ui: &mut egui::Ui) {
     p(ui, "Eine Gerade wird in Schritten von höchstens 2 mm bzw. 1° Drehung abgefahren; an jedem Schritt wird unter den exakten IK-Lösungen die der vorigen Stellung nächste genommen:");
     tex!(ui, "line");
     tex!(ui, "step");
-    p(ui, "Fahrbar ist sie, wenn es an jedem Schritt eine Lösung gibt und kein Gelenk mehr als 0,25 rad pro Schritt springt (ein großer Sprung wird zuerst 8-fach unterteilt: nahe einer Singularität drehen Gelenke schnell, aber stetig). Sonst Gelenkfahrt (PTP):");
+    p(ui, "Fahrbar ist sie, wenn es an jedem Schritt eine Lösung gibt und kein Gelenk mehr als 0,25 rad pro Schritt springt (ein großer Sprung wird rekursiv halbiert, bis ≈ 0,1 µm: nahe einer Singularität drehen Gelenke schnell, aber stetig; genau in der Singularität J5 = 0 darf das Handgelenk durchdrehen, solange die Spitze stehen bleibt). Sonst Gelenkfahrt (PTP):");
     tex!(ui, "ptp");
     p(ui, "Die Zeit je Schritt begrenzt entweder die Spitzengeschwindigkeit oder die schnellste Gelenkbewegung:");
     tex!(ui, "time");

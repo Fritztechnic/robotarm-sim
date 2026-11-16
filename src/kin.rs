@@ -263,10 +263,10 @@ fn arm_from(dh: &Dh, lim: [f64; 6]) -> Arm {
     })
 }
 
-/// Elfin-Cobot mit Anschlägen. J1, J4 und J6 haben intern ±720° Spielraum, damit der kürzeste Weg nie an
+/// Elfin-Cobot mit Anschlägen (J2/J3/J5 knapp innerhalb der Hersteller-URDF: ±134,6°, ±149,5°, ±146,7°). J1, J4 und J6 haben intern ±720° Spielraum, damit der kürzeste Weg nie an
 /// einer Grenze scheitert (340° → 10° = +30°); angezeigt wird nach Rückstellung bei ±360° auf 0.
 pub fn cobot_arm() -> Arm {
-    arm_from(&COBOT_DH, [720.0, 120.0, 150.0, 720.0, 120.0, 720.0])
+    arm_from(&COBOT_DH, [720.0, 134.0, 149.0, 720.0, 146.0, 720.0])
 }
 
 /// Ist das (noch) die gemessene Modellgeometrie? Dann wird sie durch die ideale ersetzt (alte Configs).

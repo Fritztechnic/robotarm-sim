@@ -237,7 +237,7 @@ impl App {
         let read = |name: &str| -> Option<Config> {
             serde_json::from_str(&std::fs::read_to_string(config_path().with_file_name(name)).ok()?).ok()
         };
-        let cfg: Config = read("config-v10.json").unwrap_or_else(|| {
+        let mut cfg: Config = read("config-v10.json").unwrap_or_else(|| {
             // Migration aus v9/v8: angepasste Mess-Geometrie durch die ideale ersetzen, Teile-Versatz zurücksetzen
             // (Modelle sitzen jetzt exakt auf den idealen Achsen)
             let mut c = read("config-v9.json").unwrap_or_else(|| {
@@ -253,6 +253,14 @@ impl App {
             c.style.part_offset = Default::default();
             c
         });
+        // alte Standardgrenzen (±120/150/120°) auf die Elfin-Herstellerwerte heben, eigene Werte bleiben
+        let real = kin::cobot_arm();
+        for (i, old) in [(1, 120.0), (2, 150.0), (4, 120.0)] {
+            let j = &mut cfg.arm[i];
+            if j.min_deg == -old && j.max_deg == old {
+                (j.min_deg, j.max_deg) = (real[i].min_deg, real[i].max_deg);
+            }
+        }
         egui_extras::install_image_loaders(&cc.egui_ctx);
         // Für Screenshots: Zusatzfenster im Hauptfenster einbetten
         cc.egui_ctx.set_embed_viewports(std::env::var("ROBOTARM_EMBED").is_ok());
@@ -759,6 +767,18 @@ mod tests {
         }
         println!("{bad} von {n} Paaren mit Gelenkfahrt");
         assert!(bad == 0, "{bad} von {n} Paaren mit Gelenkfahrt");
+    }
+
+    #[test]
+    fn line_through_wrist_singularity_stays_a_line() {
+        // Werkzeug waagrecht (Pitch 90°): Punkt 1 liegt fast in J5 = 0, J4/J6 drehen dort schnell durch
+        let arm = kin::cobot_arm();
+        let w = demo_waypoints();
+        let r = Some([0.0, 90f64.to_radians(), 0.0]);
+        let p = plan::build(&arm, &w.iter().map(|w| (w.pos, r)).collect::<Vec<_>>());
+        let ptp: Vec<_> = p.segs.iter().filter(|s| s.ptp).map(|s| (s.from + 1, s.to + 1)).collect();
+        println!("Gelenkfahrten {ptp:?}");
+        assert!(!ptp.contains(&(1, 2)) && ptp.len() <= 2, "Gelenkfahrten {ptp:?}");
     }
 
     fn free(p: &[V3]) -> Vec<plan::Pose> {
