@@ -158,7 +158,7 @@ impl Default for Config {
 // Wo die Einstellungen liegen. Neue Version = neue Datei, damit alte Configs nix zerschießen
 fn config_path() -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
-    std::path::Path::new(&home).join(".config/robotarm-sim/config-v9.json")
+    std::path::Path::new(&home).join(".config/robotarm-sim/config-v10.json")
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -234,20 +234,25 @@ struct App {
 
 impl App {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let cfg: Config = std::fs::read_to_string(config_path())
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_else(|| {
-                // Migration aus v8: alles behalten, J1/J4/J6 intern wieder ±720° (Rückstellung bei ±360° erledigt advance)
-                let mut c: Config = std::fs::read_to_string(config_path().with_file_name("config-v8.json"))
-                    .ok()
-                    .and_then(|s| serde_json::from_str(&s).ok())
-                    .unwrap_or_default();
+        let read = |name: &str| -> Option<Config> {
+            serde_json::from_str(&std::fs::read_to_string(config_path().with_file_name(name)).ok()?).ok()
+        };
+        let cfg: Config = read("config-v10.json").unwrap_or_else(|| {
+            // Migration aus v9/v8: angepasste Mess-Geometrie durch die ideale ersetzen, Teile-Versatz zurücksetzen
+            // (Modelle sitzen jetzt exakt auf den idealen Achsen)
+            let mut c = read("config-v9.json").unwrap_or_else(|| {
+                let mut c = read("config-v8.json").unwrap_or_default();
                 for i in [0, 3, 5] {
                     (c.arm[i].min_deg, c.arm[i].max_deg) = (-720.0, 720.0);
                 }
                 c
             });
+            if kin::is_model_geometry(&c.arm) {
+                kin::idealize(&mut c.arm);
+            }
+            c.style.part_offset = Default::default();
+            c
+        });
         egui_extras::install_image_loaders(&cc.egui_ctx);
         // Für Screenshots: Zusatzfenster im Hauptfenster einbetten
         cc.egui_ctx.set_embed_viewports(std::env::var("ROBOTARM_EMBED").is_ok());
@@ -738,7 +743,7 @@ mod tests {
 
     #[test]
     fn two_points_need_no_joint_move() {
-        // vorne liegende Punkte (J1 kreuzt keinen Anschlag): jede Gerade muss nach Umorientieren am Startpunkt gehen
+        // vorne liegende Punkte: ohne Winkel hängt die Haltung nur von der Position ab, jede Gerade muss direkt gehen
         let mut s = 99u64;
         let mut rnd = move || { s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (s >> 33) as f64 / (1u64 << 31) as f64 };
         let arm = kin::cobot_arm();

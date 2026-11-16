@@ -166,9 +166,7 @@ impl Proj {
 
 /// Modellmatrix je Teil: Frame(q) · Frame(Ruhepose)⁻¹. Teil 0 (Basis) bleibt stehen.
 fn part_matrices(arm: &Arm, q: &[f64; 6], off: &[[f64; 6]; 6]) -> [M4; 7] {
-    let rest_arm = kin::cobot_arm();
-    let q_rest: [f64; 6] = std::array::from_fn(|i| kin::COBOT_REST_THETA_DEG[i].to_radians() - rest_arm[i].offset_deg.to_radians());
-    let (cur, rest) = (kin::fk_frames(arm, q), kin::fk_frames(&rest_arm, &q_rest));
+    let (cur, rest) = (kin::fk_frames(arm, q), kin::model_rest_frames());
     std::array::from_fn(|k| {
         let o = if k == 0 { kin::IDENT } else { let d = off[k - 1]; kin::from_xyz_rpy([d[0], d[1], d[2]], [d[3].to_radians(), d[4].to_radians(), d[5].to_radians()]) };
         kin::mul(&kin::mul(&cur[k], &o), &kin::inv(&rest[k]))

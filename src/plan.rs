@@ -2,23 +2,30 @@
 //! Das Ergebnis hängt nur von Armgeometrie und Punkten ab – nie von Framerate, Geschwindigkeit
 //! oder Runde. Dieselbe Strecke fährt also immer exakt denselben Weg.
 //!
-//! Verfahren pro Strecke A→B (nur Position, die 3 überzähligen Freiheitsgrade bleiben frei):
-//!   1. Gerade in Schritten von `STEP` mm unterteilen, p(s) = A + s·(B−A)/|B−A|.
-//!   2. Jeder Punkt per gedämpftem Newton (Warmstart vom vorigen) + Nullraum-Zug lösen.
-//!   3. Schlägt ein Schritt fehl oder springt ein Gelenk (Singularität/Zweigwechsel),
-//!      wird die Strecke als Gelenkfahrt (PTP) geplant: lineare Interpolation im Gelenkraum.
-//!   0. Welche der vielen IK-Lösungen (Ellbogen/Handgelenk-Varianten) an jedem Punkt genommen wird,
-//!      entscheidet `route` per dynamischer Programmierung: möglichst wenige Gelenkfahrten.
-//!      Geht eine Gerade aus der aktuellen Konfiguration nicht, wird am Startpunkt zuerst umorientiert
-//!      (`reorient`: Nullraum-Bewegung, Spitze bleibt auf dem Punkt), dann die Gerade gefahren.
-//!   4. Der Schleifenschluss (letzter→erster Punkt) endet exakt in der Startstellung; passt
-//!      die Gerade dort nicht hin, wird auch er zur Gelenkfahrt. So ist jede Runde identisch.
+//! Verfahren:
+//!   1. An jedem Punkt alle exakten IK-Lösungen (Haltungen) bestimmen: mit Werkzeugwinkel ≤ 8,
+//!      ohne ≤ 4 (Werkzeugrichtung nach der festen Auto-Regel, siehe `kin`).
+//!   2. Jede Gerade A→B aus jeder Haltung an A verfolgen: Position linear, Orientierung per Slerp,
+//!      Schritte von höchstens `STEP` mm bzw. `ROT_STEP`; je Schritt die nächstgelegene exakte Lösung.
+//!      Springt ein Gelenk um mehr als `MAX_JUMP` (auch nach feiner Unterteilung), ist die Gerade aus dieser
+//!      Haltung nicht stetig fahrbar (Anschlag, Singularität, Haltungswechsel).
+//!   3. Graph über alle Punkte × Haltungen: Gerade = Gelenkweg, Gelenkfahrt (PTP) = `PTP_COST` + Gelenkweg.
+//!      Kürzester Rundweg per dynamischer Programmierung, exakt (keine Kürzung der Zustände), für jede
+//!      Starthaltung. Ergebnis: zuerst möglichst wenige Gelenkfahrten, dann möglichst wenig Gelenkweg.
+//!   4. Der Schleifenschluss endet exakt in der Starthaltung, jede Runde ist identisch.
+//! J1/J4/J6 drehen endlos: Haltungen gelten modulo 360°, jede Bewegung nimmt den kürzeren Weg.
 
-use crate::kin::{self, Arm, IkOptions, V3};
+use crate::kin::{self, Arm, IkOptions, V3, M4};
 
 pub const STEP: f64 = 2.0;
+/// Größter Orientierungsschritt (rad) je Abschnitt bei Strecken mit Werkzeugwinkel.
+const ROT_STEP: f64 = 0.0175;
 /// Größter erlaubter Gelenksprung pro Schritt (rad), sonst gilt die Gerade als nicht fahrbar.
 const MAX_JUMP: f64 = 0.25;
+/// Feinunterteilung eines Schritts mit großem Sprung: stetig, aber schnell (Nähe einer Singularität)?
+const SUBDIV: usize = 8;
+/// Kosten einer Gelenkfahrt: mehr als jeder denkbare Gelenkweg auf Geraden.
+const PTP_COST: f64 = 1000.0;
 pub const READY: [f64; 6] = [0.0, -35.0, 70.0, 0.0, 55.0, 0.0];
 
 pub struct Seg {
@@ -44,275 +51,105 @@ pub struct Plan {
 }
 
 /// Zielpose: Position (mm) und optional Werkzeugwinkel (Roll, Pitch, Yaw in rad).
-/// Ohne Winkel sind die 3 überzähligen Freiheitsgrade frei; mit Winkel ist die Pose voll bestimmt.
+/// Ohne Winkel bestimmt die Auto-Regel die Orientierung; mit Winkel ist die Pose voll vorgegeben.
 pub type Pose = (V3, Option<V3>);
 
-fn opt(restarts: usize, ori: bool) -> IkOptions {
-    IkOptions { use_orientation: ori, pos_tol: 1e-3, rot_tol: 1e-5, restarts }
+fn opt(ori: bool) -> IkOptions {
+    IkOptions { use_orientation: ori, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 }
 }
 
-fn target(p: &Pose) -> kin::M4 {
+fn target(p: &Pose) -> M4 {
     kin::from_xyz_rpy(p.0, p.1.unwrap_or([0.0; 3]))
 }
 
+/// Drehwinkel zwischen den Orientierungen zweier Posen (rad).
+fn turn(a: &Pose, b: &Pose) -> f64 {
+    match (a.1, b.1) {
+        (Some(_), Some(_)) => kin::rot_error(&target(b), &target(a)).iter().map(|v| v * v).sum::<f64>().sqrt(),
+        _ => 0.0,
+    }
+}
+
 /// Pose auf der Strecke a→b bei Anteil s∈[0,1]: Position linear, Orientierung als Drehung um die
-/// feste Achse der Relativdrehung (Slerp), also ohne Umwege durch Euler-Winkel.
-fn blend(a: &Pose, b: &Pose, s: f64) -> Pose {
-    let p = std::array::from_fn(|k| a.0[k] + (b.0[k] - a.0[k]) * s);
-    let (Some(ra), Some(rb)) = (a.1, b.1) else { return (p, a.1) };
-    let (ma, mb) = (kin::from_xyz_rpy([0.0; 3], ra), kin::from_xyz_rpy([0.0; 3], rb));
-    let v = kin::rot_error(&mb, &ma).map(|c| c * s);
-    let ang = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-    if ang < 1e-12 {
-        return (p, Some(ra));
+/// feste Achse der Relativdrehung (Slerp): R(s) = exp(s·v)·R_a mit exp(v) = R_b·R_aᵀ.
+fn pose_at(a: &Pose, b: &Pose, s: f64) -> M4 {
+    let p: V3 = std::array::from_fn(|k| a.0[k] + (b.0[k] - a.0[k]) * s);
+    let (ta, tb) = (target(a), target(b));
+    let mut m = if a.1.is_some() && b.1.is_some() { kin::mul(&kin::rot_exp(kin::rot_error(&tb, &ta).map(|c| c * s)), &ta) } else { ta };
+    for k in 0..3 {
+        m[k][3] = p[k];
     }
-    let n = v.map(|c| c / ang);
-    let (sn, cs) = ang.sin_cos();
-    let mut r = [[0.0; 3]; 3];
-    for i in 0..3 {
-        for j in 0..3 {
-            let k = [[0.0, -n[2], n[1]], [n[2], 0.0, -n[0]], [-n[1], n[0], 0.0]][i][j];
-            r[i][j] = (i == j) as u8 as f64 * cs + (1.0 - cs) * n[i] * n[j] + sn * k;
-        }
-    }
-    // R(s) = Exp(s·v)·Rₐ  →  zurück zu Roll/Pitch/Yaw
-    let mut m3 = kin::IDENT;
-    for i in 0..3 {
-        for j in 0..3 {
-            m3[i][j] = (0..3).map(|k| r[i][k] * ma[k][j]).sum();
-        }
-    }
-    (p, Some(kin::to_rpy(&m3)))
+    m
 }
 
 fn dq_max(a: &[f64; 6], b: &[f64; 6]) -> f64 {
     (0..6).map(|i| (a[i] - b[i]).abs()).fold(0.0, f64::max)
 }
 
-/// Gerade von `a` nach `b`, Start bei Stellung `q0`. None = nicht durchgängig fahrbar.
-fn march(arm: &Arm, q0: [f64; 6], a: &Pose, b: &Pose) -> Option<Vec<[f64; 6]>> {
-    let d: V3 = std::array::from_fn(|k| b.0[k] - a.0[k]);
-    let len = d.iter().map(|v| v * v).sum::<f64>().sqrt();
-    let n = (len / STEP).ceil().max(1.0) as usize;
+fn path_len(p: &[[f64; 6]]) -> f64 {
+    p.windows(2).map(|w| dq_max(&w[0], &w[1])).sum()
+}
+
+/// Exakte Lösung am Ziel `t`, die `q` am nächsten liegt (Rückfall: Newton ab `q`).
+fn follow(arm: &Arm, t: &M4, ori: bool, q: &[f64; 6]) -> Option<[f64; 6]> {
+    let r = kin::solve_ik(arm, t, *q, &opt(ori));
+    r.converged.then_some(r.q)
+}
+
+/// Gerade von `a` nach `b`, Start in Stellung `q0`. None = aus dieser Haltung nicht stetig fahrbar.
+fn track(arm: &Arm, q0: [f64; 6], a: &Pose, b: &Pose) -> Option<Vec<[f64; 6]>> {
     let ori = a.1.is_some();
+    let len = (0..3).map(|k| (b.0[k] - a.0[k]).powi(2)).sum::<f64>().sqrt();
+    let n = ((len / STEP).max(turn(a, b) / ROT_STEP)).ceil().max(1.0) as usize;
     let mut out = vec![q0];
     let mut q = q0;
     for i in 1..=n {
-        let t = target(&blend(a, b, i as f64 / n as f64));
-        let r = kin::solve_ik(arm, &t, q, &opt(0, ori));
-        if !r.converged {
-            return None;
+        let next = follow(arm, &pose_at(a, b, i as f64 / n as f64), ori, &q)?;
+        if dq_max(&next, &q) <= MAX_JUMP {
+            q = next;
+            out.push(q);
+            continue;
         }
-        let r = if ori { r } else { kin::polish(arm, &t, r, &opt(0, false), 2) };
-        if !r.converged || dq_max(&r.q, &q) > MAX_JUMP {
-            return None;
+        for j in 1..=SUBDIV {
+            let s = (i as f64 - 1.0 + j as f64 / SUBDIV as f64) / n as f64;
+            let next = follow(arm, &pose_at(a, b, s), ori, &q)?;
+            if dq_max(&next, &q) > MAX_JUMP {
+                return None;
+            }
+            q = next;
+            out.push(q);
         }
-        q = r.q;
-        out.push(q);
     }
     Some(out)
 }
 
-/// Gelenkfahrt: lineare Interpolation (feiner als 0,5° pro Schritt).
+/// Gelenkfahrt: lineare Interpolation im Gelenkraum (feiner als 0,5° pro Schritt), endlose Gelenke kurz herum.
 fn lerp_path(arm: &Arm, a: [f64; 6], b: [f64; 6]) -> Vec<[f64; 6]> {
     let b = kin::wrap_near(arm, b, &a);
     let n = (dq_max(&a, &b) / 0.5f64.to_radians()).ceil().max(1.0) as usize;
     (0..=n).map(|i| std::array::from_fn(|k| a[k] + (b[k] - a[k]) * i as f64 / n as f64)).collect()
 }
 
-/// Lösung für Punkt `p`, die der Stellung `q` am nächsten liegt.
-fn nearest(arm: &Arm, p: &Pose, q: [f64; 6]) -> Option<[f64; 6]> {
-    let (t, ori) = (target(p), p.1.is_some());
-    let r = kin::solve_ik(arm, &t, q, &opt(0, ori));
-    let r = if r.converged { r } else { kin::solve_ik(arm, &t, q, &opt(20, ori)) };
-    r.converged.then_some(r.q)
-}
-
-/// Alle deutlich verschiedenen IK-Lösungen für `p` (Ellbogen oben/unten, Handgelenk geklappt, Schulter gedreht).
-/// Feste Startwerte, daher deterministisch.
+/// Alle Haltungen am Punkt; gibt es keine exakte (z. B. Auto-Regel nicht erfüllbar), eine Newton-Lösung.
 fn candidates(arm: &Arm, p: &Pose) -> Vec<[f64; 6]> {
     let (t, ori) = (target(p), p.1.is_some());
-    let mut out: Vec<[f64; 6]> = vec![];
-    let mut seeds = vec![READY.map(f64::to_radians)];
-    for j1 in [0.0, 90.0, -90.0, 180.0] {
-        for j2 in [-35.0, 35.0] {
-            for j3 in [70.0, -70.0] {
-                for j5 in [55.0, -55.0] {
-                    seeds.push([j1, j2, j3, 0.0, j5, 0.0].map(f64::to_radians));
-                }
-            }
-        }
+    let c = kin::ik_all(arm, &t, ori);
+    if !c.is_empty() {
+        return c;
     }
-    for s in seeds {
-        let r = kin::solve_ik(arm, &t, s, &opt(0, ori));
-        if r.converged && out.iter().all(|o| dq_max(o, &r.q) > 0.1) {
-            out.push(r.q);
-        }
-    }
-    // Endlose Gelenke: dieselbe Pose gibt es auch ±360° versetzt (nötig für Fahrten über den Rücken).
-    // Mit Werkzeugwinkel zählt auch die Drehlage von J4/J6 für die Stetigkeit der Bahn.
-    let base = out.clone();
-    let shifted: &[usize] = if ori { &[0, 3, 5] } else { &[0] };
-    for q in base {
-        for &i in shifted {
-            for s in [-1.0, 1.0] {
-                let mut c = q;
-                c[i] += s * std::f64::consts::TAU;
-                if c[i].to_degrees().abs() <= arm[i].max_deg.min(-arm[i].min_deg) {
-                    out.push(c);
-                }
-            }
-        }
-    }
-    out
+    let r = kin::solve_ik(arm, &t, READY.map(f64::to_radians), &IkOptions { restarts: 20, ..opt(ori) });
+    if r.converged { vec![r.q] } else { vec![] }
 }
 
-struct State {
-    q: [f64; 6],
-    cost: f64,
-    parent: usize,
-    path: Vec<[f64; 6]>,
-    ptp: bool,
-}
-
-const PTP_COST: f64 = 1000.0;
-/// Umorientieren am Punkt kostet etwas, ist aber viel besser als eine Gelenkfahrt.
-const REORIENT_COST: f64 = 20.0;
-const KEEP: usize = 30;
-/// Zustände, die sich weniger als das unterscheiden, gelten als dieselbe Konfiguration (rad).
-const SAME: f64 = 0.3;
-
-fn key(k: usize, q: &[f64; 6]) -> (usize, [i64; 6]) {
-    (k, q.map(|v| (v * 1e4).round() as i64))
-}
-
-fn path_len(p: &[[f64; 6]]) -> f64 {
-    p.windows(2).map(|w| dq_max(&w[0], &w[1])).sum()
-}
-
-type Cache = std::collections::HashMap<(usize, [i64; 6]), Option<Vec<[f64; 6]>>>;
-
-/// Umorientieren am Punkt: die Spitze bleibt auf `p`, nur die Konfiguration (Handgelenk, Ellbogen…)
-/// wechselt von `q0` nach `q1`. Gelenkinterpolation, jeder Schritt wird per IK zurück auf den Punkt
-/// projiziert, also Nullraum-Bewegung. None, wenn das ohne Sprung/Verlassen des Punktes nicht geht.
-fn reorient(arm: &Arm, p: &Pose, q0: [f64; 6], q1: [f64; 6]) -> Option<Vec<[f64; 6]>> {
-    if p.1.is_some() {
-        // Mit festem Werkzeugwinkel gibt es keinen Nullraum: nur Gelenkfahrt möglich
-        return None;
-    }
-    let n = (dq_max(&q0, &q1) / 2f64.to_radians()).ceil().max(1.0) as usize;
-    let t = target(p);
-    let mut out = vec![q0];
-    for i in 1..n {
-        let f = i as f64 / n as f64;
-        let qt: [f64; 6] = std::array::from_fn(|k| q0[k] + (q1[k] - q0[k]) * f);
-        let r = kin::solve_ik(arm, &t, qt, &opt(0, false));
-        if !r.converged || dq_max(&r.q, out.last().unwrap()) > MAX_JUMP {
-            return None;
-        }
-        out.push(r.q);
-    }
-    (dq_max(out.last().unwrap(), &q1) <= MAX_JUMP).then(|| {
-        out.push(q1);
-        out
-    })
-}
-
-/// Eine Strecke von `pa` nach `pb` ab Stellung `q`: erst direkt als Gerade. Geht das nicht, am Startpunkt
-/// erst in eine passende Konfiguration umorientieren (ohne den Punkt zu verlassen), dann Gerade.
-/// `fin` prüft/ergänzt das Streckenende (Schleifenschluss). Rückgabe: Pfad und ob umorientiert wurde.
-fn leg(arm: &Arm, cache: &mut Cache, k: usize, pa: &Pose, pb: &Pose, q: [f64; 6], cand: &[[f64; 6]], fin: &dyn Fn(Vec<[f64; 6]>) -> Option<Vec<[f64; 6]>>) -> Option<(Vec<[f64; 6]>, bool)> {
-    let mut line = |q0: [f64; 6]| cache.entry(key(k, &q0)).or_insert_with(|| march(arm, q0, pa, pb)).clone().and_then(fin);
-    if let Some(l) = line(q) {
-        return Some((l, false));
-    }
-    let mut cs: Vec<[f64; 6]> = cand.iter().copied().filter(|c| dq_max(c, &q) > 1e-3).collect();
-    cs.sort_by(|a, b| dq_max(a, &q).total_cmp(&dq_max(b, &q)));
-    for c in cs.into_iter().take(14) {
-        if let Some(l) = line(c) {
-            if let Some(mut r) = reorient(arm, pa, q, c) {
-                r.extend(l.into_iter().skip(1));
-                return Some((r, true));
-            }
-        }
-    }
-    None
-}
-
-/// Bester Weg durch alle Punkte ab Startstellung `s0`: Dynamische Programmierung über die
-/// Konfigurationen. Gerade = fast kostenlos, Gelenkfahrt = teuer, also möglichst wenige davon.
-fn route(arm: &Arm, pts: &[Pose], cand: &[Vec<[f64; 6]>], s0: [f64; 6], cache: &mut Cache) -> (f64, Vec<(Vec<[f64; 6]>, bool)>) {
-    let n = pts.len();
-    let mut layers: Vec<Vec<State>> = vec![vec![State { q: s0, cost: 0.0, parent: usize::MAX, path: vec![], ptp: false }]];
-    for k in 0..n - 1 {
-        let mut next: Vec<State> = vec![];
-        for (si, s) in layers[k].iter().enumerate() {
-            if let Some((path, re)) = leg(arm, cache, k, &pts[k], &pts[k + 1], s.q, &cand[k], &Some) {
-                next.push(State { q: *path.last().unwrap(), cost: s.cost + path_len(&path) + if re { REORIENT_COST } else { 0.0 }, parent: si, path, ptp: false });
-            }
-            for c in &cand[k + 1] {
-                let path = lerp_path(arm, s.q, *c);
-                let end = *path.last().unwrap();
-                next.push(State { q: end, cost: s.cost + PTP_COST + path_len(&path), parent: si, path, ptp: true });
-            }
-        }
-        next.sort_by(|a, b| a.cost.total_cmp(&b.cost));
-        let mut kept: Vec<State> = vec![];
-        for s in next {
-            if kept.len() < KEEP && kept.iter().all(|o| dq_max(&o.q, &s.q) > SAME) {
-                kept.push(s);
-            }
-        }
-        layers.push(kept);
-    }
-    // Schleifenschluss: muss exakt in s0 enden, sonst Gelenkfahrt dorthin
-    let mut best: Option<(f64, usize, Vec<[f64; 6]>, bool)> = None;
-    for (si, s) in layers[n - 1].iter().enumerate() {
-        // Gerade zurück zum Startpunkt; endet sie in einer anderen Konfiguration, pendelt der Arm dort
-        // kurz in die Startstellung ein (damit jede Runde exakt gleich beginnt)
-        let fin = |mut l: Vec<[f64; 6]>| {
-            if pts[0].1.is_some() {
-                // Fester Werkzeugwinkel: kein Einpendeln möglich, die Gerade muss selbst in der Startstellung enden
-                let w = kin::wrap_near(arm, s0, l.last().unwrap());
-                return (dq_max(l.last().unwrap(), &w) < 0.02).then(|| {
-                    l.push(w);
-                    l
-                });
-            }
-            let tail = reorient(arm, &pts[0], *l.last().unwrap(), s0)?;
-            l.extend(tail.into_iter().skip(1));
-            Some(l)
-        };
-        let line = leg(arm, cache, n - 1, &pts[n - 1], &pts[0], s.q, &cand[n - 1], &fin);
-        let (path, ptp) = match line {
-            Some((l, _)) => (l, false),
-            None => (lerp_path(arm, s.q, s0), true),
-        };
-        let cost = s.cost + path_len(&path) + if ptp { PTP_COST } else { 0.0 };
-        if best.as_ref().is_none_or(|b| cost < b.0) {
-            best = Some((cost, si, path, ptp));
-        }
-    }
-    let (cost, mut si, cpath, cptp) = best.unwrap();
-    let mut segs = vec![(cpath, cptp)];
-    for k in (1..n).rev() {
-        let s = &layers[k][si];
-        segs.push((s.path.clone(), s.ptp));
-        si = s.parent;
-    }
-    segs.reverse();
-    (cost, segs)
-}
+/// Gerade aus Haltung i am Punkt k: Pfad und Haltung j, in der sie am nächsten Punkt ankommt.
+type Leg = Option<(Vec<[f64; 6]>, usize)>;
 
 pub fn build(arm: &Arm, pts: &[Pose]) -> Plan {
     let mut plan = Plan { pts: pts.iter().map(|p| p.0).collect(), poses: pts.to_vec(), ..Plan::default() };
     let ready = READY.map(f64::to_radians);
     let (mut order, mut cand): (Vec<usize>, Vec<Vec<[f64; 6]>>) = (vec![], vec![]);
     for (i, p) in pts.iter().enumerate() {
-        let mut c = candidates(arm, p);
-        if c.is_empty() {
-            c.extend(nearest(arm, p, ready));
-        }
+        let c = candidates(arm, p);
         if c.is_empty() {
             plan.unreachable.push(i);
         } else {
@@ -323,30 +160,92 @@ pub fn build(arm: &Arm, pts: &[Pose]) -> Plan {
     let Some(&first) = order.first() else { return plan };
     plan.first = first;
     let op: Vec<Pose> = order.iter().map(|&i| pts[i]).collect();
-    if op.len() < 2 {
-        plan.start = cand[0][0];
+    let n = op.len();
+    if n < 2 {
+        plan.start = kin::nearest(arm, &cand[0], &ready).unwrap();
         return plan;
     }
-    // Startkonfiguration: die mit der besten Gesamtroute (Bereit-Pose am nächsten zuerst: deterministische Reihenfolge)
-    let mut starts = cand[0].clone();
-    starts.sort_by(|a, b| dq_max(a, &ready).total_cmp(&dq_max(b, &ready)));
-    let mut cache = Cache::new();
-    let mut best: Option<(f64, [f64; 6], Vec<(Vec<[f64; 6]>, bool)>)> = None;
-    for s0 in starts.into_iter().take(6) {
-        let (cost, segs) = route(arm, &op, &cand, s0, &mut cache);
-        if best.as_ref().is_none_or(|b| cost < b.0 - 1e-9) {
-            best = Some((cost, s0, segs));
+    // Alle Geraden aus allen Haltungen (Strecke k: Punkt k → k+1, die letzte schließt die Schleife)
+    let legs: Vec<Vec<Leg>> = (0..n)
+        .map(|k| {
+            let to = (k + 1) % n;
+            cand[k]
+                .iter()
+                .map(|&q| {
+                    let mut path = track(arm, q, &op[k], &op[to])?;
+                    let end = path.last_mut().unwrap();
+                    let j = (0..cand[to].len()).find(|&j| kin::joint_dist(arm, &cand[to][j], end) < 1e-6)?;
+                    // exakt auf die Haltung einrasten (gleiche Umdrehung), damit Folgestrecken nahtlos anschließen
+                    *end = kin::wrap_near(arm, cand[to][j], end);
+                    Some((path, j))
+                })
+                .collect()
+        })
+        .collect();
+    // Starthaltungen: die der Bereit-Stellung nächste zuerst (entscheidet bei Gleichstand)
+    let mut starts: Vec<usize> = (0..cand[0].len()).collect();
+    starts.sort_by(|&a, &b| kin::joint_dist(arm, &cand[0][a], &ready).total_cmp(&kin::joint_dist(arm, &cand[0][b], &ready)));
+    // best[k][j] = (Kosten, Vorgänger-Haltung, Gerade?)
+    let mut winner: Option<(f64, usize, Vec<(usize, bool)>)> = None;
+    for &s0 in &starts {
+        let mut best: Vec<Vec<Option<(f64, usize, bool)>>> = cand.iter().map(|c| vec![None; c.len()]).collect();
+        best[0][s0] = Some((0.0, usize::MAX, false));
+        let relax = |slot: &mut Option<(f64, usize, bool)>, v: (f64, usize, bool)| {
+            if slot.is_none_or(|s| v.0 < s.0 - 1e-9) {
+                *slot = Some(v);
+            }
+        };
+        for k in 0..n - 1 {
+            for i in 0..cand[k].len() {
+                let Some((c, _, _)) = best[k][i] else { continue };
+                if let Some((path, j)) = &legs[k][i] {
+                    relax(&mut best[k + 1][*j], (c + path_len(path), i, true));
+                }
+                for j in 0..cand[k + 1].len() {
+                    relax(&mut best[k + 1][j], (c + PTP_COST + kin::joint_dist(arm, &cand[k][i], &cand[k + 1][j]), i, false));
+                }
+            }
         }
-        if best.as_ref().is_some_and(|b| b.0 < PTP_COST) {
-            break;
+        // Schleifenschluss zurück in die Starthaltung
+        let mut close: Option<(f64, usize, bool)> = None;
+        for i in 0..cand[n - 1].len() {
+            let Some((c, _, _)) = best[n - 1][i] else { continue };
+            match &legs[n - 1][i] {
+                Some((path, j)) if *j == s0 => relax(&mut close, (c + path_len(path), i, true)),
+                _ => relax(&mut close, (c + PTP_COST + kin::joint_dist(arm, &cand[n - 1][i], &cand[0][s0]), i, false)),
+            }
         }
+        let Some((total, mut i, line)) = close else { continue };
+        if winner.as_ref().is_some_and(|w| total >= w.0 - 1e-9) {
+            continue;
+        }
+        // Rückwärts: Haltung je Punkt und Art der Strecke, die vom Punkt ausgeht
+        let mut route = vec![(0, false); n];
+        route[n - 1] = (i, line);
+        for k in (1..n).rev() {
+            let (_, prev, l) = best[k][i].unwrap();
+            route[k - 1] = (prev, l);
+            i = prev;
+        }
+        winner = Some((total, s0, route));
     }
-    let (_, s0, segs) = best.unwrap();
-    plan.start = s0;
-    let n = op.len();
-    for (k, (q, ptp)) in segs.into_iter().enumerate() {
-        let closing = k + 1 == n;
-        plan.segs.push(Seg { from: order[k], to: order[(k + 1) % n], q, ptp, closing });
+    let (_, s0, route) = winner.unwrap();
+    // Vorwärts mit den tatsächlichen (abgewickelten) Winkeln: Geraden werden um ganze Umdrehungen verschoben
+    let mut q = cand[0][s0];
+    plan.start = q;
+    for k in 0..n {
+        let (i, line) = route[k];
+        let to = (k + 1) % n;
+        let path = if line {
+            let (p, _) = legs[k][i].as_ref().unwrap();
+            let d: [f64; 6] = std::array::from_fn(|m| q[m] - cand[k][i][m]);
+            p.iter().map(|x| std::array::from_fn(|m| x[m] + d[m])).collect()
+        } else {
+            let j = if to == 0 { s0 } else { route[to].0 };
+            lerp_path(arm, q, cand[to][j])
+        };
+        q = *path.last().unwrap();
+        plan.segs.push(Seg { from: order[k], to: order[to], q: path, ptp: !line, closing: k + 1 == n });
     }
     plan
 }

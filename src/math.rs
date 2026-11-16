@@ -146,14 +146,19 @@ impl App {
         });
 
         egui::CollapsingHeader::new(RichText::new("3 · Inverse Kinematik").strong()).default_open(true).show(ui, |ui| {
-            tex!(ui, "ik_e");
-            tex!(ui, "ik_dq");
-            tex!(ui, "null");
-            note(ui, "Mit Winkelvorgabe kommt der Orientierungsfehler als Rotationsvektor dazu (nahe 180° wird die Achse aus der Diagonale bestimmt, damit sie stabil bleibt):");
+            tex!(ui, "poe");
+            tex!(ui, "ikchain");
+            note(ui, "Geschlossene Lösung (Paden-Kahan): Schulter J1∩J2 und Handgelenk J4∩J5∩J6 schneiden sich in Punkten, daher zerfällt die IK in Teilprobleme mit je 1–2 exakten Lösungen. Ergebnis: alle Haltungen (bis 8), auf Rechengenauigkeit, ohne Iteration und ohne Abhängigkeit von der aktuellen Stellung. Gewählt wird die zur Ist-Stellung nächstgelegene.");
+            note(ui, "Ohne Winkelvorgabe legt eine feste Regel die Werkzeugrichtung fest (gestreckt von der Schulter zum Ziel, nah an der Schulter weich abgeknickt), J4 ≈ 0, J6 = 0. Die Haltung hängt damit NUR von der Position ab: A→B und B→A fahren dieselben Stellungen.");
+            tex!(ui, "auto");
+            note(ui, "Mit Winkelvorgabe ist die Pose vollständig festgelegt (6 Gleichungen, 6 Gelenke). Orientierungsfehler als Rotationsvektor (nahe 180° stabil aus der Diagonale):");
             tex!(ui, "roterr");
+            note(ui, "Nur bei selbst geänderter Geometrie (Achsen schneiden sich nicht mehr) dient die geschlossene Form als Startwert für gedämpftes Newton (Levenberg-Marquardt, Cholesky):");
+            tex!(ui, "ik_dq");
             tex!(ui, "ik6");
-            note(ui, "Anschläge: J1, J4 und J6 haben intern ±720° Spielraum, damit der kürzeste Weg nie an einer Grenze scheitert; die Anzeige springt bei ±360° auf 0 zurück. Die übrigen Gelenke haben ihre Grenzen. Zufalls-Neustarts nutzen für diese Gelenke eine Umdrehung (±180°).");
-            note(ui, "Ohne Winkelvorgabe hat der Arm 3 überzählige Freiheitsgrade (6 Gelenke, 3 Positionsgleichungen). Im Nullraum bewegt sich der Arm, ohne die Spitze zu verschieben: das nutzt der Zug der Handgelenke J4/J6 zur Komfortstellung. W = diag(0, 0.1, 0.1, 1, 0.3, 1).");
+            note(ui, "Anschläge: J1, J4 und J6 haben intern ±720° Spielraum, damit der kürzeste Weg nie an einer Grenze scheitert; die Anzeige springt bei ±360° auf 0 zurück.");
+            let exact = kin::ik_all(&arm, &kin::from_xyz_rpy(self.target_pos, [0.0; 3]), false).len();
+            ui.label(mono(format!("Haltungen am Ziel (ohne Winkel): {exact}")));
             let t = self.target_pos;
             let p = kin::pos(&frames[6]);
             let e: kin::V3 = std::array::from_fn(|k| t[k] - p[k]);
@@ -190,16 +195,14 @@ impl App {
             tex!(ui, "ramp");
             note(ui, "Anfahren/Abbremsen mit konstanter Beschleunigung (Rampe 0,35 s), kurze Fahrten erreichen die Nenngeschwindigkeit nicht.");
             tex!(ui, "dp");
-            note(ui, "Welche IK-Lösung (Ellbogen, Handgelenk, Schulter, J1/J4/J6 um ±360° versetzt) an jedem Punkt gilt, wählt eine dynamische Programmierung: möglichst wenige Gelenkfahrten, dann kürzester Gelenkweg.");
-            tex!(ui, "reor");
-            note(ui, "Umorientieren am Punkt: Gelenkinterpolation, jeder Schritt per IK auf den Punkt zurückprojiziert (Spitze bleibt stehen), danach die Gerade.");
+            note(ui, "Graph über alle Punkte × Haltungen (exakte IK-Lösungen): jede Gerade wird aus jeder Haltung verfolgt; die dynamische Programmierung wählt exakt die Route mit den wenigsten Gelenkfahrten, dann dem kürzesten Gelenkweg. Kein Umorientieren am Punkt nötig: ohne Winkel hängt die Haltung nur von der Position ab.");
             tex!(ui, "wrap");
             note(ui, "Kürzester Weg: J1, J4 und J6 werden um ganze Umdrehungen verschoben, bis das Ziel der aktuellen Stellung am nächsten liegt (359° → 0° ist +1°, 450° wird als 90° angefahren). Gilt für Gelenkfahrten, Anfahrt und Zielbewegung; Geraden bleiben kontinuierlich. Die Planung läuft im Hintergrund-Thread.");
             tex!(ui, "rst");
             note(ui, "Anzeige: Erreicht ein Wert ±360°, springt er auf 0 zurück (gleiche Pose). Intern haben die drei Gelenke ±720° Spielraum, damit eine Gerade oder der kürzeste Weg nie an einer Grenze scheitert.");
             tex!(ui, "slerp");
-            note(ui, "Mit Werkzeugwinkel (global oder pro Punkt): Position linear, Orientierung per Slerp überblendet; jeder Schritt wird mit vollständiger 6D-IK gelöst. Der Winkel ist dann vollständig festgelegt: kein Umorientieren am Punkt (kein Nullraum), nicht stetig fahrbare Stücke werden zur Gelenkfahrt.");
-            note(ui, "Springt ein Gelenk (> 14° pro 2 mm) oder findet die IK keine Lösung, ist die Gerade nicht fahrbar: dann Gelenkfahrt (PTP) mit linearer Interpolation im Gelenkraum. Der Schleifenschluss endet exakt in der Startstellung.");
+            note(ui, "Mit Werkzeugwinkel (global oder pro Punkt): Position linear, Orientierung per Slerp überblendet; jeder Schritt wird mit vollständiger 6D-IK gelöst. Schrittzahl richtet sich nach Weg (2 mm) UND Drehwinkel (1°), auch reine Drehungen werden fein abgefahren.");
+            note(ui, "Springt ein Gelenk (> 14° pro Schritt, auch nach 8-facher Unterteilung) oder findet die IK keine Lösung, ist die Gerade nicht fahrbar: dann Gelenkfahrt (PTP) mit linearer Interpolation im Gelenkraum. Der Schleifenschluss endet exakt in der Startstellung.");
             if self.plan.segs.is_empty() {
                 note(ui, "Noch kein Plan: Playlist starten.");
             } else {
@@ -267,37 +270,47 @@ fn formulas_body(ui: &mut egui::Ui) {
     tex!(ui, "manip");
     p(ui, "w → 0 ist eine Singularität: Der Arm verliert eine Bewegungsrichtung, kleine Spitzenbewegungen brauchen riesige Gelenkwinkel (typisch: Arm gestreckt oder Handgelenk über der Schulterachse).");
 
-    h(ui, "4", "Inverse Kinematik");
-    p(ui, "Gesucht ist q mit p(q) = p*. Für beliebige Gelenke gibt es keine geschlossene Lösung, deshalb iterativ per gedämpftem Newton-Verfahren (Levenberg-Marquardt) mit Anschlägen:");
+    h(ui, "4", "Inverse Kinematik (geschlossen, Paden-Kahan)");
+    p(ui, "Die Kinematik wird als Produkt von Exponentialen geschrieben: ω_i ist die Drehachse von Gelenk i, r_i ein Punkt darauf (beide bei q = 0), M die Werkzeugpose bei q = 0. Das ist dieselbe Abbildung wie die DH-Kette, nur in Achsen statt Frames:");
+    tex!(ui, "poe");
+    p(ui, "Beim Elfin schneiden sich J1 und J2 im Schulterpunkt s, J4, J5 und J6 im Handgelenkpunkt w. Dadurch zerfällt die IK in drei geometrische Teilprobleme mit geschlossener Lösung:");
+    tex!(ui, "sp1");
+    tex!(ui, "sp2");
+    tex!(ui, "sp3");
+    p(ui, "Kette: Der Handgelenkpunkt W hängt nur von J1–J3 ab. Sein Abstand zur Schulter legt J3 fest (zwei Lösungen: Ellbogen oben/unten), dann J1/J2 (vorn/hinten), zuletzt die Handgelenksdrehung (geklappt/nicht geklappt):");
+    tex!(ui, "ikchain");
+    p(ui, "Ergebnis: bis zu 8 exakte Haltungen, unabhängig vom Startwert. Die IK wählt die zur Ist-Stellung nächstgelegene (Vollkreis-Gelenke über den kürzeren Weg). Lösungen außerhalb der Anschläge entfallen.");
+    p(ui, "Ohne Winkelvorgabe fehlen 3 Gleichungen. Statt einer Nullraum-Suche (deren Ergebnis vom Startwert abhängt) bestimmt eine feste Regel die Werkzeugrichtung u: gestreckt von der Schulter zum Ziel; nah an der Schulter, wo der Ellbogen nicht weiter einklappen kann, knickt das Werkzeug in der Armebene um ψ ab, sodass der Handgelenkabstand d erreichbar bleibt. J4 so nah an 0 wie möglich, J6 = 0:");
+    tex!(ui, "auto");
+    p(ui, "σ ist ein weiches max(0, y): Wert und Steigung stetig, der Knick setzt mit endlicher Geschwindigkeit ein (eine harte Grenze hätte wegen arccos eine unendliche Steigung). Gedreht wird um die J2-Achse der jeweiligen Schulterseite, damit bleibt die Regel auch beim Überqueren der J1-Achse stetig. Grenze: direkt über der Schulter (Abstand < ~150 mm) erzwingt die Regel teils J2 am Anschlag; dort wählt der Planer eine Gelenkfahrt.");
+    tex!(ui, "soft");
+    p(ui, "Folge: Die Haltung ohne Winkel hängt NUR von der Position ab (je Schulterseite × Ellbogen eine, bis zu 4). Hin- und Rückweg zwischen zwei Punkten fahren exakt dieselben Stellungen, es gibt keine pfadabhängigen Umwege.");
+    p(ui, "Orientierungsfehler (für Prüfung und Rückfall) als Rotationsvektor der Restdrehung R* Rᵀ; nahe 180° wird die Achse aus der Diagonale (R = 2 n nᵀ − I) bestimmt:");
+    tex!(ui, "roterr");
+    p(ui, "Rückfall nur für selbst geänderte Geometrie (Achsen schneiden sich nicht mehr): die geschlossene Form liefert Startwerte, gedämpftes Newton (Levenberg-Marquardt, Cholesky-Zerlegung) macht sie exakt; außer Reichweite streckt es den Arm so weit wie möglich zum Ziel:");
     tex!(ui, "ik_e");
     tex!(ui, "ik_dq");
-    p(ui, "λ dämpft die Schritte nahe Singularitäten. Mit Winkelvorgabe wird e um den Orientierungsfehler erweitert (6 Gleichungen, 6 Unbekannte). Ohne Vorgabe bleiben 3 überzählige Freiheitsgrade; der Nullraum verschiebt die Spitze nicht und zieht die Gelenke zur Komfortstellung:");
-    tex!(ui, "null");
-    p(ui, "Mit Winkelvorgabe kommt der Orientierungsfehler als Rotationsvektor (Achse · Winkel) der Restdrehung R* Rᵀ hinzu. Nahe 180° verschwindet der antisymmetrische Anteil, dort wird die Achse stattdessen aus der Diagonale (R = 2 n nᵀ − I) bestimmt, ihr Vorzeichen aus v. Beide Anteile werden mit L vergleichbar gemacht:");
-    tex!(ui, "roterr");
     tex!(ui, "ik6");
-    p(ui, "Anschläge: J1, J4 und J6 haben intern ±720° Spielraum (damit der kürzeste Weg nie an einer Grenze scheitert, z. B. 340° → 10° = +30°); die Anzeige springt bei ±360° auf 0 zurück. Die anderen Gelenke haben eigene Grenzen, auf die jeder Schritt geklemmt wird. Zufalls-Neustarts nutzen für diese Gelenke eine Umdrehung (±180°).");
-    p(ui, "Mehrere Startwerte (Restarts) finden verschiedene Lösungen: Ellbogen oben/unten, Handgelenk geklappt.");
+    p(ui, "Geometrie: Die DH-Werte sind die idealen Elfin-Maße (Achsen exakt rechtwinklig/parallel). Die 3D-Modelle sitzen auf diesen Achsen; die früher aus dem Netz gemessenen Werte (Messrauschen ≈ 2,5° am Kopf) werden beim Laden ersetzt.");
+    p(ui, "Anschläge: J1, J4 und J6 haben intern ±720° Spielraum (damit der kürzeste Weg nie an einer Grenze scheitert, z. B. 340° → 10° = +30°); die Anzeige springt bei ±360° auf 0 zurück.");
 
     h(ui, "5", "Servo-Abbildung");
     p(ui, "c = Servo-Winkel bei q = 0, d = ±1 (Drehrichtung), range = Stellweg, p_min/p_max = Pulsbreiten der Endlagen.");
     tex!(ui, "servo");
 
     h(ui, "6", "Bahnplanung (Playlist)");
-    p(ui, "Eine Gerade wird in 2-mm-Schritten abgefahren, jeder Schritt per IK mit Warmstart gelöst:");
+    p(ui, "Eine Gerade wird in Schritten von höchstens 2 mm bzw. 1° Drehung abgefahren; an jedem Schritt wird unter den exakten IK-Lösungen die der vorigen Stellung nächste genommen:");
     tex!(ui, "line");
     tex!(ui, "step");
-    p(ui, "Fahrbar ist sie, wenn die IK an jedem Schritt konvergiert und kein Gelenk mehr als 0,25 rad pro Schritt springt. Sonst Gelenkfahrt (PTP):");
+    p(ui, "Fahrbar ist sie, wenn es an jedem Schritt eine Lösung gibt und kein Gelenk mehr als 0,25 rad pro Schritt springt (ein großer Sprung wird zuerst 8-fach unterteilt: nahe einer Singularität drehen Gelenke schnell, aber stetig). Sonst Gelenkfahrt (PTP):");
     tex!(ui, "ptp");
     p(ui, "Die Zeit je Schritt begrenzt entweder die Spitzengeschwindigkeit oder die schnellste Gelenkbewegung:");
     tex!(ui, "time");
     p(ui, "Anfahren und Abbremsen laufen mit konstanter Beschleunigung (v² ∝ Weg) statt als Ruck; kurze Fahrten erreichen die Nenngeschwindigkeit gar nicht erst:");
     tex!(ui, "ramp");
-    p(ui, "Welche Konfiguration (Ellbogen, Handgelenk, Schulter) an jedem Punkt gewählt wird, entscheidet eine dynamische Programmierung über alle IK-Lösungen: Gesamtroute mit möglichst wenigen Gelenkfahrten, bei gleich vielen mit kürzestem Gelenkweg. Geht eine Gerade aus der aktuellen Konfiguration nicht, orientiert sich der Arm zuerst AM PUNKT um (Nullraum-Bewegung: Gelenkinterpolation, jeder Schritt per IK zurück auf den Punkt projiziert, die Spitze bleibt stehen) und fährt dann die Gerade. Auch die Schleife schließt so in die Startstellung.");
-    p(ui, "Kandidaten: pro Punkt bis zu ~30 verschiedene IK-Lösungen aus festen Startwerten (deterministisch), bei J1/J4 (mit Winkelvorgabe auch J6) zusätzlich um ±360° versetzt. Die Route ist ein kürzester Pfad (dynamische Programmierung) über diese Zustände; Kosten = Gelenkweg + 1000 je Gelenkfahrt + 20 je Umorientieren:");
+    p(ui, "Welche Haltung an jedem Punkt gilt, entscheidet ein kürzester Weg im Graphen Punkte × Haltungen. Jede Gerade wird aus JEDER Haltung am Startpunkt verfolgt und endet in einer bestimmten Haltung am Ziel; zusätzlich ist jede Gelenkfahrt zwischen zwei Haltungen eine Kante. Die dynamische Programmierung ist exakt (keine Zustände gekürzt) und wird für jede Starthaltung gelöst; die Schleife muss in der Starthaltung schließen:");
     tex!(ui, "dp");
-    p(ui, "Umorientieren am Punkt (Nullraum-Bewegung): Gelenkinterpolation, jeder Schritt per IK zurück auf den Punkt projiziert, bei höchstens 0,25 rad Sprung:");
-    tex!(ui, "reor");
+    p(ui, "Damit gilt: zuerst so wenige Gelenkfahrten wie überhaupt möglich, bei Gleichstand der kürzeste Gelenkweg, bei weiterem Gleichstand die Starthaltung nahe der Bereit-Stellung. Ein Umorientieren am Punkt ist nicht mehr nötig: ohne Winkel ist die Haltung durch die Position festgelegt, mit Winkel durch die Pose.");
     h(ui, "6b", "Kürzester Weg bei Vollkreis-Gelenken (±360°)");
     p(ui, "J1, J4 und J6 drehen mehr als eine Umdrehung: Eine Stellung q und q ± 2π sind dieselbe Pose. Jedes Ziel wird deshalb vor der Bewegung um ganze Umdrehungen verschoben, bis es der Ist-Stellung am nächsten liegt (dabei bleiben die internen Grenzen ±720° gewahrt, sodass nie ein langer Umweg nötig wird):");
     tex!(ui, "wrap");
@@ -307,7 +320,7 @@ fn formulas_body(ui: &mut egui::Ui) {
     h(ui, "6c", "Werkzeugwinkel im Playbook");
     p(ui, "Jeder Punkt kann einen eigenen Winkel (Roll, Pitch, Yaw) tragen, sonst gilt der globale Winkel (\"Winkel vorgeben\"); sobald irgendein Punkt einen Winkel hat, erben Punkte ohne Winkel den zuletzt gültigen (zyklisch), der Winkel bleibt also im ganzen Ablauf vorgegeben. Zwischen zwei Punkten wird die Position linear und die Orientierung per Slerp (kürzeste Drehung) überblendet:");
     tex!(ui, "slerp");
-    p(ui, "Mit festem Winkel hat die Pose nur diskrete IK-Lösungen. Eine Gerade ist fahrbar, wenn dieselbe Konfiguration stetig mitläuft, andernfalls folgt eine Gelenkfahrt. Ein Umorientieren am Punkt (Nullraum) gibt es nicht, J6 wird wie J1/J4 um ±360° verschoben berücksichtigt. Der Schleifenschluss endet direkt in der Startstellung.");
+    p(ui, "Mit festem Winkel hat die Pose nur diskrete IK-Lösungen. Eine Gerade ist fahrbar, wenn dieselbe Konfiguration stetig mitläuft, andernfalls folgt eine Gelenkfahrt. J1/J4/J6 werden über den kürzeren Weg (modulo 360°) verglichen. Der Schleifenschluss endet direkt in der Startstellung.");
     p(ui, "Bewegungsprofil: Anfahren und Abbremsen mit konstanter Beschleunigung (siehe oben). Die Planung läuft in einem Hintergrund-Thread, die Oberfläche bleibt bedienbar.");
     p(ui, "Die ganze Bahn wird vor dem Start berechnet: Sie hängt nur von Arm und Punkten ab, nicht von Framerate, Geschwindigkeit oder Runde.");
 
