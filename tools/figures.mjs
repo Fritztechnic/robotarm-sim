@@ -14,6 +14,7 @@ const L = (a, b, c = 'ln', arrow = false, extra = '') =>
   `<line class="${c}" x1="${n2(a[0])}" y1="${n2(a[1])}" x2="${n2(b[0])}" y2="${n2(b[1])}"${arrow ? ' marker-end="url(#ah)"' : ''} ${extra}/>`;
 const SUB = '₀₁₂₃₄₅₆₇₈₉', SUP = { '²': '2', '³': '3' };
 const mk = (s) => s
+  .replace(/_\{([^}]+)\}/g, '<tspan class="sb" baseline-shift="sub">$1</tspan>')
   .replace(/[₀-₉]/g, (c) => `<tspan class="sb" baseline-shift="sub">${SUB.indexOf(c)}</tspan>`)
   .replace(/[²³]/g, (c) => `<tspan class="sb" baseline-shift="super">${SUP[c]}</tspan>`)
   .replace(/_([A-Za-z]+)/g, '<tspan class="sb" baseline-shift="sub">$1</tspan>');
@@ -115,6 +116,88 @@ function armDrawing(pr, q, { frames = false, tri = 70, labels = true } = {}) {
 
 /* =================================================================== */
 export const figures = {
+  dotsign() {
+    const cases = [[50, 'a · b > 0', 'θ < 90°: ungefähr gleiche Richtung'], [90, 'a · b = 0', 'θ = 90°: senkrecht'], [130, 'a · b < 0', 'θ > 90°: ungefähr entgegengesetzt']];
+    let g = '';
+    cases.forEach(([th, t1, t2], i) => {
+      const ox = 30 + i * 205, m = plane(ox, 190, 1), b = [80 * Math.cos(rad(th)), 80 * Math.sin(rad(th))];
+      g += `${L(m([0, 0]), m([100, 0]), 'vec', true)}${L(m([0, 0]), m(b), 'vec B', true)}${path(arcPath(m, [0, 0], 30, 0, th), 'ln arc')}
+${T(m([36 * Math.cos(rad(th / 2)), 36 * Math.sin(rad(th / 2))]), 'θ', 'tx', 'start', 4, 0)}${T(m([100, 0]), 'a', 'tx a', 'start', 6, 4)}${T(m(b), 'b', 'tx b', 'middle', 0, -8)}
+${T(m([50, 0]), t1, 'tx', 'middle', 0, 40)}${T(m([50, 0]), t2, 'tx s', 'middle', 0, 62)}`;
+    });
+    return fig(640, 250, 'Das Vorzeichen des Skalarprodukts',
+      g, 'Der Winkel θ zwischen den Pfeilen bestimmt das Vorzeichen von a · b = |a| |b| cos θ: positiv unter 90°, null bei 90°, negativ darüber.');
+  },
+
+  vecsub() {
+    const m = plane(70, 230, 1.05), a = [150, 40], b = [70, 130], n = [-0.2, 0.98];
+    const m2 = plane(420, 140, 1.05), u = [70, 35], off = (k) => [-14 * k * 0.447, 14 * k * 0.894];
+    const seg = (k, f, c, lab, dx, dy) => { const o = off(k); return `${L(m2([o[0], o[1]]), m2([f * u[0] + o[0], f * u[1] + o[1]]), c, true)}${T(m2([f * u[0] + o[0], f * u[1] + o[1]]), lab, 'tx', 'middle', dx, dy)}`; };
+    return fig(640, 250, 'Differenzvektor und Skalieren',
+      `${L(m([0, 0]), m(a), 'vec', true)}${L(m([0, 0]), m(b), 'vec', true)}${L(m(a), m(b), 'vec B', true)}
+${T(m(a), 'a', 'tx', 'start', 8, 6)}${T(m(b), 'b', 'tx', 'middle', 0, -10)}${T(m([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]), 'b − a', 'tx b', 'start', 12, -6)}
+${seg(0, 1, 'vec', 'a', 10, 18)}${seg(1, 2, 'vec B', '2a', 10, -4)}${seg(-1, -1, 'vec', '−a', 0, 20)}${seg(-2, 0.5, 'vec', '0,5a', 0, 22)}
+`,
+      'Links: Der Pfeil b − a beginnt an der Spitze von a und endet an der Spitze von b. Rechts: Multiplikation mit einer Zahl s ändert nur die Länge, bei s < 0 zusätzlich die Richtung (die Pfeile sind der Übersicht halber seitlich versetzt gezeichnet).');
+  },
+
+  matcols() {
+    const A = [[1.5, -0.5], [0.5, 1]], ap = (p) => [A[0][0] * p[0] + A[0][1] * p[1], A[1][0] * p[0] + A[1][1] * p[1]];
+    const m = plane(90, 270, 85), sq = [[0, 0], [1, 0], [1, 1], [0, 1]], im = sq.map(ap);
+    return fig(640, 320, 'Eine Matrix als Abbildung des Koordinatengitters',
+      `${poly(im.map(m), 'fl A')}${poly(sq.map(m), 'fl')}${grid2d(m, 0, 2, 0, 2.2, 1)}
+${L(m([0, 0]), m([1, 0]), 'vec', true)}${L(m([0, 0]), m([0, 1]), 'vec', true)}${L(m([0, 0]), m(ap([1, 0])), 'vec B', true)}${L(m([0, 0]), m(ap([0, 1])), 'vec B', true)}
+${T(m([1, 0]), 'x̂', 'tx', 'middle', 0, 26)}${T(m([0, 1]), 'ŷ', 'tx', 'end', -10, 18)}
+${T(m(ap([1, 0])), 'A x̂ = (1,5 | 0,5)', 'tx b', 'start', 10, 6)}${T(m(ap([0, 1])), 'A ŷ = (−0,5 | 1)', 'tx b', 'end', -10, -6)}
+${T([400, 70], 'A = [ 1,5  −0,5 ; 0,5  1 ]', 'tx s', 'start')}${T([400, 100], 'Spalte 1 = Bild von x̂', 'tx s', 'start')}${T([400, 126], 'Spalte 2 = Bild von ŷ', 'tx s', 'start')}${T([400, 160], 'Fläche: det A = 1,5·1 − (−0,5)·0,5 = 1,75', 'tx s', 'start')}`,
+      'Das Einheitsquadrat (gestrichelt umrandet, grau) wird von der Matrix A in das blaue Parallelogramm verwandelt. Die beiden Seiten des Parallelogramms sind genau die Spalten von A; seine Fläche ist die Determinante.');
+  },
+
+  order2d() {
+    const flag = [[0, 0], [1, 0], [0, 0.6]], rot = (p) => [-p[1], p[0]], tr = (p) => [p[0] + 2, p[1]], sc = 48;
+    const panel = (ox, f1, f2, l1, l2, title) => {
+      const m = plane(ox, 250, sc), s1 = flag.map(f1), s2 = s1.map(f2);
+      return `${grid2d(m, -1, 3.4, 0, 3.4, 1)}${poly(flag.map(m), 'fl')}${poly(s1.map(m), 'fl')}${poly(s2.map(m), 'fl A')}
+${T(m(flag[1]), 'Start', 'tx s', 'middle', 0, 18)}${T(m(s1[2]), l1, 'tx s', s1[2][0] < 0 ? 'end' : 'start', s1[2][0] < 0 ? -6 : 8, -10)}${T(m(s2[1]), l2, 'tx b', s2[1][0] > 1 ? 'start' : 'middle', 8, -8)}
+${T([ox + 90, 24], title, 'tx', 'middle')}`;
+    };
+    return fig(640, 290, 'Reihenfolge von Drehung und Verschiebung',
+      panel(100, tr, rot, 'nach Verschieben', 'danach gedreht', 'Erst verschieben, dann um 90° drehen') + panel(390, rot, tr, 'nach Drehen', 'danach verschoben', 'Erst drehen, dann verschieben'),
+      'Dieselben beiden Operationen (Verschiebung um (2 | 0) und Drehung um 90° um den Ursprung) führen in unterschiedlicher Reihenfolge zu unterschiedlichen Endlagen. Genau deshalb ist bei Matrixprodukten die Reihenfolge entscheidend.');
+  },
+
+  dhstep() {
+    const a = 110, al = rad(55), d = 80, th = rad(40), Tm = dh(a, al, d, th);
+    const P1 = [0, 0, d], P2 = org(Tm), x1 = col(Tm, 0), z1 = col(Tm, 2), y1 = col(Tm, 1), Ax = 70;
+    const xp = [Math.cos(th), Math.sin(th), 0], z0 = [0, 0, 1], w = [x1[1] * z0[2] - x1[2] * z0[1], x1[2] * z0[0] - x1[0] * z0[2], x1[0] * z0[1] - x1[1] * z0[0]];
+    const ends = [[0, 0, 0], [Ax, 0, 0], [0, Ax, 0], [0, 0, Ax + 20], P1, P2, add(P2, x1, Ax), add(P2, y1, Ax), add(P2, z1, Ax), add(P2, z0, Ax)];
+    const pr = fitCam(32, 24, ends, 640, 400, 50);
+    const arc3 = (c, f, g, r, t1) => { const p = []; for (let i = 0; i <= 30; i++) { const t = (t1 * i) / 30; p.push(pr(add(c, add([0, 0, 0], f, Math.cos(t) * r), 1).map((v0, k) => v0 + Math.sin(t) * r * g[k]))); } return 'M' + p.map(pt).join('L'); };
+    return fig(640, 400, 'Die vier DH-Schritte am Beispiel',
+      `${L(pr([0, 0, 0]), pr(P1), 'ln dash')}${L(pr(P1), pr(P2), 'ln dash')}${L(pr(P1), pr(add(P1, [Ax, 0, 0])), 'ln circ')}${L(pr(P2), pr(add(P2, z0, Ax)), 'ln circ')}
+${axes3d(pr, Ax)}${arrow3d(pr, P2, add(P2, x1, Ax), 'ax x')}${arrow3d(pr, P2, add(P2, y1, Ax), 'ax y')}${arrow3d(pr, P2, add(P2, z1, Ax), 'ax z')}
+${path(arc3(P1, [1, 0, 0], [0, 1, 0], 42, th), 'ln arc')}${path(arc3(P2, z0, w, 40, al), 'ln arc')}
+${T(pr(add([0, 0, 0], [Ax, 0, 0])), 'x_{i−1}', 'tx', 'start', 6, 14)}${T(pr([0, 0, Ax + 20]), 'z_{i−1}', 'tx', 'middle', 0, -8)}
+${T(pr(add(P2, x1, Ax)), 'x_i', 'tx', 'start', 6, 4)}${T(pr(add(P2, z1, Ax)), 'z_i', 'tx', 'start', 6, -4)}
+${T(pr([0, 0, d / 2]), 'd', 'tx', 'end', -8, 4)}${T(pr(add(P1, xp, a / 2)), 'a', 'tx', 'start', 4, 14)}
+${T(pr(add(P1, [1, 0.5, 0], 55)), 'θ', 'tx', 'start', 2, 8)}${T(pr(add(P2, add(z0, w, 0.5), 52)), 'α', 'tx', 'start', 4, 0)}
+${D(pr([0, 0, 0]), 4, 'dt o')}${D(pr(P2), 4, 'dt o')}`,
+      'Von Koordinatensystem i−1 (unten) zu Koordinatensystem i: (1) um z_{i−1} um θ drehen, (2) längs z_{i−1} um d schieben, (3) längs der neuen x-Achse um a schieben, (4) um die neue x-Achse um α drehen. Beispielwerte: θ = 40°, d = 80, a = 110, α = 55°.');
+  },
+
+  wristpoint() {
+    const m = plane(150, 385, 0.9), S = [0, 130], zs = [0.8, -0.6], d6 = 84.09, p = [300, 250], w = [p[0] - d6 * zs[0], p[1] - d6 * zs[1]];
+    const L1 = 240, L2 = 260, dx = w[0] - S[0], dy = w[1] - S[1], dd = Math.hypot(dx, dy), ca = (L1 * L1 + dd * dd - L2 * L2) / (2 * L1 * dd), ang = Math.atan2(dy, dx) + Math.acos(ca);
+    const E = [S[0] + L1 * Math.cos(ang), S[1] + L1 * Math.sin(ang)];
+    return fig(600, 420, 'Das Handgelenk liegt d₆ vor dem Flansch',
+      `${L(m([-40, 0]), m([80, 0]), 'axl')}${L(m([0, 0]), m(S), 'ln thick')}${polyline([S, E, w].map(m), 'ln thick')}${L(m(w), m(p), 'vec B', true)}
+${L(m(S), m(w), 'ln dash')}${D(m(S), 6, 'dt o')}${D(m(E), 6, 'dt o')}${D(m(w), 6, 'dt o')}${D(m(p), 4)}
+${T(m(S), 'Schulter S', 'tx', 'end', -12, 4)}${T(m(E), 'Ellbogen', 'tx', 'middle', 0, -14)}${T(m(w), 'Handgelenk W', 'tx', 'end', -10, -12)}
+${T(m(p), 'Flansch p*', 'tx b', 'start', 10, -12)}${T(m([(w[0] + p[0]) / 2, (w[1] + p[1]) / 2]), 'd₆ · z*', 'tx b', 'start', 14, 26)}
+${T(m([(S[0] + w[0]) / 2, (S[1] + w[1]) / 2]), 'Abstand |W − S|', 'tx s', 'middle', 40, 22)}
+${T([330, 380], 'W = p* − d₆ · z*', 'tx', 'start')}${T([330, 404], 'Seitenansicht, z* = Werkzeugachse', 'tx s', 'start')}`,
+      'Das Werkzeug legt die Richtung z* fest. Geht man vom Flansch p* um d₆ entgegen z* zurück, erhält man das Handgelenk W. Nur seine Lage entscheidet über J1–J3; J4–J6 drehen um Achsen durch W und bewegen W nicht.');
+  },
   rtri() {
     const m = plane(120, 270, 1), A = [0, 0], B = [330, 0], C = [330, 200], th = Math.atan2(200, 330) * 180 / Math.PI;
     return fig(640, 320, 'Das rechtwinklige Dreieck',

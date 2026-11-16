@@ -4,6 +4,7 @@
 <h3 id="ikidee">4.1 Die Grundidee: erst Position, dann Drehung</h3>
 <p>Der Flansch sitzt $d_6$ vor dem Handgelenk entlang der Werkzeugachse $\mathbf z^*=R^*\hat z$. Das Handgelenk liegt also bei</p>
 $$\mathbf w=\mathbf p^*-d_6\,\mathbf z^*.$$
+{{fig:wristpoint}}
 <p>Die Gelenke J4–J6 drehen nur um Achsen <i>durch</i> $\mathbf w$ und bewegen $\mathbf w$ nicht. Die Lage von $\mathbf w$ hängt deshalb nur von J1, J2, J3 ab. Danach gilt:</p>
 <ol>
 <li>Aus $\mathbf w$ folgen $q_1,q_2,q_3$ (Position, 3 Unbekannte, 3 Gleichungen).</li>
@@ -14,14 +15,35 @@ $$\mathbf w=\mathbf p^*-d_6\,\mathbf z^*.$$
 <p><b>Teilproblem 1 – Drehen auf einen Zielpunkt.</b> Gegeben sind eine Achse $\hat{\mathbf k}$, ein Punkt $\mathbf p$ und ein Punkt $\mathbf q$ mit demselben Abstand zur Achse. Gesucht: Winkel $\theta$, so dass die Drehung um $\hat{\mathbf k}$ den Punkt $\mathbf p$ nach $\mathbf q$ bringt. Man projiziert beide Punkte auf die Ebene senkrecht zur Achse und misst den Winkel zwischen den Projektionen – mit <b>Skalar- und Kreuzprodukt</b>:</p>
 $$\mathbf u=\mathbf p-\hat{\mathbf k}(\hat{\mathbf k}\cdot\mathbf p),\quad \mathbf v=\mathbf q-\hat{\mathbf k}(\hat{\mathbf k}\cdot\mathbf q),\qquad \theta=\operatorname{atan2}\!\big(\hat{\mathbf k}\cdot(\mathbf u\times\mathbf v),\;\mathbf u\cdot\mathbf v\big).$$
 {{fig:sp1}}
+<div class="box ex"><b class="t">Beispiel: Teilproblem 1 in Zahlen</b>Achse $\hat{\mathbf k}=(0,0,1)$, Punkt $\mathbf p=(3,0,5)$ und Ziel $\mathbf q=(0,3,5)$ (beide $3$ von der Achse entfernt, gleiche Höhe).</div>
+<ol>
+<li>Anteil längs der Achse entfernen: $\mathbf u=\mathbf p-\hat{\mathbf k}(\hat{\mathbf k}\cdot\mathbf p)=(3,0,5)-(0,0,5)=(3,0,0)$ und ebenso $\mathbf v=(0,3,0)$.</li>
+<li>Kreuzprodukt: $\mathbf u\times\mathbf v=(0,0,9)$, also $\hat{\mathbf k}\cdot(\mathbf u\times\mathbf v)=9$.</li>
+<li>Skalarprodukt: $\mathbf u\cdot\mathbf v=0$.</li>
+<li>Winkel: $\theta=\operatorname{atan2}(9,0)=90^\circ$.</li>
+</ol>
+<p>Probe: Dreht man $(3,0,5)$ um $90^\circ$ um die $z$-Achse, erhält man $(0,3,5)$ ✓.</p>
 <p>Das Kreuzprodukt liefert $\sin\theta$ (mit Vorzeichen durch $\hat{\mathbf k}$), das Skalarprodukt $\cos\theta$; $\operatorname{atan2}$ macht daraus den eindeutigen Winkel. Genau eine Lösung.</p>
 
 <p><b>Teilproblem 3 – Abstand einstellen (Ellbogen).</b> Gegeben: Achse $\hat{\mathbf k}$, Punkt $\mathbf p$, Zielpunkt $\mathbf q$ und ein gewünschter Abstand $\delta$. Gesucht: $\theta$, so dass der gedrehte Punkt von $\mathbf q$ den Abstand $\delta$ hat. Nach dem Projizieren (wie oben, $\mathbf u$ und $\mathbf v$ jetzt von der Achse aus gesehen) bleibt ein Dreieck mit den Seiten $|\mathbf u|$, $|\mathbf v|$ und $\delta'$, wobei $\delta'^2=\delta^2-\big(\hat{\mathbf k}\cdot(\mathbf p-\mathbf q)\big)^2$. Der <b>Kosinussatz</b> (1.7) liefert den Winkel zwischen den Seiten:</p>
 $$\theta=\operatorname{atan2}\!\big(\hat{\mathbf k}\cdot(\mathbf u\times\mathbf v),\mathbf u\cdot\mathbf v\big)\;\pm\;\arccos\frac{|\mathbf u|^2+|\mathbf v|^2-\delta'^2}{2\,|\mathbf u|\,|\mathbf v|}.$$
 <p>Das „±“ ergibt <b>zwei</b> Lösungen: Ellbogen oben oder unten. Gibt es kein Dreieck (Argument des $\arccos$ außerhalb $[-1,1]$), ist das Ziel zu weit weg oder zu nah: <i>unerreichbar</i>.</p>
 {{fig:twolink}}
+<h4>Schritt für Schritt: der ebene Zwei-Glieder-Arm</h4>
+<p>Ein Arm mit den Gliedlängen $L_1=240$ und $L_2=260$ soll den Punkt $P=(336\mid252)$ erreichen. Das ist die Ebene, in der Schulter und Ellbogen liegen; die vollständige Aufgabe besteht aus genau dieser Rechnung plus Drehungen um die Hochachse.</p>
+<ol>
+<li><b>Abstand:</b> $d^2=336^2+252^2=176\,400$, also $d=420$. Erreichbar ist alles zwischen $|L_1-L_2|=20$ und $L_1+L_2=500$ – hier passt es.</li>
+<li><b>Ellbogenwinkel</b> mit dem Kosinussatz (der Innenwinkel im Dreieck ist $180^\circ-q_2$, daher das Vorzeichen):
+$$\cos q_2=\frac{d^2-L_1^2-L_2^2}{2L_1L_2}=\frac{176\,400-57\,600-67\,600}{124\,800}=0{,}4103,$$
+$$q_2=\pm\arccos0{,}4103=\pm65{,}78^\circ.$$</li>
+<li><b>Schulterwinkel</b> als Differenz zweier Winkel: Die Richtung zum Ziel ist $\operatorname{atan2}(252,336)=36{,}87^\circ$. Das zweite Glied zieht den Arm um den Winkel $\operatorname{atan2}(L_2\sin q_2,\;L_1+L_2\cos q_2)$ aus der Richtung:
+$$\operatorname{atan2}(237{,}1;\;346{,}7)=34{,}37^\circ\quad\Rightarrow\quad q_1=36{,}87^\circ-34{,}37^\circ=2{,}50^\circ.$$</li>
+<li><b>Probe</b> mit der Vorwärtsrechnung: $x=240\cos2{,}5^\circ+260\cos68{,}28^\circ=336{,}0$ und $y=240\sin2{,}5^\circ+260\sin68{,}28^\circ=252{,}0$ ✓.</li>
+</ol>
+<p>Mit dem Vorzeichen $q_2=-65{,}78^\circ$ erhält man die zweite, gespiegelte Lösung (Ellbogen auf der anderen Seite), bei der $q_1=36{,}87^\circ+34{,}37^\circ=71{,}24^\circ$ ist. Beide Lösungen erreichen exakt denselben Punkt.</p>
 <div data-widget="ik2"></div>
 
+<p><b>Anschauliche Idee von Teilproblem 2:</b> Dreht man $\mathbf p$ um $\hat{\mathbf k}_2$, wandert er auf einem Kreis; dreht man das Ergebnis um $\hat{\mathbf k}_1$, bewegt es sich auf einem anderen Kreis. Der Zwischenpunkt $\mathbf z$ muss auf dem Kreis von $\mathbf p$ um $\hat{\mathbf k}_2$ <i>und</i> auf dem Kreis von $\mathbf q$ um $\hat{\mathbf k}_1$ liegen. Zwei Kreise im Raum schneiden sich in höchstens zwei Punkten – daher die zwei Lösungen.</p>
 <p><b>Teilproblem 2 – zwei sich schneidende Achsen.</b> Gegeben: zwei Achsen $\hat{\mathbf k}_1,\hat{\mathbf k}_2$ durch denselben Punkt, Punkt $\mathbf p$ und Zielpunkt $\mathbf q$. Gesucht: $\theta_1,\theta_2$ mit $R(\hat{\mathbf k}_1,\theta_1)R(\hat{\mathbf k}_2,\theta_2)\mathbf p=\mathbf q$. Zwischen beiden Drehungen liegt ein Zwischenpunkt $\mathbf z$ mit $\mathbf z=R(\hat{\mathbf k}_2,\theta_2)\mathbf p$ und $\hat{\mathbf k}_1$-Abstand gleich dem von $\mathbf q$. Mit $c=\hat{\mathbf k}_1\cdot\hat{\mathbf k}_2$:</p>
 $$\alpha=\frac{c\,(\hat{\mathbf k}_2\cdot\mathbf p)-\hat{\mathbf k}_1\cdot\mathbf q}{c^2-1},\quad \beta=\frac{c\,(\hat{\mathbf k}_1\cdot\mathbf q)-\hat{\mathbf k}_2\cdot\mathbf p}{c^2-1},\quad \gamma=\pm\sqrt{\frac{|\mathbf p|^2-\alpha^2-\beta^2-2\alpha\beta c}{|\hat{\mathbf k}_1\times\hat{\mathbf k}_2|^2}},$$
 $$\mathbf z=\alpha\hat{\mathbf k}_1+\beta\hat{\mathbf k}_2+\gamma\,(\hat{\mathbf k}_1\times\hat{\mathbf k}_2).$$
@@ -34,6 +56,12 @@ $$\mathbf z=\alpha\hat{\mathbf k}_1+\beta\hat{\mathbf k}_2+\gamma\,(\hat{\mathbf
 <li><b>Schulter (J1, J2):</b> Teilproblem 2 mit den Achsen J1 (senkrecht) und J2 dreht den Handgelenkpunkt an seine Zielposition. Zwei Lösungen: Arm vorn oder nach hinten über den Kopf (Schulter „front/back“).</li>
 <li><b>Handgelenk (J4, J5, J6):</b> $R_{3\to6}=R_{0\to3}^{\mathsf T}R^*$. J4, J5, J6 drehen um sich schneidende Achsen – wieder Teilproblem 2 und 1. Zwei Lösungen: Handgelenk „+“ oder gespiegelt „−“ (J4+180°, −J5, J6+180°, gleiche Pose).</li>
 </ol>
+<table><tr><th style="text-align:left">Nr.</th><th style="text-align:left">Schulter</th><th style="text-align:left">Ellbogen</th><th style="text-align:left">Handgelenk</th></tr>
+<tr><td style="text-align:left">1</td><td style="text-align:left">vorn</td><td style="text-align:left">oben</td><td style="text-align:left">+</td></tr>
+<tr><td style="text-align:left">2</td><td style="text-align:left">vorn</td><td style="text-align:left">oben</td><td style="text-align:left">−</td></tr>
+<tr><td style="text-align:left">3</td><td style="text-align:left">vorn</td><td style="text-align:left">unten</td><td style="text-align:left">+</td></tr>
+<tr><td style="text-align:left">4</td><td style="text-align:left">vorn</td><td style="text-align:left">unten</td><td style="text-align:left">−</td></tr>
+<tr><td style="text-align:left">5–8</td><td style="text-align:left">hinten</td><td colspan="2" style="text-align:left">dieselben vier Kombinationen von Ellbogen und Handgelenk</td></tr></table>
 <div class="box"><b class="t">Bis zu 8 Haltungen</b>Schulter 2 × Ellbogen 2 × Handgelenk 2 = 8 verschiedene Gelenkstellungen, die alle <i>exakt dieselbe</i> Werkzeuglage erzeugen. Diese Auswahl heißt <b>Haltung</b> (engl. <i>configuration</i>). Alle Haltungen werden berechnet; nicht erlaubte (außerhalb der Gelenkgrenzen) werden verworfen. Die Lösung wird auf Rechengenauigkeit genau, ohne Iteration und unabhängig von der aktuellen Stellung gefunden.</div>
 <h3 id="ikwahl">4.4 Welche Haltung gilt?</h3>
 <p>Aus den übrig gebliebenen Haltungen wählt man die zur aktuellen Stellung nächste (geringste Winkeländerung, jeweils auf dem kurzen Weg, siehe 5.5). Beim Planen einer ganzen Bahn entscheidet stattdessen die Optimierung in 5.4 – dort wird die <i>Folge</i> von Haltungen gesucht, bei der der Arm möglichst nie umgreifen muss.</p>

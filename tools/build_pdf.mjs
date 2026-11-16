@@ -51,6 +51,8 @@ const br = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox
 const pg = await br.newPage();
 await pg.goto('file://' + tmp, { waitUntil: 'load' });
 await pg.waitForFunction('window.__done===true', { timeout: 240000 });
+const over = await pg.evaluate(() => [...document.querySelectorAll('.pagedjs_page_content .eq, .pagedjs_page_content .box, .pagedjs_page_content table, .pagedjs_page_content p')].filter((e) => e.scrollWidth > e.clientWidth + 2).map((e) => (e.textContent || '').slice(0, 60)));
+if (over.length) console.log('Überlauf:', over);
 await pg.pdf({ path: path.join(root, 'docs/Mathematik.pdf'), preferCSSPageSize: true, printBackground: true });
 await br.close();
 fs.rmSync(tmp);

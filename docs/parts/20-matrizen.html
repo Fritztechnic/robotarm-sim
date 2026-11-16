@@ -15,14 +15,20 @@ $$\begin{pmatrix}a&b&c\\d&e&f\\g&h&i\end{pmatrix}\begin{pmatrix}x\\y\\z\end{pmat
 <p>Ergebnis: $(4,10,11)$. Eine $3\times3$-Matrix mal ein 3er-Vektor ergibt wieder einen 3er-Vektor.</p>
 <p>Die <b>Spalten</b> der Matrix haben eine anschauliche Bedeutung: Die erste Spalte ist das Bild von $\hat x=(1,0,0)$, die zweite das Bild von $\hat y$, die dritte das von $\hat z$. Eine Matrix ist also vollständig durch „wohin gehen die Achsen“ bestimmt.</p>
 
+{{fig:matcols}}
+<p>Die Abbildung zeigt das: Wenn man weiß, wohin $\hat x$ und $\hat y$ wandern, kennt man die ganze Matrix. Das Quadrat aus den beiden Einheitsvektoren wird zu einem Parallelogramm aus den beiden Spalten. Die <b>Determinante</b> (Flächenfaktor) ist hier $1{,}5\cdot1-(-0{,}5)\cdot0{,}5=1{,}75$: Jede Fläche wird $1{,}75$-mal so groß. Bei einer reinen Drehung ist dieser Faktor genau $1$.</p>
+
 <h3 id="matrixprodukt">2.2 Matrix mal Matrix</h3>
 <p>Zwei Matrizen $A\cdot B$ bedeuten: <i>erst $B$, dann $A$</i> anwenden. Der Eintrag in Zeile $i$, Spalte $j$ ist das Skalarprodukt aus Zeile $i$ von $A$ und Spalte $j$ von $B$:</p>
 $$(AB)_{ij}=\sum_k A_{ik}B_{kj}.$$
 <div class="box warn"><b class="t">Wichtig: Die Reihenfolge zählt!</b>Im Allgemeinen ist $AB\neq BA$. Beispiel aus dem Alltag: „Erst 90° um die $x$-Achse, dann 90° um $z$“ ergibt eine andere Lage als „erst $z$, dann $x$“. Genau deshalb ist die Reihenfolge der Gelenke beim Roboter entscheidend.</div>
-<div class="box ex"><b class="t">Beispiel: $AB\ne BA$</b>Mit $A=\begin{pmatrix}1&1\\0&1\end{pmatrix}$ und $B=\begin{pmatrix}1&0\\1&1\end{pmatrix}$ ist
-<br>$AB=\begin{pmatrix}1\cdot1+1\cdot1&1\cdot0+1\cdot1\\0\cdot1+1\cdot1&0\cdot0+1\cdot1\end{pmatrix}=\begin{pmatrix}2&1\\1&1\end{pmatrix}$, aber
-<br>$BA=\begin{pmatrix}1\cdot1+0\cdot0&1\cdot1+0\cdot1\\1\cdot1+1\cdot0&1\cdot1+1\cdot1\end{pmatrix}=\begin{pmatrix}1&1\\1&2\end{pmatrix}$.
-<br>Schon bei $2\times2$-Matrizen kommt also etwas anderes heraus.</div>
+<div class="box ex"><b class="t">Beispiel: $AB\neq BA$ bei $2\times2$-Matrizen</b>Mit $A=\begin{pmatrix}1&1\\0&1\end{pmatrix}$ und $B=\begin{pmatrix}1&0\\1&1\end{pmatrix}$ rechnen wir Eintrag für Eintrag (Zeile von links mal Spalte von rechts):</div>
+$$AB=\begin{pmatrix}1\cdot1+1\cdot1&1\cdot0+1\cdot1\\0\cdot1+1\cdot1&0\cdot0+1\cdot1\end{pmatrix}=\begin{pmatrix}2&1\\1&1\end{pmatrix},$$
+$$BA=\begin{pmatrix}1\cdot1+0\cdot0&1\cdot1+0\cdot1\\1\cdot1+1\cdot0&1\cdot1+1\cdot1\end{pmatrix}=\begin{pmatrix}1&1\\1&2\end{pmatrix}.$$
+<p>Schon bei $2\times2$-Matrizen kommt also etwas anderes heraus.</p>
+<div class="box ex"><b class="t">Beispiel: zwei 90°-Drehungen im Raum</b>Sei $R_x(90^\circ)=\begin{pmatrix}1&0&0\\0&0&-1\\0&1&0\end{pmatrix}$ und $R_z(90^\circ)=\begin{pmatrix}0&-1&0\\1&0&0\\0&0&1\end{pmatrix}$. Dann ist</div>
+$$R_zR_x=\begin{pmatrix}0&0&1\\1&0&0\\0&1&0\end{pmatrix},\qquad R_xR_z=\begin{pmatrix}0&-1&0\\0&0&-1\\1&0&0\end{pmatrix}.$$
+<p>Die beiden Ergebnisse sind verschieden: Der Vektor $\hat x=(1,0,0)$ landet bei $R_zR_x$ auf $(0,1,0)$, bei $R_xR_z$ auf $(0,0,1)$. Probiere es mit einem Buch in der Hand: erst nach vorn kippen, dann drehen – oder umgekehrt.</p>
 <p><b>Spezielle Matrizen:</b></p>
 <ul>
 <li>Die <b>Einheitsmatrix</b> $I$ (Einsen auf der Diagonale) ändert nichts: $I\mathbf v=\mathbf v$.</li>
@@ -35,15 +41,16 @@ $$(AB)_{ij}=\sum_k A_{ik}B_{kj}.$$
 <p>Wie dreht man einen Punkt in der Ebene um den Ursprung um den Winkel $\theta$? Der Punkt $\hat x=(1,0)$ wandert nach $(\cos\theta,\sin\theta)$ (Einheitskreis!), der Punkt $\hat y=(0,1)$ wandert nach $(-\sin\theta,\cos\theta)$. Diese beiden Bilder sind nach 2.1 die Spalten der Matrix:</p>
 $$R(\theta)=\begin{pmatrix}\cos\theta&-\sin\theta\\ \sin\theta&\cos\theta\end{pmatrix},\qquad \mathbf p'=R(\theta)\,\mathbf p.$$
 {{fig:rot2d}}
-<div class="box ex"><b class="t">Beispiel: Drehung um $30^\circ$</b>Der Punkt $\mathbf p=(2,0)$ soll um $\theta=30^\circ$ gedreht werden. Es ist $\cos30^\circ=0{,}866$ und $\sin30^\circ=0{,}5$.
-<br>$\mathbf p'=\begin{pmatrix}0{,}866&-0{,}5\\0{,}5&0{,}866\end{pmatrix}\begin{pmatrix}2\\0\end{pmatrix}=\begin{pmatrix}0{,}866\cdot2-0{,}5\cdot0\\0{,}5\cdot2+0{,}866\cdot0\end{pmatrix}=\begin{pmatrix}1{,}732\\1{,}000\end{pmatrix}$.
-<br>Probe: Die Länge ist $\sqrt{1{,}732^2+1^2}=\sqrt{4}=2$ – unverändert, wie bei jeder Drehung. Der Winkel des neuen Punktes ist $\operatorname{atan2}(1;\,1{,}732)=30^\circ$ ✓.</div>
+<div class="box ex"><b class="t">Beispiel: Drehung um $30^\circ$</b>Der Punkt $\mathbf p=(2,0)$ soll um $\theta=30^\circ$ gedreht werden. Es ist $\cos30^\circ=0{,}866$ und $\sin30^\circ=0{,}5$.</div>
+$$\mathbf p'=\begin{pmatrix}0{,}866&-0{,}5\\0{,}5&0{,}866\end{pmatrix}\begin{pmatrix}2\\0\end{pmatrix}=\begin{pmatrix}0{,}866\cdot2-0{,}5\cdot0\\0{,}5\cdot2+0{,}866\cdot0\end{pmatrix}=\begin{pmatrix}1{,}732\\1{,}000\end{pmatrix}.$$
+<p>Probe: Die Länge ist $\sqrt{1{,}732^2+1^2}=\sqrt{4}=2$ – unverändert, wie bei jeder Drehung. Der Winkel des neuen Punktes ist $\operatorname{atan2}(1;\,1{,}732)=30^\circ$ ✓.</p>
 <p><b>Merkregel für das Vorzeichen:</b> Positive Winkel drehen <i>gegen</i> den Uhrzeigersinn (von $x$ nach $y$). Das entspricht der Rechte-Hand-Regel: Daumen entlang der Drehachse, die gekrümmten Finger zeigen den Drehsinn.</p>
 <div data-widget="rot"></div>
 <p>Im Raum dreht man um eine der Koordinatenachsen. Die Koordinate <i>auf</i> der Achse bleibt unverändert:</p>
-$$R_x(\alpha)=\begin{pmatrix}1&0&0\\0&\cos\alpha&-\sin\alpha\\0&\sin\alpha&\cos\alpha\end{pmatrix},\;
-R_y(\beta)=\begin{pmatrix}\cos\beta&0&\sin\beta\\0&1&0\\-\sin\beta&0&\cos\beta\end{pmatrix},\;
-R_z(\gamma)=\begin{pmatrix}\cos\gamma&-\sin\gamma&0\\\sin\gamma&\cos\gamma&0\\0&0&1\end{pmatrix}.$$
+$$R_x(\alpha)=\begin{pmatrix}1&0&0\\0&\cos\alpha&-\sin\alpha\\0&\sin\alpha&\cos\alpha\end{pmatrix},\qquad
+R_y(\beta)=\begin{pmatrix}\cos\beta&0&\sin\beta\\0&1&0\\-\sin\beta&0&\cos\beta\end{pmatrix},$$
+$$R_z(\gamma)=\begin{pmatrix}\cos\gamma&-\sin\gamma&0\\\sin\gamma&\cos\gamma&0\\0&0&1\end{pmatrix}.$$
+<p>Lesehilfe: In $R_z$ steht oben links der bekannte $2\times2$-Block aus der ebenen Drehung; die Einsen in der dritten Zeile und Spalte sagen „die $z$-Koordinate bleibt unverändert“. Bei $R_x$ und $R_y$ ist es dieselbe Idee mit vertauschten Rollen der Achsen.</p>
 <p><b>Eigenschaften jeder Drehmatrix:</b></p>
 <ul>
 <li>Die Spalten sind Einheitsvektoren, die paarweise senkrecht stehen (Skalarprodukt = 0). Man nennt das <i>orthonormal</i>.</li>
@@ -59,17 +66,24 @@ $$R=R_z(\text{Yaw})\,R_y(\text{Pitch})\,R_x(\text{Roll}).$$
 $$R=\begin{pmatrix}c_\psi c_\vartheta& c_\psi s_\vartheta s_\varphi-s_\psi c_\varphi& c_\psi s_\vartheta c_\varphi+s_\psi s_\varphi\\ s_\psi c_\vartheta& s_\psi s_\vartheta s_\varphi+c_\psi c_\varphi& s_\psi s_\vartheta c_\varphi-c_\psi s_\varphi\\ -s_\vartheta& c_\vartheta s_\varphi& c_\vartheta c_\varphi\end{pmatrix}.$$
 <p>Umgekehrt liest man die Winkel aus der Matrix ab ($R_{ij}$ = Zeile $i$, Spalte $j$):</p>
 $$\vartheta=-\arcsin R_{31},\qquad \varphi=\operatorname{atan2}(R_{32},R_{33}),\qquad \psi=\operatorname{atan2}(R_{21},R_{11}).$$
+<div class="box ex"><b class="t">Beispiel: Winkel aus einer Matrix ablesen</b>Gegeben sei $R=\begin{pmatrix}0&0&1\\1&0&0\\0&1&0\end{pmatrix}$ (das Produkt $R_zR_x$ von oben). Wir lesen ab:</div>
+$$\vartheta=-\arcsin R_{31}=-\arcsin0=0^\circ,$$
+$$\varphi=\operatorname{atan2}(R_{32},R_{33})=\operatorname{atan2}(1,0)=90^\circ,$$
+$$\psi=\operatorname{atan2}(R_{21},R_{11})=\operatorname{atan2}(1,0)=90^\circ.$$
+<p>Das passt zur Konstruktion: Roll $=90^\circ$ (um $x$) und Yaw $=90^\circ$ (um $z$), kein Pitch.</p>
 <div class="box warn"><b class="t">Kardan-Sperre (Gimbal Lock)</b>Bei $\vartheta=\pm90^\circ$ ist $\cos\vartheta=0$: Roll und Yaw drehen dann um dieselbe Achse und nur ihre Summe/Differenz ist festgelegt. Das ist eine Schwäche der Dreiwinkel-Schreibweise, nicht des Roboters. Deshalb rechnet das Programm intern mit Matrizen und benutzt Winkel nur zur Ein- und Ausgabe.</div>
 
 <h3 id="achsewinkel">2.5 Drehung um eine beliebige Achse</h3>
 <p>Jede Drehung im Raum ist eine Drehung um <i>eine</i> Achse $\hat{\mathbf k}$ (Einheitsvektor) um einen Winkel $\theta$. Der Punkt $\mathbf v$ wird dann (<b>Rodrigues-Formel</b>) in drei Anteile zerlegt – Anteil längs der Achse (bleibt), Anteil senkrecht dazu (wird gedreht) und der dritte Richtung $\hat{\mathbf k}\times\mathbf v$:</p>
 $$\mathbf v'=\mathbf v\cos\theta+(\hat{\mathbf k}\times\mathbf v)\sin\theta+\hat{\mathbf k}\,(\hat{\mathbf k}\cdot\mathbf v)(1-\cos\theta).$$
 {{fig:rodrigues}}
-<div class="box ex"><b class="t">Beispiel: Rodrigues in Zahlen</b>Drehe $\mathbf v=(1,0,0)$ um die Achse $\hat{\mathbf k}=(0,0,1)$ um $\theta=90^\circ$ ($\cos=0$, $\sin=1$).
-<br>1. $\mathbf v\cos\theta=(0,0,0)$.
-<br>2. $\hat{\mathbf k}\times\mathbf v=(0\cdot0-1\cdot0,\;1\cdot1-0\cdot0,\;0)=(0,1,0)$, mal $\sin\theta=1$ ergibt $(0,1,0)$.
-<br>3. $\hat{\mathbf k}\cdot\mathbf v=0$, also verschwindet der dritte Summand.
-<br>Summe: $\mathbf v'=(0,1,0)$ – der Punkt ist von der $x$- auf die $y$-Achse gewandert, wie bei $R_z(90^\circ)$ erwartet.</div>
+<div class="box ex"><b class="t">Beispiel: Rodrigues in Zahlen</b>Drehe $\mathbf v=(1,0,0)$ um die Achse $\hat{\mathbf k}=(0,0,1)$ um $\theta=90^\circ$ ($\cos\theta=0$, $\sin\theta=1$). Die drei Summanden einzeln:</div>
+<ol>
+<li>$\mathbf v\cos\theta=(0,0,0)$.</li>
+<li>$\hat{\mathbf k}\times\mathbf v=(0\cdot0-1\cdot0,\;1\cdot1-0\cdot0,\;0\cdot0-0\cdot1)=(0,1,0)$, mal $\sin\theta=1$ ergibt $(0,1,0)$.</li>
+<li>$\hat{\mathbf k}\cdot\mathbf v=0$, also verschwindet der dritte Summand.</li>
+</ol>
+<p>Summe: $\mathbf v'=(0,1,0)$ – der Punkt ist von der $x$- auf die $y$-Achse gewandert, wie bei $R_z(90^\circ)$ erwartet.</p>
 <p>Hier kommen Skalar- <i>und</i> Kreuzprodukt zusammen. Als Matrix mit $K=\begin{pmatrix}0&-k_z&k_y\\k_z&0&-k_x\\-k_y&k_x&0\end{pmatrix}$ (so dass $K\mathbf v=\hat{\mathbf k}\times\mathbf v$):</p>
 $$R(\hat{\mathbf k},\theta)=I+\sin\theta\,K+(1-\cos\theta)\,K^2.$$
 <p><b>Rotationsvektor:</b> Den Fehler zwischen zwei Lagen kann man als einen einzigen Vektor $\boldsymbol\omega=\theta\,\hat{\mathbf k}$ schreiben (Richtung = Achse, Länge = Winkel). Die Levenberg-Marquardt-Iteration (4.7) braucht genau das als „Orientierungsfehler“; man gewinnt ihn aus $R_{\text{Soll}}R_{\text{Ist}}^{\mathsf T}$: $\theta=\arccos\frac{\operatorname{spur}-1}{2}$, die Achse folgt aus der antisymmetrischen Hälfte der Matrix.</p>
@@ -81,4 +95,6 @@ $$R(t)=R_0\,R\big(\hat{\mathbf k},\,t\,\theta\big).$$
 <p>Eine Drehmatrix kann nur drehen. Eine <i>Lage</i> (Pose) besteht aus Drehung $R$ <i>und</i> Verschiebung $\mathbf t$: $\mathbf p'=R\mathbf p+\mathbf t$. Ein Trick macht daraus eine einzige Matrix-Multiplikation: Man hängt an jeden Punkt eine $1$ und benutzt eine $4\times4$-Matrix:</p>
 $$T=\begin{pmatrix}R&\mathbf t\\\mathbf 0^{\mathsf T}&1\end{pmatrix},\qquad \begin{pmatrix}\mathbf p'\\1\end{pmatrix}=T\begin{pmatrix}\mathbf p\\1\end{pmatrix}.$$
 <p>Der große Vorteil: <b>Hintereinanderschalten ist Multiplizieren.</b> Ist $T_1$ die Lage von Glied 1 relativ zur Basis und $T_2$ die Lage von Glied 2 relativ zu Glied 1, dann ist die Lage von Glied 2 relativ zur Basis einfach $T_1T_2$. Die Inverse ist leicht: $T^{-1}=\begin{pmatrix}R^{\mathsf T}&-R^{\mathsf T}\mathbf t\\\mathbf 0^{\mathsf T}&1\end{pmatrix}$.</p>
+{{fig:order2d}}
+<p>Für homogene Matrizen gilt dasselbe wie für Drehmatrizen: $T_{\text{schieben}}T_{\text{drehen}}\neq T_{\text{drehen}}T_{\text{schieben}}$. Das Produkt wird von <i>rechts nach links</i> angewendet – die rechte Matrix wirkt zuerst auf den Punkt.</p>
 <div class="box ex"><b class="t">Beispiel</b>Ein Glied sei um $90^\circ$ um $z$ gedreht und um $(100,0,0)$ verschoben. Der Punkt $(50,0,0)$ im Glied liegt dann in der Basis bei $R_z(90^\circ)(50,0,0)^{\mathsf T}+(100,0,0)=(0,50,0)+(100,0,0)=(100,50,0)$.</div>

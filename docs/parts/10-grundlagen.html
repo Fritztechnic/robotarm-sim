@@ -28,6 +28,8 @@ $$\theta=\operatorname{atan2}(y,x)\in(-180^\circ,180^\circ],$$
 $$\begin{pmatrix}3\\1\end{pmatrix}+\begin{pmatrix}1\\2\end{pmatrix}=\begin{pmatrix}4\\3\end{pmatrix}$$
 {{fig:vecadd}}
 <p><b>Skalieren:</b> Mit einer Zahl $s$ multipliziert man jede Komponente: $s\cdot(a_x,a_y,a_z)=(sa_x,sa_y,sa_z)$. Der Pfeil wird $s$-mal so lang (bei $s<0$ zeigt er umgekehrt). <b>Subtraktion</b> $\mathbf b-\mathbf a$ ist der Pfeil <i>von</i> der Spitze von $\mathbf a$ <i>zur</i> Spitze von $\mathbf b$.</p>
+{{fig:vecsub}}
+<p>Wichtig ist die Reihenfolge bei der Differenz: „Ende minus Anfang“. $\mathbf b-\mathbf a$ zeigt von $\mathbf a$ nach $\mathbf b$, dagegen zeigt $\mathbf a-\mathbf b$ in die Gegenrichtung. Diese Regel brauchen wir ständig – etwa um den Pfeil von der Schulter zum Ziel zu bilden.</p>
 <p><b>Länge (Betrag)</b> – Satz des Pythagoras:</p>
 $$|\mathbf a|=\sqrt{a_x^2+a_y^2+a_z^2}.$$
 <p>Ein <b>Einheitsvektor</b> hat Länge 1. Man erhält ihn durch Normieren: $\hat{\mathbf a}=\mathbf a/|\mathbf a|$. Einheitsvektoren beschreiben im Programm reine <i>Richtungen</i>, z. B. Gelenkachsen.</p>
@@ -71,6 +73,7 @@ $$\mathbf a\cdot\mathbf b=|\mathbf a|\,|\mathbf b|\cos\theta,$$
 <li>$\mathbf a\cdot\mathbf b=0$: genau $90^\circ$, senkrecht.</li>
 <li>$\mathbf a\cdot\mathbf b<0$: Winkel größer als $90^\circ$, die Pfeile zeigen „ungefähr gegeneinander“.</li>
 </ul>
+{{fig:dotsign}}
 <p><b>Anschauung (Schattenwurf):</b> Stelle dir vor, Licht fällt senkrecht auf die Richtung von $\mathbf a$. Der Schatten von $\mathbf b$ auf der Geraden durch $\mathbf a$ hat die Länge $|\mathbf b|\cos\theta$. Das Skalarprodukt ist diese Schattenlänge mal $|\mathbf a|$.</p>
 <div data-widget="dot"></div>
 <p><b>Rechenregeln:</b> $\mathbf a\cdot\mathbf b=\mathbf b\cdot\mathbf a$ (Reihenfolge egal), $\mathbf a\cdot\mathbf a=|\mathbf a|^2$, $\mathbf a\cdot(\mathbf b+\mathbf c)=\mathbf a\cdot\mathbf b+\mathbf a\cdot\mathbf c$.</p>
@@ -104,8 +107,9 @@ $$\mathbf a\times\mathbf b=\begin{pmatrix}a_yb_z-a_zb_y\\ a_zb_x-a_xb_z\\ a_xb_y
 <p>Im beliebigen Dreieck mit Seiten $a,b,c$ und dem Winkel $\gamma$ gegenüber von $c$ gilt</p>
 $$c^2=a^2+b^2-2ab\cos\gamma\quad\Longleftrightarrow\quad\gamma=\arccos\frac{a^2+b^2-c^2}{2ab}.$$
 <p>Für $\gamma=90^\circ$ wird $\cos\gamma=0$ – das ist der Satz des Pythagoras. <i>Beweisidee des Skalarprodukts:</i> Die drei Seiten sind $\mathbf a$, $\mathbf b$ und $\mathbf c=\mathbf a-\mathbf b$. Dann ist $|\mathbf c|^2=(\mathbf a-\mathbf b)\cdot(\mathbf a-\mathbf b)=|\mathbf a|^2+|\mathbf b|^2-2\,\mathbf a\cdot\mathbf b$. Vergleich mit dem Kosinussatz liefert $\mathbf a\cdot\mathbf b=|\mathbf a||\mathbf b|\cos\gamma$.</p>
-<div class="box ex"><b class="t">Beispiel: Ellbogenwinkel</b>Ein Dreieck hat die Seiten $a=240$, $b=260$ und $c=420$ (Millimeter). Gesucht ist der Winkel $\gamma$ gegenüber von $c$:
-<br>$\cos\gamma=\dfrac{a^2+b^2-c^2}{2ab}=\dfrac{57\,600+67\,600-176\,400}{2\cdot240\cdot260}=\dfrac{-51\,200}{124\,800}\approx-0{,}4103$,
-<br>also $\gamma=\arccos(-0{,}4103)\approx114{,}2^\circ$. Das negative Vorzeichen bedeutet einen stumpfen Winkel (über $90^\circ$).</div>
+<div class="box ex"><b class="t">Beispiel: Ellbogenwinkel</b>Ein Dreieck hat die Seiten $a=240$, $b=260$ und $c=420$ (Millimeter). Gesucht ist der Winkel $\gamma$ gegenüber von $c$. Wir setzen ein:</div>
+$$\cos\gamma=\frac{a^2+b^2-c^2}{2ab}=\frac{240^2+260^2-420^2}{2\cdot240\cdot260}$$
+$$=\frac{57\,600+67\,600-176\,400}{124\,800}=\frac{-51\,200}{124\,800}\approx-0{,}4103.$$
+<p>Damit ist $\gamma=\arccos(-0{,}4103)\approx114{,}2^\circ$. Das negative Vorzeichen des Kosinus bedeutet einen <i>stumpfen</i> Winkel (über $90^\circ$). Probe: Die drei Winkel eines Dreiecks ergeben $180^\circ$.</p>
 {{fig:lawcos}}
 <p>Der Satz ist das Herz des Ellbogens: Kennt man die Längen der beiden Armglieder und den Abstand Schulter–Handgelenk, sind alle drei Seiten bekannt, und der Ellbogenwinkel folgt direkt.</p>

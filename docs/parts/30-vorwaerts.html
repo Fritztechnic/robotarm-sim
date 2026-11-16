@@ -13,6 +13,15 @@ $$T_{0\to6}=A_1(q_1)\,A_2(q_2)\,A_3(q_3)\,A_4(q_4)\,A_5(q_5)\,A_6(q_6).$$
 <li>Drehen um die neue $x$-Achse um $\alpha_i$.</li>
 </ol>
 $$A_i=R_z(\theta_i)\,T_z(d_i)\,T_x(a_i)\,R_x(\alpha_i)=\begin{pmatrix}\cos\theta&-\sin\theta\cos\alpha&\sin\theta\sin\alpha&a\cos\theta\\ \sin\theta&\cos\theta\cos\alpha&-\cos\theta\sin\alpha&a\sin\theta\\ 0&\sin\alpha&\cos\alpha&d\\0&0&0&1\end{pmatrix}.$$
+<p><b>Wie liest man diese Matrix?</b> Die Spalten haben dieselbe Bedeutung wie in 2.1 und 2.6: Die ersten drei Spalten sind die Achsen $\hat x_i,\hat y_i,\hat z_i$ des neuen Koordinatensystems, ausgedrückt im alten. Die vierte Spalte ist der Ursprung des neuen Systems. Jeder der vier Schritte hat eine feste Aufgabe:</p>
+<ul>
+<li>$\theta$ ist der <b>Gelenkwinkel</b>, das Einzige, was der Motor ändert.</li>
+<li>$d$ ist ein <b>Versatz längs der Gelenkachse</b>, z. B. die Länge des Unterarms.</li>
+<li>$a$ ist ein <b>Versatz quer dazu</b>, z. B. die Länge des Oberarms.</li>
+<li>$\alpha$ ist ein <b>Verdrehwinkel zwischen zwei Gelenkachsen</b>: Bei $\alpha=\pm90^\circ$ steht die nächste Achse senkrecht zur vorigen.</li>
+</ul>
+{{fig:dhstep}}
+<p>Die Konvention legt fest, dass $\hat z_i$ immer entlang der Drehachse von Gelenk $i+1$ liegt und $\hat x_i$ entlang der Verbindungslinie zweier Achsen. Dadurch genügen vier Zahlen pro Glied statt sechs (drei Verschiebungen und drei Drehungen).</p>
 <p>Nur $\theta$ ändert sich beim Fahren; $d$, $a$ und $\alpha$ sind feste Maße des Roboters. Für den Elfin (im Programm im Maßstab 1:2 eines E10, alle Längen in mm):</p>
 <table><tr><th>Gelenk</th><th>$a_i$ (mm)</th><th>$\alpha_i$</th><th>$d_i$ (mm)</th><th>Offset</th></tr>
 <tr><td>J1</td><td>0</td><td>−90°</td><td>130</td><td>0°</td></tr>
@@ -33,12 +42,14 @@ $$A=\begin{pmatrix}\cos\theta&-\sin\theta&0&a\cos\theta\\\sin\theta&\cos\theta&0
 <p>In Nullstellung ergeben sich die Gelenkpunkte (Position der Spalte 4 von $A_1\cdots A_i$) schrittweise:</p>
 <table><tr><th>nach Gelenk</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6 (TCP)</th></tr>
 <tr><td>$z$ in mm</td><td>130</td><td>370</td><td>370</td><td>630</td><td>630</td><td>714,09</td></tr></table>
+<p><b>Warum steht dort $x=y=0$?</b> In Nullstellung zeigen alle Glieder senkrecht nach oben, es gibt keinen seitlichen Versatz. Jedes Glied schiebt den Ursprung nur längs $z$ weiter: erst um $d_1=130$ (Fuß bis Schulter), dann um $a_2=240$ (Oberarm), um $d_4=260$ (Unterarm) und zuletzt um $d_6=84{,}09$ (Hand). Das addiert sich zu $714{,}09$.</p>
 <p>Jeder Schritt addiert genau das Maß aus der Tabelle (130 + 240 + 260 + 84,09 = 714,09), und $x=y=0$. Weitere geprüfte Beispiele für den TCP:</p>
 <table><tr><th>$(q_1,\dots,q_6)$</th><th>$x$</th><th>$y$</th><th>$z$</th><th>Anschaulich</th></tr>
 <tr><td>(0, 0, 0, 0, 0, 0)</td><td>0</td><td>0</td><td>714,09</td><td>senkrecht</td></tr>
 <tr><td>(0, 90°, 0, 0, 0, 0)</td><td>584,09</td><td>0</td><td>130</td><td>ganz waagrecht nach vorn</td></tr>
 <tr><td>(0, 90°, −90°, 0, 0, 0)</td><td>240</td><td>0</td><td>474,09</td><td>Oberarm waagrecht, Unterarm hoch</td></tr>
 <tr><td>(90°, 0, 0, 0, 0, 0)</td><td>0</td><td>0</td><td>714,09</td><td>nur die Basis gedreht</td></tr></table>
+<p><b>Zeile 2 nachgerechnet:</b> Mit $q_2=90^\circ$ kippt der Oberarm um $90^\circ$ nach vorn. Er liegt dann waagrecht und reicht $240$ mm nach vorn; der Unterarm ($260$) und die Hand ($84{,}09$) zeigen in dieselbe Richtung (alle anderen Winkel sind $0$). Es ergibt sich $x=240+260+84{,}09=584{,}09$, die Höhe bleibt die Schulterhöhe $z=130$. Der Arm ist also ganz waagrecht nach vorn gestreckt – das passt zur Tabelle.</p>
 <p><b>Die Werkzeugrichtung</b> ist die dritte Spalte der Drehmatrix; bei Nullstellung ist das $(0,0,1)$ (nach oben). Die Achsen des Gelenks $i$ sind $\mathbf z_{i-1}$ (dritte Spalte von $A_1\cdots A_{i-1}$): das ist die Grundlage der Jacobi-Matrix (4.7).</p>
 <div data-widget="fk"></div>
 <h3 id="reichweite">3.3 Grenzen der Gelenke</h3>

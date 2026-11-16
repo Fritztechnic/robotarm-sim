@@ -17,7 +17,8 @@ $$\mathbf p(t)=\mathbf p_A+t\,(\mathbf p_B-\mathbf p_A),\qquad R(t)=\text{Slerp}
 <p>Jeder Wegpunkt hat bis zu 8 Haltungen (4.3). Von Punkt zu Punkt darf der Arm die Haltung nicht wechseln, sonst wäre eine Gelenkfahrt nötig (Schulter vorn → hinten, Ellbogen oben → unten). Welche Haltung am <i>ersten</i> Punkt „richtig“ ist, merkt man erst, wenn man weiß, welche am <i>letzten</i> noch erreichbar sind.</p>
 <h3 id="dp">5.4 Optimierung: kürzester Weg im Haltungsgraphen</h3>
 <p>Baue einen Graphen: Für jeden Wegpunkt $i$ und jede Haltung $h$ gibt es einen Knoten $(i,h)$. Zwischen den Knoten $(i,h)$ und $(i+1,h')$ liegt eine Kante mit den Kosten</p>
-$$c\big((i,h),(i+1,h')\big)=\begin{cases}\text{Weglänge im Gelenkraum}&\text{Linie fahrbar (gleiche Haltung, kein Sprung)}\\ 1000&\text{sonst: Gelenkfahrt nötig (PTP-Strafe)}\end{cases}$$
+$$c\big((i,h),(i+1,h')\big)=\begin{cases}\Delta q&\text{wenn die Linie fahrbar ist,}\\[2pt] 1000&\text{sonst (Gelenkfahrt nötig).}\end{cases}$$
+<p>Dabei ist $\Delta q$ die Weglänge im Gelenkraum (Summe der Winkeländerungen). „Fahrbar“ heißt: gleiche Haltung und kein Sprung entlang der Linie. Die hohe Strafe $1000$ bewirkt, dass eine Gelenkfahrt nur gewählt wird, wenn es wirklich keinen anderen Weg gibt.</p>
 {{fig:dpgraph}}
 <p>Die <b>dynamische Programmierung</b> berechnet Schicht für Schicht die minimalen Gesamtkosten: $D(i+1,h')=\min_h\big(D(i,h)+c\big)$ und speichert den Vorgänger. Am Ende liest man den günstigsten Weg rückwärts ab. Ergebnis: Das Programm nimmt Gelenkfahrten nur, wenn sie <b>physikalisch unvermeidbar</b> sind (z. B. weil ein Punkt hinter der Basis mit festem Werkzeugwinkel an einer Gelenkgrenze scheitert). Der Plan ist deterministisch: gleiche Eingabe → gleiche Gelenkstellungen.</p>
 <h3 id="wrap">5.5 Der kürzeste Winkelweg und das Rücksetzen bei ±360°</h3>
@@ -25,6 +26,7 @@ $$c\big((i,h),(i+1,h')\big)=\begin{cases}\text{Weglänge im Gelenkraum}&\text{Li
 $$\Delta q=\big((q_b-q_a+180^\circ)\bmod360^\circ\big)-180^\circ\ \in[-180^\circ,180^\circ).$$
 <p>Bei J1, J4, J6 darf der Gelenkwinkel dabei intern bis ±720° wachsen (damit der kurze Weg nie an einer Grenze scheitert). Erreicht die <i>Anzeige</i> $\pm360^\circ$, wird sie auf $0^\circ$ zurückgesetzt – die Stellung des Arms ändert sich dadurch nicht, denn 360° ist eine Vollumdrehung.</p>
 {{fig:wrap}}
+<div class="box ex"><b class="t">Beispiel: kürzester Winkelweg</b>Mit der Formel $\Delta q=\big((q_b-q_a+180^\circ)\bmod360^\circ\big)-180^\circ$ gilt für $q_a=350^\circ$ und $q_b=10^\circ$: $(10-350+180)=-160$, modulo $360$ ergibt $200$, minus $180$ ergibt $\Delta q=+20^\circ$ – der Arm dreht $20^\circ$ vor statt $340^\circ$ zurück. Für $q_a=32^\circ$ und $q_b=33^\circ$ ergibt sich entsprechend $+1^\circ$.</div>
 <h3 id="flip">5.6 Schleifen und die gespiegelte Handgelenkhaltung</h3>
 <p>Fährt der Arm eine Schleife (letzter Punkt → erster Punkt) und durchquert er dabei eine ungerade Anzahl Handgelenk-Singularitäten, kommt er in der gespiegelten Handgelenkhaltung ($q_4+180^\circ$, $-q_5$, $q_6+180^\circ$) an – die Werkzeuglage ist identisch, aber die Gelenke stehen anders. Statt dort eine Gelenkfahrt einzufügen, darf der Schleifenabschluss bewusst in der gespiegelten Startstellung enden. In der nächsten Runde wird alles gespiegelt gefahren, danach wieder normal: Alle zwei Runden schließt sich der Kreis ohne einen einzigen Sprung.</p>
 <h3 id="ramp">5.7 Geschwindigkeit: Anfahren, Fahren, Bremsen</h3>
@@ -44,3 +46,14 @@ $$\Delta t=\max\!\Big(\frac{\Delta s}{v_{\text{TCP}}},\ \frac{\max_i|\Delta q_i|
 <p>Ein Modellbau-Servo erwartet ein PWM-Signal: Pulsweite $\mu\text{s}$ zwischen $p_{\min}$ und $p_{\max}$ entspricht einem Stellweg von 0 bis zum Bereich (z. B. 180°). Das Programm bildet jeden Gelenkwinkel $q$ so ab (Richtung $d=\pm1$ und Mittenversatz $c$ einstellbar):</p>
 $$a=\operatorname{clamp}\!\big(c+d\cdot q,\ 0,\ \text{Bereich}\big),\qquad \mu\text{s}=p_{\min}+\frac{a}{\text{Bereich}}\,(p_{\max}-p_{\min}).$$
 <p>Wird die Klammer (Clamp) aktiv, zeigt die Oberfläche „begrenzt“: Das Gelenk liegt am Anschlag.</p>
+<h3 id="gesamt">5.10 Zusammenfassung: der gesamte Rechenweg</h3>
+<p>Vom Klick auf „Start“ bis zum Servo-Puls passiert für jeden Abschnitt zwischen zwei Wegpunkten Folgendes:</p>
+<ol>
+<li>Die Wegpunkte werden eingelesen (Position, optional Werkzeugrichtung).</li>
+<li>Für jeden Wegpunkt werden alle Haltungen mit der geschlossenen IK (4.3) berechnet und gegen die Gelenkgrenzen geprüft.</li>
+<li>Der Haltungsgraph (5.4) liefert die Folge von Haltungen mit den geringsten Gesamtkosten.</li>
+<li>Jeder Abschnitt wird in Schritte von höchstens 2 mm zerlegt (5.1); für jeden Schritt wird die IK in der gewählten Haltung gelöst.</li>
+<li>Winkeländerungen werden auf den kürzesten Weg normiert (5.5).</li>
+<li>Die Geschwindigkeit folgt der Rampe (5.7) und wird durch die Motorgrenze begrenzt (5.8).</li>
+<li>Die Gelenkwinkel werden in Servo-Pulsweiten umgerechnet (5.9).</li>
+</ol>
