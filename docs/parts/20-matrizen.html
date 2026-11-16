@@ -121,9 +121,9 @@ $$R(t)=R_0\,R\big(\hat{\mathbf k},\,t\,\theta\big).$$
 <div class="box side"><b class="t">Hintergrund · Eine Drehung = Achse + Winkel</b> Der Satz von Euler besagt: Jede Drehung im Raum, egal wie kompliziert sie aus Einzeldrehungen zusammengesetzt wurde, ist <i>eine einzige</i> Drehung um <i>eine</i> Achse. Die Rodrigues-Formel (Olinde Rodrigues, 1840) rechnet genau diese Achse-Winkel-Darstellung in eine Matrix um. Das Programm nutzt sie, weil man Winkel einer solchen Drehung einfach <i>anteilig</i> ausführen kann („halbe Strecke“ = halber Winkel um dieselbe Achse) – das ist der Kern von Slerp.</div>
 
 <h4>Geometrische Herleitung der Rodrigues-Formel</h4>
-<p>Man zerlegt $\vec v$ in einen Teil parallel zur Achse $\vec k$ und einen senkrechten Teil: $\vec v_\parallel=(\vec k\cdot\vec v)\vec k$ und $\vec v_\perp=\vec v-\vec v_\parallel$. Der parallele Teil bleibt bei der Drehung unverändert. Der senkrechte Teil dreht sich in der Ebene senkrecht zu $\vec k$. Dort bilden $\vec v_\perp$ und $\vec w=\vec k\times\vec v$ (gleich lang, 90° versetzt) ein „Achsenkreuz“, sodass
-$$\vec v'=\vec v_\parallel+\cos\theta\,\vec v_\perp+\sin\theta\,\vec w.$$
-Setzt man $\vec v_\perp=\vec v-(\vec k\cdot\vec v)\vec k$ ein, entsteht
+<p>Man zerlegt $\vec v$ in einen Teil längs der Achse $\vec k$ (Index l) und einen Teil quer dazu (Index q): $\vec v_{\mathrm{l}}=(\vec k\cdot\vec v)\vec k$ und $\vec v_{\mathrm{q}}=\vec v-\vec v_{\mathrm{l}}$. Der parallele Teil bleibt bei der Drehung unverändert. Der senkrechte Teil dreht sich in der Ebene senkrecht zu $\vec k$. Dort bilden $\vec v_{\mathrm{q}}$ und $\vec w=\vec k\times\vec v$ (gleich lang, 90° versetzt) ein „Achsenkreuz“, sodass
+$$\vec v'=\vec v_{\mathrm{l}}+\cos\theta\,\vec v_{\mathrm{q}}+\sin\theta\,\vec w.$$
+Setzt man $\vec v_{\mathrm{q}}=\vec v-(\vec k\cdot\vec v)\vec k$ ein, entsteht
 $$\vec v'=\vec v\cos\theta+(\vec k\times\vec v)\sin\theta+\vec k\,(\vec k\cdot\vec v)(1-\cos\theta).$$
 Das ist genau die Rodrigues-Formel; die Matrixform ist nur ihre Umschreibung.</p>
 

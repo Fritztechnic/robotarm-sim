@@ -70,15 +70,19 @@ $$|\mathbf a|=\sqrt{a_x^2+a_y^2+a_z^2}.$$
 <p>Ein <b>Punkt</b> und ein <b>Ortsvektor</b> sind dasselbe: der Pfeil vom Ursprung zum Punkt. Einen Punkt kann man also verschieben (Vektor addieren), einen Vektor aber nicht „verorten“, er hat nur Richtung und Länge.</p>
 
 <h3 id="skalarprodukt">1.5 Das Skalarprodukt</h3>
-<p>Das Skalarprodukt macht aus <i>zwei Vektoren eine Zahl</i>. Man multipliziert die gleichen Komponenten und addiert:</p>
+<p>Das Skalarprodukt (englisch <i>dot product</i>) macht aus <i>zwei Vektoren eine einzelne Zahl</i> (einen „Skalar“, daher der Name). Es beantwortet die Frage: <b>Wie sehr zeigen die beiden Pfeile in dieselbe Richtung?</b> Man multipliziert die gleichen Komponenten miteinander und addiert die Ergebnisse:</p>
 $$\mathbf a\cdot\mathbf b=a_xb_x+a_yb_y+a_zb_z.$$
+<p class="ex">Beispiel: $(1,2,3)\cdot(4,5,6)=1\cdot4+2\cdot5+3\cdot6=4+10+18=32$. Das Ergebnis ist eine Zahl, kein Vektor. In 2D fällt einfach der $z$-Term weg: $(3,1)\cdot(2,4)=6+4=10$.</p>
+<p><b>Wie liest man das Ergebnis?</b> Es ist <i>positiv</i>, wenn die Pfeile ungefähr in dieselbe Richtung zeigen (Winkel unter $90^\circ$), <i>null</i>, wenn sie senkrecht aufeinander stehen, und <i>negativ</i>, wenn sie sich ungefähr entgegenstehen (Winkel über $90^\circ$). Mit sich selbst multipliziert ergibt ein Vektor das Quadrat seiner Länge: $\mathbf a\cdot\mathbf a=a_x^2+a_y^2+a_z^2=|\mathbf a|^2$, das ist der Satz des Pythagoras aus 1.4.</p>
+<p><b>Die Striche $|\ \ |$</b> bedeuten die <b>Länge</b> eines Vektors, $|\mathbf a|=\sqrt{a_x^2+a_y^2+a_z^2}$ (wie der Betrag einer Zahl in 0.1). Es sind also zwei verschiedene Dinge: $\mathbf a\cdot\mathbf b$ ist eine Zahl aus zwei Vektoren, $|\mathbf a|$ die Länge eines Vektors.</p>
+<p><b>Rechenregeln:</b> Die Reihenfolge ist egal, $\mathbf a\cdot\mathbf b=\mathbf b\cdot\mathbf a$. Man darf ausklammern: $\mathbf a\cdot(\mathbf b+\mathbf c)=\mathbf a\cdot\mathbf b+\mathbf a\cdot\mathbf c$, und Zahlen darf man herausziehen: $(s\mathbf a)\cdot\mathbf b=s\,(\mathbf a\cdot\mathbf b)$.</p>
 <p>Die Geometrie dahinter: Es gilt (Beweis über den Kosinussatz, Abschnitt 1.7)</p>
 $$\mathbf a\cdot\mathbf b=|\mathbf a|\,|\mathbf b|\cos\theta,$$
 <p>wobei $\theta$ der Winkel zwischen den Pfeilen ist. Das erklärt drei wichtige Anwendungen:</p>
 <ol>
 <li><b>Winkel berechnen:</b> $\displaystyle\theta=\arccos\frac{\mathbf a\cdot\mathbf b}{|\mathbf a||\mathbf b|}$.</li>
 <li><b>Senkrecht-Test:</b> $\mathbf a\cdot\mathbf b=0\iff$ die Vektoren stehen senkrecht aufeinander ($\cos90^\circ=0$).</li>
-<li><b>Projektion:</b> Der Anteil von $\mathbf b$ in Richtung $\mathbf a$ ist $\displaystyle\mathbf b_\parallel=\frac{\mathbf a\cdot\mathbf b}{\mathbf a\cdot\mathbf a}\,\mathbf a$. Der Rest $\mathbf b-\mathbf b_\parallel$ steht senkrecht auf $\mathbf a$.</li>
+<li><b>Projektion:</b> Der Anteil von $\mathbf b$ in Richtung $\mathbf a$ („Schatten“ von $\mathbf b$ auf der Geraden durch $\mathbf a$) ist der Vektor $\displaystyle\mathbf p=\frac{\mathbf a\cdot\mathbf b}{\mathbf a\cdot\mathbf a}\,\mathbf a$. Der Rest $\mathbf b-\mathbf p$ steht senkrecht auf $\mathbf a$. Dabei ist $\mathbf a\cdot\mathbf a=|\mathbf a|^2$ das Quadrat der Länge von $\mathbf a$.</li>
 </ol>
 {{fig:dot}}
 <div class="box ex"><b class="t">Beispiel</b>$\mathbf a=(1,2,2)$, $\mathbf b=(2,0,1)$: $\mathbf a\cdot\mathbf b=2+0+2=4$, $|\mathbf a|=3$, $|\mathbf b|=\sqrt5$. Winkel: $\arccos\frac{4}{3\sqrt5}=\arccos0{,}596\approx53{,}4^\circ$.</div>
