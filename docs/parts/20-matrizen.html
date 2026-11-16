@@ -19,6 +19,13 @@ $$\begin{pmatrix}a&b&c\\d&e&f\\g&h&i\end{pmatrix}\begin{pmatrix}x\\y\\z\end{pmat
 <p>Die Abbildung zeigt das: Wenn man weiß, wohin $\hat x$ und $\hat y$ wandern, kennt man die ganze Matrix. Das Quadrat aus den beiden Einheitsvektoren wird zu einem Parallelogramm aus den beiden Spalten. Die <b>Determinante</b> (Flächenfaktor) ist hier $1{,}5\cdot1-(-0{,}5)\cdot0{,}5=1{,}75$: Jede Fläche wird $1{,}75$-mal so groß. Bei einer reinen Drehung ist dieser Faktor genau $1$.</p>
 <div class="box side"><b class="t">Hintergrund · Der Name</b> Das Wort „Matrix“ (lat. „Gebärmutter, Muttertier“) prägte der Mathematiker James Joseph Sylvester 1850 – eine Matrix ist gewissermaßen der „Mutterschoß“, aus dem man kleinere Determinanten herausschneiden kann. Matrizen sind das Arbeitspferd der gesamten Computergrafik: Jede Drehung, Skalierung und Kamerabewegung in 3D-Spielen ist eine Matrixmultiplikation, die Grafikkarte führt Milliarden davon pro Sekunde aus.</div>
 
+<h4>Schreibweise und Eigenschaften</h4>
+<p>Eine Matrix mit $m$ Zeilen und $n$ Spalten nennt man $m\times n$-Matrix („Zeilen mal Spalten“); $a_{ij}$ ist der Eintrag in Zeile $i$, Spalte $j$. Das Anwenden einer Matrix ist <b>linear</b>: $A(\vec a+\vec b)=A\vec a+A\vec b$ und $A(s\vec a)=s\,A\vec a$. Dadurch bleiben Geraden Geraden und der Ursprung bleibt fest.</p>
+<p class="ex">Skalierung $\begin{pmatrix}2&0\\0&1\end{pmatrix}$ streckt $x$ um das Doppelte: $(3,1)\mapsto(6,1)$. Spiegelung $\begin{pmatrix}1&0\\0&-1\end{pmatrix}$ an der $x$-Achse: $(3,1)\mapsto(3,-1)$. Scherung $\begin{pmatrix}1&1\\0&1\end{pmatrix}$: $(3,1)\mapsto(4,1)$. Nur Drehungen ändern dabei weder Längen noch Winkel.</p>
+<p>Für $2\times2$-Matrizen gilt
+$$\det\begin{pmatrix}a&b\\c&d\end{pmatrix}=ad-bc,\qquad \begin{pmatrix}a&b\\c&d\end{pmatrix}^{-1}=\frac{1}{ad-bc}\begin{pmatrix}d&-b\\-c&a\end{pmatrix}\ \ (\det\neq0).$$
+Die Determinante ist der Flächenfaktor der Abbildung; bei Drehungen ist sie 1.</p>
+
 <h3 id="matrixprodukt">2.2 Matrix mal Matrix</h3>
 <p>Zwei Matrizen $A\cdot B$ bedeuten: <i>erst $B$, dann $A$</i> anwenden. Der Eintrag in Zeile $i$, Spalte $j$ ist das Skalarprodukt aus Zeile $i$ von $A$ und Spalte $j$ von $B$:</p>
 $$(AB)_{ij}=\sum_k A_{ik}B_{kj}.$$
@@ -38,6 +45,13 @@ $$R_zR_x=\begin{pmatrix}0&0&1\\1&0&0\\0&1&0\end{pmatrix},\qquad R_xR_z=\begin{pm
 <li>Die <b>Determinante</b> $\det A$ sagt, wie sich Volumen ändern. $\det A=0$ bedeutet: Die Matrix „plättet“ den Raum und ist nicht umkehrbar. (Das ist genau die <i>Singularität</i> aus Kapitel 4.)</li>
 </ul>
 <div class="box side"><b class="t">Hintergrund · Warum die Reihenfolge zählt</b> Matrizen beschreiben <i>Handlungen</i>, und Handlungen sind selten vertauschbar: Erst die Schuhe, dann die Socken ist etwas anderes. In $AB\mathbf v$ wirkt zuerst $B$, dann $A$ („von rechts nach links lesen“). Es gilt aber das <i>Assoziativgesetz</i> $(AB)C=A(BC)$: Man darf beliebig zusammenfassen, solange die Reihenfolge bleibt. Das nutzt der Roboter aus – er multipliziert die sechs Gliedmatrizen einmal zu einer Gesamtmatrix. Eine Matrix mal Matrix braucht bei $n\times n$ etwa $n^3$ Multiplikationen: Bei $4\times4$ sind das nur 64 – für den Computer eine Winzigkeit.</div>
+
+<h4>Größenregel und Rechengesetze</h4>
+<p>Ein Produkt $AB$ existiert nur, wenn die Spaltenzahl von $A$ gleich der Zeilenzahl von $B$ ist: $(m\times n)\cdot(n\times p)=(m\times p)$. Beispiel: eine $2\times3$- mit einer $3\times1$-Matrix ergibt eine $2\times1$-Matrix:
+$$\begin{pmatrix}1&0&2\\0&1&1\end{pmatrix}\begin{pmatrix}3\\4\\5\end{pmatrix}=\begin{pmatrix}1\cdot3+0\cdot4+2\cdot5\\0\cdot3+1\cdot4+1\cdot5\end{pmatrix}=\begin{pmatrix}13\\9\end{pmatrix}.$$</p>
+<p>Es gelten $(AB)C=A(BC)$ (Klammern frei verschiebbar), aber im Allgemeinen $AB\neq BA$. Beim Transponieren und Invertieren dreht sich die Reihenfolge um:
+$$(AB)^{\mathsf T}=B^{\mathsf T}A^{\mathsf T},\qquad (AB)^{-1}=B^{-1}A^{-1}.$$
+Merkregel: Wer sich zuerst die Socken und dann die Schuhe anzieht, muss zuerst die Schuhe und dann die Socken ausziehen.</p>
 
 <h3 id="drehmatrizen">2.3 Drehmatrizen</h3>
 <p>Wie dreht man einen Punkt in der Ebene um den Ursprung um den Winkel $\theta$? Der Punkt $\hat x=(1,0)$ wandert nach $(\cos\theta,\sin\theta)$ (Einheitskreis!), der Punkt $\hat y=(0,1)$ wandert nach $(-\sin\theta,\cos\theta)$. Diese beiden Bilder sind nach 2.1 die Spalten der Matrix:</p>
@@ -62,6 +76,11 @@ $$R_z(\gamma)=\begin{pmatrix}\cos\gamma&-\sin\gamma&0\\\sin\gamma&\cos\gamma&0\\
 </ul>
 <div class="box side"><b class="t">Hintergrund · Warum die Transponierte die Inverse ist</b> Eine Drehung ändert weder Längen noch Winkel. Deshalb sind die Spalten der Matrix Einheitsvektoren, die paarweise aufeinander senkrecht stehen (<i>orthonormal</i>). Rechnet man $R^{\mathsf T}R$ aus, ist der Eintrag in Zeile $i$, Spalte $j$ genau das Skalarprodukt der Spalten $i$ und $j$ – also $1$ auf der Diagonale und $0$ daneben: $R^{\mathsf T}R=I$. Die Menge aller solchen Matrizen mit $\det=+1$ heißt $SO(3)$ („spezielle orthogonale Gruppe“). In der Praxis sammeln sich über viele Multiplikationen kleine Rundungsfehler; Steuerungen „säubern“ deshalb eine Matrix gelegentlich wieder (<i>Orthonormalisieren</i>).</div>
 
+<h4>Probe: Zwei Drehungen um dieselbe Achse</h4>
+<p>Zwei Drehungen um die $z$-Achse addieren ihre Winkel. Das folgt aus den Additionstheoremen: Der obere linke Eintrag von $R_z(\theta_1)R_z(\theta_2)$ ist $\cos\theta_1\cos\theta_2-\sin\theta_1\sin\theta_2=\cos(\theta_1+\theta_2)$, und die anderen Einträge ergeben sich entsprechend. Es gilt also $R_z(\theta_1)R_z(\theta_2)=R_z(\theta_1+\theta_2)$; nur bei <i>verschiedenen</i> Achsen kommt es auf die Reihenfolge an.</p>
+<h4>Aktiv oder passiv?</h4>
+<p>$R\,\vec v$ <i>dreht den Vektor</i> um $\theta$ (aktiv). Man kann dasselbe auch so lesen, dass das Koordinatensystem um $-\theta$ gedreht wird und $\vec v$ gleich bleibt (passiv); die Zahlen sind identisch. Hier wird durchgehend die aktive Lesart benutzt, und $R^{\mathsf T}=R^{-1}$ ist die Drehung zurück.</p>
+
 <h3 id="rpy">2.4 Winkelangaben: Roll, Pitch, Yaw</h3>
 <p>Jede Lage im Raum lässt sich durch drei Drehungen beschreiben. Das Programm benutzt die übliche Roll-Pitch-Yaw-Konvention (Koordinatenachsen fest, erst Roll um $x$, dann Pitch um $y$, dann Yaw um $z$):</p>
 $$R=R_z(\text{Yaw})\,R_y(\text{Pitch})\,R_x(\text{Roll}).$$
@@ -76,6 +95,11 @@ $$\psi=\operatorname{atan2}(R_{21},R_{11})=\operatorname{atan2}(1,0)=90^\circ.$$
 <p>Das passt zur Konstruktion: Roll $=90^\circ$ (um $x$) und Yaw $=90^\circ$ (um $z$), kein Pitch.</p>
 <div class="box warn"><b class="t">Kardan-Sperre (Gimbal Lock)</b>Bei $\vartheta=\pm90^\circ$ ist $\cos\vartheta=0$: Roll und Yaw drehen dann um dieselbe Achse und nur ihre Summe/Differenz ist festgelegt. Das ist eine Schwäche der Dreiwinkel-Schreibweise, nicht des Roboters. Deshalb rechnet das Programm intern mit Matrizen und benutzt Winkel nur zur Ein- und Ausgabe.</div>
 <div class="box side"><b class="t">Hintergrund · Euler-Winkel: über zwölf Konventionen</b> „Roll, Pitch, Yaw“ ist nur <i>eine</i> von mindestens zwölf möglichen Reihenfolgen von drei Drehungen (z‑y‑x, z‑x‑z, …), und jede gibt es in einer „mitdrehenden“ und einer „festen“ Achsen-Variante. Zwei Programme, die beide „Euler-Winkel“ sagen, können also dieselbe Lage ganz verschieden beschreiben. Rechne deshalb immer erst nach, welche Konvention ein Gerät benutzt, bevor Du Winkel überträgst. Industrieroboter verschiedener Hersteller nutzen unterschiedliche Konventionen (z. B. KUKA: A, B, C; Fanuc: W, P, R). Die Kardan-Sperre war auch beim Apollo-Programm ein reales Problem der Trägheitsplattform – ein Grund, warum Quaternionen so geschätzt werden (eine Erfindung von Hamilton, 1843, mit 4 statt 3 Zahlen, aber ganz ohne Sperre).</div>
+
+<h4>Warum es beim Pitch von $90^\circ$ klemmt (Gimbal Lock)</h4>
+<p>Setzt man in $R=R_z(\psi)R_y(\theta)R_x(\varphi)$ den Pitch $\theta=90^\circ$ ein, ergibt die Rechnung
+$$R=\begin{pmatrix}0&\sin(\varphi-\psi)&\cos(\varphi-\psi)\\0&\cos(\varphi-\psi)&-\sin(\varphi-\psi)\\-1&0&0\end{pmatrix}.$$
+Die Matrix hängt nur noch von der <b>Differenz</b> $\varphi-\psi$ ab. Es gibt also unendlich viele Paare $(\varphi,\psi)$ für dieselbe Orientierung: ein Freiheitsgrad ist verloren gegangen. Bei $\theta=-90^\circ$ steht dagegen die Summe $\varphi+\psi$ in der Matrix. Das ist keine Eigenschaft des Roboters, sondern der Dreiwinkel-Darstellung. In dieser Lage kann man aus der Matrix die beiden Winkel nicht mehr trennen, und man wählt einen davon willkürlich (meist $\varphi=0$).</p>
 
 <h3 id="achsewinkel">2.5 Drehung um eine beliebige Achse</h3>
 <p>Jede Drehung im Raum ist eine Drehung um <i>eine</i> Achse $\hat{\mathbf k}$ (Einheitsvektor) um einen Winkel $\theta$. Der Punkt $\mathbf v$ wird dann (<b>Rodrigues-Formel</b>) in drei Anteile zerlegt – Anteil längs der Achse (bleibt), Anteil senkrecht dazu (wird gedreht) und der dritte Richtung $\hat{\mathbf k}\times\mathbf v$:</p>
@@ -96,6 +120,13 @@ $$R(t)=R_0\,R\big(\hat{\mathbf k},\,t\,\theta\big).$$
 <p>Der Werkzeugwinkel dreht damit auf dem <i>kürzesten</i> Weg mit konstanter Winkelgeschwindigkeit – ohne Gimbal-Lock-Probleme.</p>
 <div class="box side"><b class="t">Hintergrund · Eine Drehung = Achse + Winkel</b> Der Satz von Euler besagt: Jede Drehung im Raum, egal wie kompliziert sie aus Einzeldrehungen zusammengesetzt wurde, ist <i>eine einzige</i> Drehung um <i>eine</i> Achse. Die Rodrigues-Formel (Olinde Rodrigues, 1840) rechnet genau diese Achse-Winkel-Darstellung in eine Matrix um. Das Programm nutzt sie, weil man Winkel einer solchen Drehung einfach <i>anteilig</i> ausführen kann („halbe Strecke“ = halber Winkel um dieselbe Achse) – das ist der Kern von Slerp.</div>
 
+<h4>Geometrische Herleitung der Rodrigues-Formel</h4>
+<p>Man zerlegt $\vec v$ in einen Teil parallel zur Achse $\vec k$ und einen senkrechten Teil: $\vec v_\parallel=(\vec k\cdot\vec v)\vec k$ und $\vec v_\perp=\vec v-\vec v_\parallel$. Der parallele Teil bleibt bei der Drehung unverändert. Der senkrechte Teil dreht sich in der Ebene senkrecht zu $\vec k$. Dort bilden $\vec v_\perp$ und $\vec w=\vec k\times\vec v$ (gleich lang, 90° versetzt) ein „Achsenkreuz“, sodass
+$$\vec v'=\vec v_\parallel+\cos\theta\,\vec v_\perp+\sin\theta\,\vec w.$$
+Setzt man $\vec v_\perp=\vec v-(\vec k\cdot\vec v)\vec k$ ein, entsteht
+$$\vec v'=\vec v\cos\theta+(\vec k\times\vec v)\sin\theta+\vec k\,(\vec k\cdot\vec v)(1-\cos\theta).$$
+Das ist genau die Rodrigues-Formel; die Matrixform ist nur ihre Umschreibung.</p>
+
 <h3 id="homogen">2.6 Drehung + Verschiebung: homogene Matrizen</h3>
 <p>Eine Drehmatrix kann nur drehen. Eine <i>Lage</i> (Pose) besteht aus Drehung $R$ <i>und</i> Verschiebung $\mathbf t$: $\mathbf p'=R\mathbf p+\mathbf t$. Ein Trick macht daraus eine einzige Matrix-Multiplikation: Man hängt an jeden Punkt eine $1$ und benutzt eine $4\times4$-Matrix:</p>
 $$T=\begin{pmatrix}R&\mathbf t\\\mathbf 0^{\mathsf T}&1\end{pmatrix},\qquad \begin{pmatrix}\mathbf p'\\1\end{pmatrix}=T\begin{pmatrix}\mathbf p\\1\end{pmatrix}.$$
@@ -105,3 +136,11 @@ $$T=\begin{pmatrix}R&\mathbf t\\\mathbf 0^{\mathsf T}&1\end{pmatrix},\qquad \beg
 <div class="box ex"><b class="t">Beispiel</b>Ein Glied sei um $90^\circ$ um $z$ gedreht und um $(100,0,0)$ verschoben. Der Punkt $(50,0,0)$ im Glied liegt dann in der Basis bei $R_z(90^\circ)(50,0,0)^{\mathsf T}+(100,0,0)=(0,50,0)+(100,0,0)=(100,50,0)$.</div>
 <div class="box side"><b class="t">Hintergrund · Das Wort „homogen“</b> Das „Anhängen einer 1“ stammt aus der projektiven Geometrie (Möbius, 1827) und wurde durch die Computergrafik populär: Mit den so erweiterten Koordinaten wird auch die Verschiebung – eigentlich eine <i>Addition</i> – zu einer Multiplikation, und alles lässt sich in einer Matrixkette ausdrücken. Vektoren (Richtungen) bekommen am Ende eine $0$ statt einer $1$: Sie sollen sich zwar drehen, aber nicht mitverschieben. Eine Rechenregel zur Kontrolle: Die letzte Zeile einer homogenen Matrix ist immer $(0\ 0\ 0\ 1)$.</div>
 
+<h4>Zahlenbeispiel: Inverse und Punkt gegen Vektor</h4>
+<p>Für $T=\begin{pmatrix}R&\vec t\\0&1\end{pmatrix}$ ist $T^{-1}=\begin{pmatrix}R^{\mathsf T}&-R^{\mathsf T}\vec t\\0&1\end{pmatrix}$. Beispiel: Drehung um $z$ um $90^\circ$ und Verschiebung $\vec t=(10,0,0)$. Dann ist $R^{\mathsf T}=\begin{pmatrix}0&1&0\\-1&0&0\\0&0&1\end{pmatrix}$ und $-R^{\mathsf T}\vec t=(0,10,0)$. Probe: $T$ bildet den Punkt $(0,10,0)$ auf $R(0,10,0)+\vec t=(-10,0,0)+(10,0,0)=(0,0,0)$ ab, und $T^{-1}$ bringt den Ursprung zurück zu $(0,10,0)$. ✓</p>
+<p>Die vierte Koordinate unterscheidet <b>Punkte</b> ($w=1$, werden verschoben) von <b>Richtungen</b> ($w=0$, bleiben unverschoben, nur gedreht). Das ist sinnvoll: eine Richtung hat keinen Ort.</p>
+
+<h3 id="wechsel">2.7 Koordinatensysteme wechseln</h3>
+<p>Eine homogene Matrix lässt sich auch als <b>Koordinatensystem</b> lesen: Ihre ersten drei Spalten sind die Richtungen der $x$-, $y$-, $z$-Achse des neuen Systems (ausgedrückt im alten), die vierte Spalte ist sein Ursprung. Schreibt man ${}^{a}T_{b}$ für „System $b$ beschrieben im System $a$“, dann wandelt ${}^{a}T_{b}$ Koordinaten aus $b$ in Koordinaten aus $a$ um: ${}^{a}\vec p={}^{a}T_{b}\,{}^{b}\vec p$.</p>
+<p>Ketten sind nun leicht zu lesen: ${}^{0}T_{2}={}^{0}T_{1}\,{}^{1}T_{2}$, die inneren Indizes „kürzen sich weg“. Genau das macht die Vorwärtskinematik: Jedes Gelenk liefert ${}^{i-1}T_{i}$, das Produkt aller sechs ist ${}^{0}T_{6}$, Basis → Werkzeug.</p>
+<p class="ex">Ein Werkzeug liegt im System $1$ bei ${}^{1}\vec p=(0,0,50)$; System 1 ist um $(100,0,0)$ gegen die Basis verschoben und nicht gedreht. Dann ist ${}^{0}\vec p=(100,0,50)$.</p>

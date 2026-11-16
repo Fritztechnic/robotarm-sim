@@ -5,6 +5,8 @@
 {{fig:axes2d}}
 <div class="box side"><b class="t">Hintergrund · Rechtssystem und Linkssystem</b> Legt man $x$ nach rechts und $y$ nach oben, kann $z$ entweder auf den Betrachter zu oder von ihm weg zeigen. Mit der Rechte-Hand-Regel (Daumen $x$, Zeigefinger $y$, Mittelfinger $z$) bekommt man das übliche <i>Rechtssystem</i>. Fast die gesamte Robotik und Physik nutzt es; manche Grafikbibliotheken (z. B. Direct3D) nutzen ein Linkssystem. Wer Koordinaten zwischen beiden Welten kopiert, bekommt gespiegelte Bilder – ein klassischer Fehler.</div>
 
+<p class="ex">Beispiel: Der Punkt $P=(3\mid 2\mid 5)$ liegt 3&nbsp;mm in $x$-, 2&nbsp;mm in $y$- und 5&nbsp;mm in $z$-Richtung vom Ursprung entfernt. Sein Abstand zum Ursprung ist $\sqrt{3^2+2^2+5^2}=\sqrt{38}\approx6{,}16$. Ein Punkt ist nur relativ zu einem <b>Koordinatensystem</b> definiert; derselbe Ort hat in einem anderen System andere Zahlen (siehe 2.7).</p>
+
 <h3 id="winkel">1.2 Winkel: Grad und Bogenmaß</h3>
 <p>Im Alltag misst man Winkel in Grad (ein Vollkreis = $360^\circ$). Die Mathematik rechnet lieber im <b>Bogenmaß</b> (Radiant): Der Winkel ist die Länge des Kreisbogens auf einem Kreis mit Radius 1. Ein Vollkreis hat den Umfang $2\pi$, also gilt</p>
 $$\text{Bogenmaß} = \text{Grad}\cdot\frac{\pi}{180^\circ},\qquad \text{Grad} = \text{Bogenmaß}\cdot\frac{180^\circ}{\pi}.$$
@@ -12,6 +14,10 @@ $$\text{Bogenmaß} = \text{Grad}\cdot\frac{\pi}{180^\circ},\qquad \text{Grad} = 
 <tr><th>Bogenmaß</th><td>0</td><td>$\pi/6$</td><td>$\pi/4$</td><td>$\pi/2$</td><td>$\pi$</td><td>$2\pi$</td></tr></table>
 <p>Das Programm zeigt Grad an und rechnet intern im Bogenmaß.</p>
 <div class="box side"><b class="t">Hintergrund · Warum Bogenmaß?</b> Das Bogenmaß ist der „natürliche“ Winkel: Ein Winkel von 1 rad schneidet auf einem Kreis vom Radius $r$ einen Bogen der Länge $r$ aus. Dadurch wird die Bogenlänge einfach $s=r\theta$, und viele Formeln (Ableitungen von $\sin$ und $\cos$, die Kleinwinkelnäherung $\sin\theta\approx\theta$) werden schlicht. Die 360 Grad stammen vermutlich von den Babyloniern mit ihrem Zählsystem zur Basis 60; die Zahl hat viele Teiler (2, 3, 4, 5, 6, 8, 9, 10, 12, …), das macht Bruchteile handlich.</div>
+
+<h4>Rechenbeispiele zur Umrechnung</h4>
+<p class="ex">$45^\circ\cdot\tfrac{\pi}{180^\circ}=\tfrac{\pi}{4}\approx0{,}7854$ rad. Zurück: $1{,}2$ rad $\cdot\tfrac{180^\circ}{\pi}\approx68{,}75^\circ$. Bogenlänge: Ein Gelenk dreht sich um $20^\circ=0{,}349$ rad; ein Punkt 260&nbsp;mm von der Achse wandert dabei $s=260\cdot0{,}349\approx90{,}8$ mm.</p>
+<p>Für kleine Winkel ($<10^\circ$) gilt die Näherung $\sin\theta\approx\theta$ (in rad). Sie erklärt, warum kleine Gelenkfehler fast linear in Positionsfehler übergehen: Fehler $\approx$ Hebelarm $\times$ Winkelfehler.</p>
 
 <h3 id="trig">1.3 Sinus, Kosinus, Tangens und atan2</h3>
 <p>Zeichne einen Kreis mit Radius 1 um den Ursprung und einen Punkt darauf, der zum Winkel $\theta$ gehört (gemessen von der $x$-Achse gegen den Uhrzeigersinn). Dann ist <b>Kosinus</b> die $x$-Koordinate und <b>Sinus</b> die $y$-Koordinate dieses Punktes.</p>
@@ -23,6 +29,17 @@ $$\theta=\operatorname{atan2}(y,x)\in(-180^\circ,180^\circ],$$
 <p>das beide Vorzeichen auswertet und den Winkel im richtigen Quadranten liefert. Ebenso ist $\arccos$ nur für Werte in $[-1,1]$ definiert; wegen Rundungsfehlern wird das Argument vorher in diesen Bereich geklemmt.</p>
 <div class="box ex"><b class="t">Beispiel</b>$\operatorname{atan2}(1,1)=45^\circ$, $\operatorname{atan2}(1,-1)=135^\circ$, $\operatorname{atan2}(-1,-1)=-135^\circ$.</div>
 <div class="box side"><b class="t">Hintergrund · atan2 und die Fallen von arccos</b> Die Funktion $\arctan(y/x)$ kennt nur das <i>Verhältnis</i> und kann deshalb $(1,1)$ und $(-1,-1)$ nicht unterscheiden. $\operatorname{atan2}(y,x)$ bekommt beide Zahlen einzeln und liefert den Winkel im richtigen Quadranten; außerdem funktioniert es bei $x=0$, wo $y/x$ undefiniert wäre. Dagegen ist $\arccos$ nur für Argumente in $[-1,1]$ definiert und bei $\pm1$ sehr „flach“: Ein winziger Rundungsfehler (z. B. $1{,}0000000002$) würde zu einem Programmabsturz führen. Das Programm begrenzt deshalb jedes Argument vorher auf $[-1,1]$ (<i>clamp</i>). Außerdem ist $\arccos$ in der Nähe von $0^\circ$ und $180^\circ$ ungenau – wo es geht, bevorzugt die Software $\operatorname{atan2}$.</div>
+
+<h4>Vorzeichen in den vier Quadranten und wichtige Identitäten</h4>
+<table class="l"><tr><th>Quadrant</th><th>Winkel</th><th>$\sin$</th><th>$\cos$</th><th>$\tan$</th></tr>
+<tr><td>I</td><td>$0^\circ$ bis $90^\circ$</td><td>+</td><td>+</td><td>+</td></tr>
+<tr><td>II</td><td>$90^\circ$ bis $180^\circ$</td><td>+</td><td>−</td><td>−</td></tr>
+<tr><td>III</td><td>$180^\circ$ bis $270^\circ$</td><td>−</td><td>−</td><td>+</td></tr>
+<tr><td>IV</td><td>$270^\circ$ bis $360^\circ$</td><td>−</td><td>+</td><td>−</td></tr></table>
+<p>Am Einheitskreis ist $\cos$ die $x$- und $\sin$ die $y$-Koordinate, daraus lesen sich alle Regeln ab:
+$$\sin(-x)=-\sin x,\qquad \cos(-x)=\cos x,\qquad \sin(90^\circ-x)=\cos x,\qquad \sin^2x+\cos^2x=1.$$</p>
+<p>Der Tangens versagt bei $90^\circ$ (Division durch $\cos=0$) und kann Quadranten nicht unterscheiden: $\tan 45^\circ=\tan 225^\circ=1$. Darum benutzt man $\operatorname{atan2}(y,x)$, das beide Vorzeichen auswertet.</p>
+<p class="ex">Beispiel: Der Punkt $(-1\mid 1)$. $\arctan\tfrac{1}{-1}=-45^\circ$ wäre falsch (das ist Quadrant IV). $\operatorname{atan2}(1,-1)=135^\circ$ ist richtig, denn $x<0$, $y>0$ liegt in Quadrant II.</p>
 
 <h3 id="vektoren">1.4 Vektoren</h3>
 <p>Ein <b>Vektor</b> ist ein Pfeil: Er hat eine Richtung und eine Länge, aber keinen festen Ort. Man schreibt ihn als Zahlenliste, z. B. $\mathbf a=(3,2)$ für „3 nach rechts, 2 nach oben“. Im Raum hat er drei Komponenten $\mathbf a=(a_x,a_y,a_z)$. Ein Punkt $P$ und der Vektor vom Ursprung zu $P$ werden dabei gleich geschrieben.</p>
@@ -47,6 +64,10 @@ $$|\mathbf a|=\sqrt{a_x^2+a_y^2+a_z^2}.$$
 <p>Der Abstand beträgt also $13$ Einheiten. Dieselbe Rechnung braucht die inverse Kinematik, um den Abstand zwischen Schulter und Handgelenk zu bestimmen.</p>
 <div class="box"><b class="t">Ortsvektor und Richtungsvektor</b>Ein <i>Ortsvektor</i> zeigt vom Ursprung zu einem Punkt und beschreibt dessen Lage. Ein <i>Richtungsvektor</i> beschreibt nur Richtung und Länge, z. B. die Fahrtrichtung des Werkzeugs. Beide werden gleich notiert; welche Rolle gemeint ist, ergibt sich aus dem Zusammenhang.</div>
 <div class="box side"><b class="t">Hintergrund · Woher kommt das Wort?</b> „Vektor“ stammt vom lateinischen <i>vehere</i> („tragen, fahren“): Ein Vektor „trägt“ einen Punkt zum anderen. Der Unterschied zum Punkt: Ein Punkt ist ein <i>Ort</i>, ein Vektor eine <i>Verschiebung</i>. Man kann zwei Verschiebungen addieren, aber zwei Orte zu addieren ergibt keinen Sinn („Berlin + Paris“); Ort minus Ort ergibt dagegen eine Verschiebung. Mathematisch ist ein Vektor jedes Objekt, das man addieren und strecken kann – so nennt man auch eine Liste von sechs Gelenkwinkeln einen Vektor $\mathbf q\in\mathbb R^6$.</div>
+
+<h4>Weitere Beispiele zu Vektoren</h4>
+<p class="ex">$\vec a=(1,2,3)$, $\vec b=(4,0,-1)$: Summe $\vec a+\vec b=(5,2,2)$, Differenz $\vec b-\vec a=(3,-2,-4)$, $2\vec a=(2,4,6)$. Der <b>Richtungsvektor</b> von Punkt $A$ nach Punkt $B$ ist $\vec{AB}=B-A$ („Spitze minus Fuß“). Der <b>Mittelpunkt</b> der Strecke $AB$ ist $\tfrac12(A+B)$. Die drei Einheitsvektoren $\hat x=(1,0,0)$, $\hat y=(0,1,0)$, $\hat z=(0,0,1)$ heißen <b>Basisvektoren</b>: jeder Vektor ist $a_x\hat x+a_y\hat y+a_z\hat z$.</p>
+<p>Ein <b>Punkt</b> und ein <b>Ortsvektor</b> sind dasselbe: der Pfeil vom Ursprung zum Punkt. Einen Punkt kann man also verschieben (Vektor addieren), einen Vektor aber nicht „verorten“, er hat nur Richtung und Länge.</p>
 
 <h3 id="skalarprodukt">1.5 Das Skalarprodukt</h3>
 <p>Das Skalarprodukt macht aus <i>zwei Vektoren eine Zahl</i>. Man multipliziert die gleichen Komponenten und addiert:</p>
@@ -83,6 +104,12 @@ $$\mathbf a\cdot\mathbf b=|\mathbf a|\,|\mathbf b|\cos\theta,$$
 <p><b>Rechenregeln:</b> $\mathbf a\cdot\mathbf b=\mathbf b\cdot\mathbf a$ (Reihenfolge egal), $\mathbf a\cdot\mathbf a=|\mathbf a|^2$, $\mathbf a\cdot(\mathbf b+\mathbf c)=\mathbf a\cdot\mathbf b+\mathbf a\cdot\mathbf c$.</p>
 <div class="box side"><b class="t">Hintergrund · Wozu es sonst noch gut ist</b> Das Skalarprodukt misst „wie ähnlich zeigen zwei Pfeile“. Genau diese Idee steckt auch in Suchmaschinen und KI (Kosinus-Ähnlichkeit zweier Vektoren). Bei Kräften ist $\mathbf F\cdot\mathbf s$ die verrichtete Arbeit: Nur der Kraftanteil <i>in</i> Bewegungsrichtung zählt. Und es ist <i>kommutativ</i>: $\mathbf a\cdot\mathbf b=\mathbf b\cdot\mathbf a$ – anders als das Kreuzprodukt.</div>
 
+<h4>Warum beide Formeln dasselbe sind</h4>
+<p>Seien $\vec a,\vec b$ Seiten eines Dreiecks, die dritte Seite ist $\vec a-\vec b$. Der Kosinussatz (1.7) liefert $|\vec a-\vec b|^2=|\vec a|^2+|\vec b|^2-2|\vec a||\vec b|\cos\theta$. Andererseits ergibt das Ausmultiplizieren der Komponenten
+$$|\vec a-\vec b|^2=|\vec a|^2-2\,(a_xb_x+a_yb_y+a_zb_z)+|\vec b|^2.$$
+Vergleicht man beide, heben sich $|\vec a|^2$ und $|\vec b|^2$ weg und es bleibt $a_xb_x+a_yb_y+a_zb_z=|\vec a||\vec b|\cos\theta$. Damit sind die rechnerische und die geometrische Definition bewiesen identisch.</p>
+<p class="ex">Winkel zwischen $\vec a=(1,2,2)$ und $\vec b=(2,0,0)$: $\vec a\cdot\vec b=2$, $|\vec a|=3$, $|\vec b|=2$, also $\cos\theta=\tfrac{2}{6}=0{,}333$ und $\theta=\arccos0{,}333\approx70{,}5^\circ$. Projektion von $\vec a$ auf $\vec b$: Länge $\tfrac{\vec a\cdot\vec b}{|\vec b|}=1$, als Vektor $\tfrac{\vec a\cdot\vec b}{|\vec b|^2}\vec b=\tfrac24(2,0,0)=(1,0,0)$.</p>
+
 <h3 id="kreuzprodukt">1.6 Das Kreuzprodukt</h3>
 <p>Das Kreuzprodukt gibt es nur im Raum und macht aus <i>zwei Vektoren einen dritten Vektor</i>:</p>
 $$\mathbf a\times\mathbf b=\begin{pmatrix}a_yb_z-a_zb_y\\ a_zb_x-a_xb_z\\ a_xb_y-a_yb_x\end{pmatrix}.$$
@@ -109,6 +136,12 @@ $$\mathbf a\times\mathbf b=\begin{pmatrix}a_yb_z-a_zb_y\\ a_zb_x-a_xb_z\\ a_xb_y
 <p><b>Wozu im Roboter?</b> Die Drehgeschwindigkeit eines Gelenks um die Achse $\hat{\mathbf z}$ bewegt einen Punkt im Abstand $\mathbf r$ mit $\hat{\mathbf z}\times\mathbf r$. Diese Beziehung bildet die Spalten der <i>Jacobi-Matrix</i> (Abschnitt 4.7). Außerdem liefert $\sin\theta=|\mathbf a\times\mathbf b|/(|\mathbf a||\mathbf b|)$ zusammen mit $\cos\theta$ aus dem Skalarprodukt den Winkel eindeutig: $\theta=\operatorname{atan2}\big(|\mathbf a\times\mathbf b|,\,\mathbf a\cdot\mathbf b\big)$ – das nutzt die IK in jedem Teilproblem.</p>
 <div class="box side"><b class="t">Hintergrund · Nur in 3D (fast)</b> Ein Kreuzprodukt, das zwei Vektoren einen dritten, auf beiden senkrechten Vektor zuordnet, gibt es in dieser einfachen Form nur im dreidimensionalen Raum (und kurioserweise noch in 7 Dimensionen). In 2D kann man nur den Skalar $a_xb_y-a_yb_x$ bilden – er ist die $z$-Komponente des 3D-Kreuzprodukts und gibt die Drehrichtung an: positiv heißt „$\mathbf b$ liegt links von $\mathbf a$“. Die Rechte-Hand-Regel ist eine <i>Konvention</i>: Mit der linken Hand würde das Kreuzprodukt in die Gegenrichtung zeigen, und alle Formeln in diesem Dokument blieben richtig, wenn man das konsequent so festlegte. Wichtig: Parallele Vektoren ergeben den Nullvektor – das ist die Wurzel vieler Singularitäten.</div>
 
+<h4>Normalenvektor und Spatprodukt</h4>
+<p>Das Kreuzprodukt zweier Vektoren, die eine Fläche aufspannen, steht senkrecht auf dieser Fläche: es ist ein <b>Normalenvektor</b>. Eine Ebene durch den Punkt $P_0$ mit Normale $\vec n$ besteht aus allen $P$ mit $\vec n\cdot(P-P_0)=0$.</p>
+<p>Verknüpft man beide Produkte, entsteht das <b>Spatprodukt</b> $\vec k\cdot(\vec u\times\vec v)$. Sein Betrag ist das Volumen des von den drei Vektoren aufgespannten Spats (Parallelepipeds); es ist null, wenn die drei Vektoren in einer Ebene liegen. In Kapitel 4 taucht es auf, wenn aus zwei projizierten Vektoren ein <i>vorzeichenbehafteter</i> Drehwinkel um $\vec k$ bestimmt wird.</p>
+<p class="ex">Für $\hat x\times\hat y=\hat z$ ist $\hat z\cdot(\hat x\times\hat y)=1$ (Volumen des Einheitswürfels, rechtshändig). Vertauscht man die beiden ersten Vektoren, wechselt das Vorzeichen: $\hat z\cdot(\hat y\times\hat x)=-1$.</p>
+<p>Die Länge folgt aus der <b>Lagrange-Identität</b> $|\vec a\times\vec b|^2+(\vec a\cdot\vec b)^2=|\vec a|^2|\vec b|^2$, die genau $\sin^2+\cos^2=1$ in Vektorform ist.</p>
+
 <h3 id="kosinussatz">1.7 Der Kosinussatz</h3>
 <p>Im beliebigen Dreieck mit Seiten $a,b,c$ und dem Winkel $\gamma$ gegenüber von $c$ gilt</p>
 $$c^2=a^2+b^2-2ab\cos\gamma\quad\Longleftrightarrow\quad\gamma=\arccos\frac{a^2+b^2-c^2}{2ab}.$$
@@ -121,3 +154,16 @@ $$=\frac{57\,600+67\,600-176\,400}{124\,800}=\frac{-51\,200}{124\,800}\approx-0{
 <p>Der Satz ist das Herz des Ellbogens: Kennt man die Längen der beiden Armglieder und den Abstand Schulter–Handgelenk, sind alle drei Seiten bekannt, und der Ellbogenwinkel folgt direkt.</p>
 <div class="box side"><b class="t">Hintergrund · Pythagoras mit Korrektur</b> Der Kosinussatz ist die Verallgemeinerung des Satzes von Pythagoras auf beliebige Dreiecke: Der Term $-2ab\cos\gamma$ ist die „Korrektur“ für den Winkel, die bei $\gamma=90^\circ$ verschwindet. Er ist auch die Grundlage jeder Entfernungsmessung per Triangulation (Landvermessung, GPS) und beschreibt, wie weit sich ein Dreieck „öffnet“, wenn man zwei Seiten festhält und den Winkel verändert – genau das tut der Ellbogen. Ist das Dreieck <i>unmöglich</i> (eine Seite länger als die Summe der beiden anderen), liegt der Kosinus außerhalb von $[-1,1]$; das ist das mathematische Zeichen für „Ziel außer Reichweite“.</div>
 
+<h4>Herleitung aus dem Satz des Pythagoras</h4>
+<p>Im Dreieck mit den Seiten $a,b$ und dem eingeschlossenen Winkel $\gamma$ legt man $b$ auf die $x$-Achse. Die Ecke am Ende von $a$ hat dann die Koordinaten $(a\cos\gamma\mid a\sin\gamma)$. Die dritte Seite $c$ ist der Abstand dieses Punktes zum Ende von $b$, also zum Punkt $(b\mid0)$. Nach Pythagoras:
+$$c^2=(b-a\cos\gamma)^2+(a\sin\gamma)^2=b^2-2ab\cos\gamma+a^2\cos^2\gamma+a^2\sin^2\gamma.$$
+Wegen $\cos^2\gamma+\sin^2\gamma=1$ bleibt $c^2=a^2+b^2-2ab\cos\gamma$. Für $\gamma=90^\circ$ verschwindet der Kosinus und es entsteht Pythagoras: der Kosinussatz ist seine Verallgemeinerung.</p>
+<p class="ex">Zweites Beispiel: Ein Dreieck mit $a=3$, $b=4$, $\gamma=60^\circ$ hat $c^2=9+16-2\cdot12\cdot0{,}5=13$, also $c\approx3{,}61$. Sind umgekehrt alle drei Seiten bekannt, liefert die umgestellte Form $\cos\gamma=\tfrac{a^2+b^2-c^2}{2ab}$ den Winkel; genau das tut die IK beim Ellbogen.</p>
+
+<h3 id="geraden">1.8 Geraden, Strecken und Interpolation</h3>
+<p>Eine Gerade durch den Punkt $A$ in Richtung $\vec d$ ist die Menge aller Punkte $P(t)=A+t\,\vec d$ mit beliebigem Zahlenwert $t$. Beschränkt man $t$ auf $0\le t\le1$ und wählt $\vec d=B-A$, erhält man die <b>Strecke</b> von $A$ nach $B$:
+$$P(t)=A+t\,(B-A)=(1-t)\,A+t\,B.$$
+Das nennt man lineare Interpolation (<i>lerp</i>). Bei $t=0$ ist man in $A$, bei $t=1$ in $B$, bei $t=0{,}5$ genau in der Mitte.</p>
+<p class="ex">$A=(0,0,100)$, $B=(200,0,100)$: bei $t=0{,}25$ liegt der Punkt bei $(50,0,100)$. Fährt der Roboter eine Linie, wird $t$ über die Zeit von 0 auf 1 gefahren und für jeden Zeitpunkt die inverse Kinematik gelöst (siehe 5.1).</p>
+<h3 id="basis">1.9 Linearkombination und Basis</h3>
+<p>Eine <b>Linearkombination</b> von Vektoren ist eine Summe von Vielfachen: $\alpha\vec u+\beta\vec v$. Alle Linearkombinationen zweier nicht paralleler Vektoren füllen eine Ebene. Drei Vektoren, die nicht in einer Ebene liegen (Spatprodukt $\neq0$), bilden eine <b>Basis</b> des Raums: jeder Vektor lässt sich auf genau eine Weise daraus kombinieren. Stehen die Basisvektoren paarweise senkrecht und haben Länge 1, spricht man von einer <b>Orthonormalbasis</b>. $\hat x,\hat y,\hat z$ sind das einfachste Beispiel; die Spalten einer Drehmatrix (Kapitel 2) sind ein anderes.</p>

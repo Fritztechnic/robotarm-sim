@@ -13,6 +13,11 @@
 <div class="box ex"><b class="t">Beispiel</b>Berechne $3-2\cdot(4-6)$. Zuerst die Klammer: $4-6=-2$. Dann Punkt vor Strich: $2\cdot(-2)=-4$. Zuletzt $3-(-4)=7$.</div>
 <div class="box side"><b class="t">Hintergrund · Warum „Punkt vor Strich“?</b> Das ist keine Naturgesetz-, sondern eine <i>Vereinbarung</i>, damit man Klammern spart. Taschenrechner und Programmiersprachen (auch Rust) halten sich ebenfalls daran. Im Zweifel gilt: lieber eine Klammer zu viel als eine zu wenig. Außerdem rechnet der Computer nicht exakt: Zahlen wie $0{,}1$ lassen sich im Binärsystem nicht genau darstellen, deshalb vergleicht man Gleitkommazahlen nie mit „=“, sondern mit einer kleinen Toleranz (im Programm z. B. $10^{-9}$).</div>
 
+<h4>Betrag, Zahlenstrahl und Einheiten</h4>
+<p>Der <b>Betrag</b> $|x|$ einer Zahl ist ihr Abstand zur Null, also die Zahl ohne Vorzeichen: $|-3|=3$, $|3|=3$. Auf dem Zahlenstrahl liegen negative Zahlen links, positive rechts der Null. Ein Winkel von $-30^\circ$ ist deshalb nicht „kleiner im Sinne von weniger Drehung“, sondern eine Drehung in die Gegenrichtung.</p>
+<p>Jede Zahl in der Robotik hat eine <b>Einheit</b>: Längen in Millimetern (mm), Winkel in Grad (°) oder Bogenmaß (rad). Wer Einheiten mitschreibt, findet Fehler früh: Addieren darf man nur gleiche Einheiten. $240\,\text{mm}+30^\circ$ ist sinnlos.</p>
+<p>Große und kleine Zahlen schreibt man mit Zehnerpotenzen: $0{,}001=10^{-3}$, $1\,\text{m}=10^3\,\text{mm}$. Beim <b>Runden</b> gilt: ab 5 aufrunden. $2{,}4103\to 2{,}41$. Gerundet wird erst am Ende der Rechnung, Zwischenergebnisse behält man mit mindestens 4 Nachkommastellen, sonst summieren sich Rundungsfehler.</p>
+
 <h3 id="brueche">0.2 Brüche</h3>
 <p>Ein Bruch $\tfrac{a}{b}$ bedeutet „$a$ geteilt durch $b$“. Oben steht der <b>Zähler</b>, unten der <b>Nenner</b>. Der Nenner darf nie $0$ sein. Drei Rechenregeln reichen:</p>
 <ul>
@@ -22,12 +27,27 @@
 </ul>
 <p>Durch einen Bruch teilen heißt mit dem Kehrwert multiplizieren: $\tfrac{3}{4}:\tfrac{3}{8}=\tfrac34\cdot\tfrac83=\tfrac{24}{12}=2$.</p>
 
+<h4>Dezimalzahl und Bruch, Kürzen</h4>
+<p>Ein Bruch ist eine Division: $\tfrac{3}{4}=3:4=0{,}75$. Umgekehrt ist $0{,}25=\tfrac{25}{100}=\tfrac14$. <b>Kürzen</b> heißt, Zähler und Nenner durch dieselbe Zahl zu teilen. Am schnellsten geht es mit dem größten gemeinsamen Teiler (ggT):</p>
+<p class="ex">Beispiel: $\tfrac{18}{48}$. Der ggT von 18 und 48 ist 6. Also $\tfrac{18:6}{48:6}=\tfrac{3}{8}$.</p>
+<p>Brüche mit gleichem Nenner addiert man, indem man die Zähler addiert: $\tfrac{1}{6}+\tfrac{3}{6}=\tfrac{4}{6}=\tfrac{2}{3}$. Bei verschiedenen Nennern erweitert man erst auf den gemeinsamen Nenner: $\tfrac12+\tfrac13=\tfrac36+\tfrac26=\tfrac56$. Durch einen Bruch teilt man, indem man mit dem Kehrwert malnimmt: $\tfrac{3}{4}:\tfrac{3}{2}=\tfrac34\cdot\tfrac23=\tfrac12$. Durch 0 darf man nie teilen.</p>
+
 <h3 id="potenzen">0.3 Potenzen und Wurzeln</h3>
 <p>Eine Potenz ist wiederholtes Multiplizieren: $x^2=x\cdot x$, $x^3=x\cdot x\cdot x$. Wichtig ist das <b>Quadrat</b>: $5^2=25$ und auch $(-5)^2=25$ – ein Quadrat ist nie negativ.</p>
 <p>Die <b>Quadratwurzel</b> $\sqrt{x}$ ist die Umkehrung: die nichtnegative Zahl, deren Quadrat $x$ ist. $\sqrt{25}=5$, weil $5^2=25$. Man kann nur aus Zahlen $\ge0$ die Wurzel ziehen.</p>
 <div class="box warn"><b class="t">Typischer Fehler</b>$\sqrt{a^2+b^2}$ ist <i>nicht</i> $a+b$. Beispiel: $\sqrt{3^2+4^2}=\sqrt{25}=5$, aber $3+4=7$.</div>
 <p>Die Gleichung $x^2=25$ hat <b>zwei</b> Lösungen, $x=+5$ und $x=-5$. Diese Doppeldeutigkeit taucht später bei der inversen Kinematik wieder auf: Zu einem Ziel gibt es oft zwei Armhaltungen („Ellbogen oben“ und „Ellbogen unten“).</p>
 <div class="box side"><b class="t">Hintergrund · $\sqrt2$ ist „unendlich“</b> Die Zahl $\sqrt2$ lässt sich nicht als Bruch zweier ganzer Zahlen schreiben (sie ist <i>irrational</i>); ihre Dezimalstellen brechen nie ab und wiederholen sich nie. Schon die Pythagoreer kannten das – sie stießen darauf bei der Diagonale eines Quadrats mit Seitenlänge 1. Für uns heißt das nur: Ergebnisse mit Wurzeln sind fast immer gerundet, und wir rechnen intern mit ca. 15 gültigen Stellen.</div>
+
+<h4>Die Rechengesetze für Potenzen und Wurzeln</h4>
+<p>Eine Potenz $x^n$ ist $n$-mal $x$ mit sich selbst multipliziert. Daraus folgen Regeln, die man ständig braucht:</p>
+<ul>
+<li>$x^a\cdot x^b=x^{a+b}$, denn $x^2\cdot x^3=(x\,x)(x\,x\,x)=x^5$.</li>
+<li>$(x^a)^b=x^{a\cdot b}$, denn $(x^2)^3=x^2x^2x^2=x^6$.</li>
+<li>$x^0=1$ und $x^{-1}=\tfrac1x$, denn $x^{a}\cdot x^{-a}=x^0=1$.</li>
+<li>$\sqrt{x}=x^{1/2}$, und $\sqrt{a\cdot b}=\sqrt a\cdot\sqrt b$. Aber Achtung: $\sqrt{a+b}\neq\sqrt a+\sqrt b$, denn $\sqrt{9+16}=5$, nicht $3+4=7$.</li>
+</ul>
+<p>Wichtig ist auch $\sqrt{x^2}=|x|$ (nicht einfach $x$). Aus $x^2=9$ folgt deshalb $x=3$ <i>oder</i> $x=-3$. Dieses „oder“ ist genau der Grund, warum die inverse Kinematik meist zwei Lösungen hat (siehe 4.4).</p>
 
 <h3 id="gleichungen">0.4 Gleichungen umstellen</h3>
 <p>Eine Gleichung ist eine Waage: Beide Seiten sind gleich schwer. Alles, was man auf einer Seite tut, muss man auf der anderen genauso tun – dann bleibt sie im Gleichgewicht. Ziel ist, die gesuchte Größe allein auf eine Seite zu bringen.</p>
@@ -37,6 +57,17 @@
 <br>Probe: $3\cdot5+4=19$. ✓</div>
 <p>Mit Buchstaben geht es genauso. Aus $c^2=a^2+b^2$ folgt $a^2=c^2-b^2$ und damit $a=\sqrt{c^2-b^2}$. Im Roboterkapitel stellen wir so Formeln nach einem gesuchten Winkel um.</p>
 
+<h4>Weitere Beispiele zum Umstellen</h4>
+<p class="ex">(a) $x^2=49 \Rightarrow x=\pm7$. (b) $\tfrac{x}{4}=1{,}5\Rightarrow x=6$. (c) $\cos\gamma=\dfrac{a^2+b^2-c^2}{2ab}$ nach $c^2$ umstellen: erst mit $2ab$ malnehmen, $2ab\cos\gamma=a^2+b^2-c^2$, dann $c^2$ nach links, den Kosinus-Term nach rechts: $c^2=a^2+b^2-2ab\cos\gamma$.</p>
+<h4>Zwei Gleichungen, zwei Unbekannte</h4>
+<p>Ein <b>lineares Gleichungssystem</b> hat mehrere Unbekannte gleichzeitig. Beim Einsetzen löst man eine Gleichung nach einer Unbekannten auf und setzt das Ergebnis in die andere ein:</p>
+<p class="ex">$x+y=5$ und $x-y=1$. Addiert man beide Gleichungen, fällt $y$ weg: $2x=6$, also $x=3$. Einsetzen: $y=5-3=2$. Probe: $3+2=5$ ✓, $3-2=1$ ✓.</p>
+<p>Genau so ergeben sich in Kapitel 4 aus zwei bekannten Seiten eines Dreiecks die zwei Gelenkwinkel.</p>
+<h4>Quadratische Gleichungen</h4>
+<p>Die Gleichung $ax^2+bx+c=0$ löst die Formel
+$$x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}.$$
+Der Term unter der Wurzel heißt Diskriminante: ist er positiv, gibt es zwei Lösungen; ist er null, eine; ist er negativ, keine reelle. Beispiel $x^2-5x+6=0$: $\sqrt{25-24}=1$, also $x=\tfrac{5\pm1}{2}$, d.&nbsp;h. $x=3$ oder $x=2$.</p>
+
 <h3 id="funktionen">0.5 Variablen, Funktionen, Indizes und Summen</h3>
 <p>Ein Buchstabe wie $x$ oder $\theta$ ist eine <b>Variable</b>: ein Platzhalter für eine Zahl. Eine <b>Funktion</b> $f$ ordnet jeder Eingabe genau eine Ausgabe zu, z. B. $f(x)=2x+1$; dann ist $f(3)=7$.</p>
 <p>Mehrere zusammengehörige Größen unterscheidet man mit einem <b>Index</b> (tiefgestellte Zahl): die sechs Gelenkwinkel des Arms heißen $q_1,q_2,\dots,q_6$. Der Index ist nur ein Name, keine Rechenoperation.</p>
@@ -44,6 +75,11 @@
 $$\sum_{i=1}^{3} a_i = a_1+a_2+a_3 .$$
 <p>Beispiel: $\sum_{i=1}^{3} i^2=1+4+9=14$. Das Skalarprodukt in Abschnitt 1.5 ist genau so eine Summe.</p>
 <div class="box side"><b class="t">Hintergrund · Index ist nicht Exponent</b> Ein kleiner tiefgestellter Wert wie in $q_2$ ist ein Name („zweites Gelenk“), ein hochgestellter wie in $q^2$ ist eine Rechenvorschrift („mal sich selbst“). Verwechslungen sind die häufigste Fehlerquelle beim Lesen von Formeln. Die Reihenfolge der Zählung beginnt hier bei 1; viele Programmiersprachen (auch Rust) zählen Listeneinträge dagegen ab 0 – der Gelenkindex $i$ im Text entspricht also dem Listenplatz $i-1$ im Code.</div>
+
+<h4>Funktionen anschaulich</h4>
+<p>Eine Funktion ist eine Maschine: Sie nimmt einen Eingabewert und liefert genau einen Ausgabewert. Zeichnet man alle Paare $(x\mid f(x))$ in ein Koordinatensystem, entsteht der <b>Graph</b>. Die einfachste Funktion ist die <b>lineare</b> $f(x)=m\,x+n$: eine Gerade mit Steigung $m$ und Achsenabschnitt $n$. Für $f(x)=2x+1$ ist $f(0)=1$, $f(3)=7$.</p>
+<p>Die <b>Umkehrfunktion</b> macht die Maschine rückwärts: aus dem Ausgabewert wird wieder der Eingabewert. Für $f(x)=2x+1$ ist sie $f^{-1}(y)=\tfrac{y-1}{2}$. Die Vorwärtskinematik ist eine Funktion von Winkeln auf eine Position; die inverse Kinematik ist ihre (mehrdeutige) Umkehrung.</p>
+<p>Funktionen können auch mehrere Eingaben haben, z.&nbsp;B. $f(q_1,\dots,q_6)=$ Position des Werkzeugs. Das ist nur eine Regel, die sechs Zahlen in drei Zahlen (x, y, z) verwandelt.</p>
 
 <h3 id="dreieck">0.6 Das rechtwinklige Dreieck</h3>
 <p>Fast die gesamte Kinematik besteht aus Dreiecken. Das einfachste Dreieck hat einen rechten Winkel ($90^\circ$). Seine Seiten haben feste Namen (Abbildung unten).</p>
@@ -60,6 +96,17 @@ $$a^2+b^2=c^2 .$$
 <p>Das ist die Formel für die <b>Länge</b> einer Strecke: Hat ein Pfeil die Komponenten $(a,b)$, so hat er die Länge $\sqrt{a^2+b^2}$. In Abschnitt 1.4 wird daraus die Länge eines Vektors.</p>
 <div class="box side"><b class="t">Hintergrund · Warum immer Dreiecke?</b> Jedes Vieleck lässt sich in Dreiecke zerlegen, und ein Dreieck ist <i>starr</i>: Kennt man seine drei Seiten, ist die Form festgelegt. Genau diese Starrheit nutzen wir beim Ellbogen: Oberarm, Unterarm und Abstand Schulter–Handgelenk bilden ein Dreieck, dessen Winkel sich eindeutig berechnen lassen. Das Wort „Trigonometrie“ heißt wörtlich „Dreiecksmessung“.</div>
 
+<h4>Winkelsumme, Sonderwinkel, Umkehrfunktionen</h4>
+<p>In jedem Dreieck ist die Summe der Innenwinkel $180^\circ$. Im rechtwinkligen Dreieck mit einem $90^\circ$-Winkel ergeben die beiden übrigen also zusammen $90^\circ$: ist der eine $35^\circ$, ist der andere $55^\circ$. Zwei Dreiecke mit gleichen Winkeln sind <b>ähnlich</b>: alle Seitenverhältnisse stimmen überein, nur die Größe unterscheidet sich. Genau deshalb hängen Sinus, Kosinus und Tangens nur vom Winkel ab, nicht von der Größe des Dreiecks.</p>
+<p>Einige Werte sollte man auswendig wissen:</p>
+<table class="l"><tr><th>Winkel</th><th>$0^\circ$</th><th>$30^\circ$</th><th>$45^\circ$</th><th>$60^\circ$</th><th>$90^\circ$</th></tr>
+<tr><td>$\sin$</td><td>0</td><td>$\tfrac12$</td><td>$\tfrac{\sqrt2}{2}\approx0{,}707$</td><td>$\tfrac{\sqrt3}{2}\approx0{,}866$</td><td>1</td></tr>
+<tr><td>$\cos$</td><td>1</td><td>$\tfrac{\sqrt3}{2}\approx0{,}866$</td><td>$\tfrac{\sqrt2}{2}\approx0{,}707$</td><td>$\tfrac12$</td><td>0</td></tr></table>
+<p>Will man aus einem Verhältnis den <b>Winkel</b> zurückgewinnen, nutzt man die Umkehrfunktionen $\arcsin$, $\arccos$, $\arctan$ (am Taschenrechner $\sin^{-1}$ usw.).</p>
+<p class="ex">Eine 260&nbsp;mm lange Stange steht so, dass ihre Spitze 130&nbsp;mm hoch liegt. Dann ist $\sin\alpha=\tfrac{130}{260}=0{,}5$, also $\alpha=\arcsin 0{,}5=30^\circ$.</p>
+<h4>Der Kreis</h4>
+<p>Ein Kreis mit Radius $r$ um den Ursprung besteht aus allen Punkten mit $x^2+y^2=r^2$ (das ist der Satz des Pythagoras). Sein Umfang ist $2\pi r$, die Länge eines Bogens zum Winkel $\theta$ (in rad) ist $s=r\,\theta$. Jeder Punkt auf dem Kreis lässt sich als $(r\cos\theta\mid r\sin\theta)$ schreiben; das ist die Grundlage jeder Drehung.</p>
+
 <h3 id="notation">0.7 Schreibweisen in diesem Dokument</h3>
 <table>
 <tr><th style="text-align:left">Zeichen</th><th style="text-align:left">Bedeutung</th></tr>
@@ -74,3 +121,13 @@ $$a^2+b^2=c^2 .$$
 <tr><td style="text-align:left">$\operatorname{atan2},\ \arccos$</td><td style="text-align:left">Umkehrfunktionen von Tangens und Kosinus</td></tr>
 </table>
 <p>Längen sind in <b>Millimetern</b> angegeben, Winkel in <b>Grad</b>, sofern nicht ausdrücklich „im Bogenmaß“ dabeisteht.</p>
+
+<h4>Weitere Zeichen</h4>
+<table class="l"><tr><th>Zeichen</th><th>Bedeutung</th></tr>
+<tr><td>$|x|$</td><td>Betrag (Zahl ohne Vorzeichen)</td></tr>
+<tr><td>$\in$, $\mathbb{R}$, $\mathbb{R}^3$</td><td>„ist Element von“; die reellen Zahlen; der dreidimensionale Raum</td></tr>
+<tr><td>$\cdot$, $\times$</td><td>Malpunkt (Zahlen, Skalarprodukt); Kreuzprodukt (nur Vektoren)</td></tr>
+<tr><td>$\approx$, $\Delta$, $\pm$</td><td>ungefähr gleich; Änderung/Differenz; „plus oder minus“</td></tr>
+<tr><td>$\Rightarrow$, $\Leftrightarrow$</td><td>„daraus folgt“; „genau dann, wenn“</td></tr>
+<tr><td>$a \bmod 360^\circ$</td><td>Rest bei Division durch $360^\circ$ (Winkel zurück in den Grundbereich)</td></tr></table>
+

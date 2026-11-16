@@ -69,6 +69,12 @@ $$\mathbf z=\alpha\hat{\mathbf k}_1+\beta\hat{\mathbf k}_2+\gamma\,(\hat{\mathbf
 
 <h3 id="ikwahl">4.4 Welche Haltung gilt?</h3>
 <p>Aus den übrig gebliebenen Haltungen wählt man die zur aktuellen Stellung nächste (geringste Winkeländerung, jeweils auf dem kurzen Weg, siehe 5.5). Beim Planen einer ganzen Bahn entscheidet stattdessen die Optimierung in 5.4 – dort wird die <i>Folge</i> von Haltungen gesucht, bei der der Arm möglichst nie umgreifen muss.</p>
+
+<h4>Warum es genau zwei Handgelenk-Lösungen gibt</h4>
+<p>Das Handgelenk ($q_4,q_5,q_6$) wirkt wie eine Folge „Drehung – Kippen – Drehung“, mathematisch $R_z(a)R_y(b)R_z(c)$. Für solche Folgen gilt
+$$R_z(a)\,R_y(b)\,R_z(c)=R_z(a+\pi)\,R_y(-b)\,R_z(c+\pi),$$
+denn eine halbe Drehung um $z$ links und rechts dreht das Kippen in die Gegenrichtung ($R_z(\pi)R_y(-b)R_z(\pi)=R_y(b)$). Dieselbe Orientierung lässt sich also mit $q_5$ und $-q_5$ erreichen, wobei $q_4$ und $q_6$ jeweils um $180^\circ$ springen. Das ist die „gespiegelte“ Handgelenkhaltung. Für den Arm gilt die Aussage bis auf Vorzeichen und Offsets der Gelenke, das Prinzip ist aber dasselbe.</p>
+
 <h3 id="autotool">4.5 Ohne Werkzeugwinkel: die Auto-Regel</h3>
 <p>Soll nur die <i>Position</i> erreicht werden (Werkzeugwinkel aus), fehlen drei Gleichungen. Eine feste Regel legt dann die Werkzeugrichtung fest: Das Werkzeug zeigt gestreckt von der Schulter zum Ziel; nahe an der Schulter, wo der Ellbogen sonst an seinen Anschlag käme, knickt es weich ab (die Übergangsfunktion ist eine Parabel, die an beiden Enden den Wert <i>und</i> die Steigung stetig übergibt). Außerdem gilt $q_4\approx0$ und $q_6=0$. Die Haltung hängt damit <b>nur von der Position</b> ab: Von A nach B und von B nach A werden dieselben Stellungen gefahren.</p>
 <h3 id="limits">4.6 Gelenkgrenzen</h3>

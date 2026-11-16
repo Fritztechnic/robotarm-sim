@@ -43,7 +43,7 @@ const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>
 <p class="sub">Lineare Algebra, Vorwärts- und inverse Kinematik und Bahnplanung eines 6-Achs-Roboterarms – Schritt für Schritt von Grund auf erklärt</p>
 <p class="meta">Begleitdokument zum Programm <i>robotarm-sim</i></p></section>
 <nav id="inhalt"><h2 class="plain">Inhaltsverzeichnis</h2>${toc}</nav>
-<main>${body}</main><script>${paged}</script></body></html>`;
+<main>${body}</main><script>document.querySelectorAll('figure.vp svg').forEach((sv)=>{const v=sv.viewBox.baseVal,b=sv.getBBox(),p=6,x0=Math.min(0,b.x-p),y0=Math.min(0,b.y-p),x1=Math.max(v.width,b.x+b.width+p),y1=Math.max(v.height,b.y+b.height+p);sv.setAttribute('viewBox',[x0,y0,x1-x0,y1-y0].join(' '));});</script><script>${paged}</script></body></html>`;
 
 const tmp = path.join(root, 'docs/.pdf-build.html');
 fs.writeFileSync(tmp, html);
@@ -53,6 +53,11 @@ await pg.goto('file://' + tmp, { waitUntil: 'load' });
 await pg.waitForFunction('window.__done===true', { timeout: 240000 });
 const over = await pg.evaluate(() => [...document.querySelectorAll('.pagedjs_page_content .eq, .pagedjs_page_content .box, .pagedjs_page_content table, .pagedjs_page_content p')].filter((e) => e.scrollWidth > e.clientWidth + 2).map((e) => (e.textContent || '').slice(0, 60)));
 if (over.length) console.log('Überlauf:', over);
+const clip = await pg.evaluate(() => [...document.querySelectorAll('.pagedjs_page_content figure svg')].flatMap((sv) => {
+  const R = sv.getBoundingClientRect(), t = sv.parentElement.querySelector('figcaption b')?.textContent || '?';
+  return [...sv.querySelectorAll('text,line,path,polygon,circle')].filter((e) => { const r = e.getBoundingClientRect(); return r.width + r.height > 0 && (r.left < R.left - 1 || r.right > R.right + 1 || r.top < R.top - 1 || r.bottom > R.bottom + 1); }).slice(0, 1).map(() => t);
+}));
+if (clip.length) console.log('Abgeschnitten:', clip);
 await pg.pdf({ path: path.join(root, 'docs/Mathematik.pdf'), preferCSSPageSize: true, printBackground: true });
 await br.close();
 fs.rmSync(tmp);

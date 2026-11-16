@@ -39,6 +39,13 @@ $$A=\begin{pmatrix}\cos\theta&-\sin\theta&0&a\cos\theta\\\sin\theta&\cos\theta&0
 <p>Der ganze Arm ist nun nichts anderes, als sechs solche Matrizen hintereinander zu multiplizieren. Jede Multiplikation <i>hängt ein weiteres Glied an</i>.</p>
 <div class="box side"><b class="t">Hintergrund · Herkunft</b> Jacques Denavit und Richard Hartenberg veröffentlichten die Konvention 1955 für Mechanismen. Heute gibt es zwei Varianten: die <i>klassische</i> (hier verwendet) und die <i>modifizierte</i> von John Craig (1986), bei der die Reihenfolge der vier Schritte anders ist. Tabellen aus Datenblättern sind deshalb nur dann übertragbar, wenn man die Variante kennt. Viele moderne Programme (z. B. URDF für ROS) verzichten ganz auf DH und geben stattdessen pro Gelenk eine freie Verschiebung und Achse an – das ist flexibler, aber mathematisch dasselbe.</div>
 
+<h4>Schritt für Schritt: mehrere Glieder verketten</h4>
+<p>Wir nehmen die Stellung $q=(0,\,90^\circ,\,-90^\circ,\,0,0,0)$ aus 3.2. Mit den Offsets aus der Tabelle gilt $\theta_1=0$, $\theta_2=90^\circ-90^\circ=0$, $\theta_3=-90^\circ+90^\circ=0$. Setzt man in die DH-Matrix ein, so entsteht
+$$A_1=\begin{pmatrix}1&0&0&0\\0&0&1&0\\0&-1&0&130\\0&0&0&1\end{pmatrix},\qquad A_2=\begin{pmatrix}1&0&0&240\\0&1&0&0\\0&0&1&0\\0&0&0&1\end{pmatrix}.$$
+Das Produkt $A_1A_2$ hängt den Oberarm an: Die Verschiebung $(240,0,0)$ von $A_2$ wird durch die Drehung von $A_1$ interpretiert, deren erste Spalte $(1,0,0)$ ist. Daher
+$$A_1A_2=\begin{pmatrix}1&0&0&240\\0&0&1&0\\0&-1&0&130\\0&0&0&1\end{pmatrix}.$$
+Der Ursprung des zweiten Gelenks liegt also bei $(240\mid0\mid130)$: 240&nbsp;mm vor und 130&nbsp;mm über dem Fuß. Genau so arbeitet man sich Glied für Glied weiter.</p>
+
 <h3 id="fkbeispiel">3.2 Ein nachgerechnetes Beispiel</h3>
 <p>In Nullstellung ergeben sich die Gelenkpunkte (Position der Spalte 4 von $A_1\cdots A_i$) schrittweise:</p>
 <table><tr><th>nach Gelenk</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6 (TCP)</th></tr>
@@ -54,6 +61,13 @@ $$A=\begin{pmatrix}\cos\theta&-\sin\theta&0&a\cos\theta\\\sin\theta&\cos\theta&0
 <p><b>Die Werkzeugrichtung</b> ist die dritte Spalte der Drehmatrix; bei Nullstellung ist das $(0,0,1)$ (nach oben). Die Achsen des Gelenks $i$ sind $\mathbf z_{i-1}$ (dritte Spalte von $A_1\cdots A_{i-1}$): das ist die Grundlage der Jacobi-Matrix (4.7).</p>
 <div data-widget="fk"></div>
 <div class="box side"><b class="t">Hintergrund · Genauigkeit der Realität</b> Die Vorwärtskinematik ist exakt – der echte Roboter ist es nicht. Fertigungstoleranzen, Getriebespiel, Durchbiegung der Glieder und Temperatur verändern die „wahren“ DH-Parameter um Bruchteile eines Millimeters. Bei Industrierobotern unterscheidet man deshalb die <i>Wiederholgenauigkeit</i> (Rückkehr zu einem gespeicherten Punkt, typisch ±0,02–0,1 mm) von der meist deutlich schlechteren <i>Absolutgenauigkeit</i> (Anfahren einer berechneten Koordinate). Wer Letztere braucht, kalibriert die Parameter mit einem Messgerät.</div>
+
+<h4>Alle Gelenkpunkte für eine Stellung</h4>
+<p>Für $q=(0,90^\circ,-90^\circ,0,0,0)$ (Oberarm waagrecht, Unterarm hoch) liefern die Teilprodukte $A_1\cdots A_i$ die Ursprünge der Gelenke:</p>
+<table><tr><th>nach Gelenk</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6 (TCP)</th></tr>
+<tr><td>$x$ in mm</td><td>0</td><td>240</td><td>240</td><td>240</td><td>240</td><td>240</td></tr>
+<tr><td>$z$ in mm</td><td>130</td><td>130</td><td>130</td><td>390</td><td>390</td><td>474,09</td></tr></table>
+<p>Man sieht: Der Oberarm hebt den Punkt nicht, sondern schiebt ihn nach vorn (130 → 130, $x$: 0 → 240); erst der Unterarm bringt 260&nbsp;mm Höhe, die Hand weitere 84,09. Solche Tabellen sind die beste Kontrolle für jede eigene Implementierung.</p>
 
 <h3 id="reichweite">3.3 Grenzen der Gelenke</h3>
 <table><tr><th>Gelenk</th><th>Bereich</th></tr>

@@ -66,7 +66,7 @@ svg .ln.dash,svg .dash{stroke-dasharray:1.5 3;stroke-width:1}
 svg .circ{stroke:#555;stroke-width:.9;stroke-dasharray:1.5 3}svg .arc{stroke:#111;stroke-width:1}
 svg .axk{stroke:#111;stroke-width:1.1;stroke-dasharray:6 3 1.5 3}
 svg .ax{stroke-width:1.5}
-svg .vec{stroke-width:1.5;stroke-linecap:butt}svg .vec.A,svg .vec.B{stroke:#111}svg .vec.C{stroke:#0b4f9e}
+svg .vec{stroke-width:1.5;stroke-linecap:butt;stroke:#111}svg .vec.A,svg .vec.B{stroke:#111}svg .vec.C{stroke:#0b4f9e}
 svg .A,svg .B{stroke:#111}svg .C{stroke:#0b4f9e}
 svg .dt{fill:#111;stroke:none}svg .dt.A,svg .dt.B{fill:#fff;stroke:#111;stroke-width:1.2}svg .dt.C{fill:#fff;stroke:#0b4f9e;stroke-width:1.2}svg .dt.o{fill:#111;stroke:none}
 svg .dt.node{fill:#fff;stroke:#111;stroke-width:1.4}
@@ -82,3 +82,4 @@ svg .part{fill:#fff;stroke:#111;stroke-width:1.3}svg .tool{fill:#ddd;stroke:#111
 figure.vp{border-radius:8px;box-shadow:none}
 figure.vp svg text{paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
 .box.side{border-left-color:#c58a00}.box.side b.t{color:#c58a00}
+p.ex{border-left:3px solid var(--sel);padding-left:10px}

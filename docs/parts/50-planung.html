@@ -35,6 +35,7 @@ $$\Delta q=\big((q_b-q_a+180^\circ)\bmod360^\circ\big)-180^\circ\ \in[-180^\circ
 <h3 id="flip">5.6 Schleifen und die gespiegelte Handgelenkhaltung</h3>
 <p>Fährt der Arm eine Schleife (letzter Punkt → erster Punkt) und durchquert er dabei eine ungerade Anzahl Handgelenk-Singularitäten, kommt er in der gespiegelten Handgelenkhaltung ($q_4+180^\circ$, $-q_5$, $q_6+180^\circ$) an – die Werkzeuglage ist identisch, aber die Gelenke stehen anders. Statt dort eine Gelenkfahrt einzufügen, darf der Schleifenabschluss bewusst in der gespiegelten Startstellung enden. In der nächsten Runde wird alles gespiegelt gefahren, danach wieder normal: Alle zwei Runden schließt sich der Kreis ohne einen einzigen Sprung.</p>
 <h3 id="ramp">5.7 Geschwindigkeit: Anfahren, Fahren, Bremsen</h3>
+<p><b>Kurz zur Erinnerung:</b> Geschwindigkeit ist Weg durch Zeit, $v=\tfrac{s}{t}$; Beschleunigung ist Geschwindigkeitsänderung durch Zeit, $a=\tfrac{\Delta v}{t}$. Wer $200$ mm in $2$ s fährt, hat $100$ mm/s. Bei gleichmäßiger Beschleunigung aus dem Stand ist der Weg $s=\tfrac12at^2$. Die folgende Rampe setzt diese drei Formeln zusammen.</p>
 <p>Ein Ruck beim Start oder Stopp (die Geschwindigkeit springt von 0 auf $v$) belastet Mechanik und Getriebe. Deshalb wird jeder Linienabschnitt mit Rampen gefahren. Mit der Gesamtzeit $T$ des Abschnitts, der Zeit $\tau$ seit dem Start und der Rampenzeit $T_r=0{,}35$ s ist der Geschwindigkeitsfaktor</p>
 $$v(\tau)=v_{\max}\cdot\min\!\Big(1,\ \sqrt{\tfrac{\min(\tau,\,T-\tau)}{T_r}}\Big).$$
 {{fig:ramp}}
