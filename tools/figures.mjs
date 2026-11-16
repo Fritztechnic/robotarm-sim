@@ -115,6 +115,27 @@ function armDrawing(pr, q, { frames = false, tri = 70, labels = true } = {}) {
 
 /* =================================================================== */
 export const figures = {
+  rtri() {
+    const m = plane(120, 270, 1), A = [0, 0], B = [330, 0], C = [330, 200], th = Math.atan2(200, 330) * 180 / Math.PI;
+    return fig(640, 320, 'Das rechtwinklige Dreieck',
+      `${poly([m(A), m(B), m(C)], 'fl')}${rightMark(m(B), [-1, 0], [0, 1], 14)}
+${path(arcPath(m, A, 70, 0, th), 'ln arc')}${T(m([86, 14]), 'θ', 'tx', 'start')}
+${T(m([165, 0]), 'Ankathete  b', 'tx', 'middle', 0, 24)}${T(m([330, 100]), 'Gegenkathete  a', 'tx', 'start', 14, 4)}${T(m([165, 100]), 'Hypotenuse  c', 'tx', 'end', -14, -24)}
+${T(m(A), 'A', 'tx', 'end', -10, 6)}${T(m(B), 'B', 'tx', 'start', 8, 22)}${T(m(C), 'C', 'tx', 'start', 8, -6)}
+${T([20, 40], 'sin θ = a / c', 'tx s', 'start')}${T([20, 66], 'cos θ = b / c', 'tx s', 'start')}${T([20, 92], 'tan θ = a / b', 'tx s', 'start')}${T([20, 118], 'a² + b² = c²', 'tx s', 'start')}`,
+      'Die Seite gegenüber vom rechten Winkel heißt Hypotenuse (<i>c</i>), die anliegende Seite des Winkels θ Ankathete (<i>b</i>), die gegenüberliegende Gegenkathete (<i>a</i>). Daraus folgen Sinus, Kosinus, Tangens und der Satz des Pythagoras.');
+  },
+
+  pyth() {
+    const m = plane(120, 260, 30), a = 3, b = 4;
+    const P = [[0, 0], [b, 0], [b, a]];
+    return fig(640, 400, 'Satz des Pythagoras mit Zahlen',
+      `${poly([m([0, 0]), m([b, 0]), m([b, a])], 'fl')}${rightMark(m([b, 0]), [-1, 0], [0, 1], 12)}
+${poly([m([0, 0]), m([4, 3]), m([1, 7]), m([-3, 4])], 'fl A')}${T(m([-0.5, 3.5]), 'c² = 5² = 25', 'tx', 'middle', 0, 6)}${poly([m([0, 0]), m([b, 0]), m([b, -b]), m([0, -b])], 'fl B')}${poly([m([b, 0]), m([b + a, 0]), m([b + a, a]), m([b, a])], 'fl B')}
+${T(m([b / 2, -b / 2]), 'b² = 4² = 16', 'tx', 'middle', 0, 6)}${T(m([b + a / 2, a / 2]), 'a² = 3² = 9', 'tx', 'middle', 0, 6)}
+${T([420, 60], '3² + 4² = 9 + 16 = 25 = 5²', 'tx s', 'start')}${T([420, 90], 'c = √25 = 5', 'tx s', 'start')}`,
+      'Über den beiden Katheten stehen Quadrate mit den Flächen 16 und 9. Zusammen sind sie 25 – genau die Fläche des Quadrats über der Hypotenuse, deren Seitenlänge also √25 = 5 ist.');
+  },
   axes2d() {
     const m = plane(70, 250, 70), P = [3, 2];
     return fig(560, 300, 'Koordinatensystem (Ebene)',

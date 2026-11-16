@@ -5,12 +5,24 @@
 <p><b>Matrix mal Vektor:</b> Jede Ausgabekomponente ist das Skalarprodukt aus <i>einer Zeile</i> der Matrix mit dem Vektor.</p>
 $$\begin{pmatrix}a&b&c\\d&e&f\\g&h&i\end{pmatrix}\begin{pmatrix}x\\y\\z\end{pmatrix}=\begin{pmatrix}ax+by+cz\\dx+ey+fz\\gx+hy+iz\end{pmatrix}.$$
 <div class="box ex"><b class="t">Beispiel</b>$\begin{pmatrix}2&0\\0&3\end{pmatrix}\begin{pmatrix}5\\4\end{pmatrix}=\begin{pmatrix}10\\12\end{pmatrix}$ – diese Matrix streckt $x$ um den Faktor 2 und $y$ um den Faktor 3.</div>
+<h4>Schritt für Schritt: Matrix mal Vektor</h4>
+<p>Berechne $\begin{pmatrix}1&2&0\\0&1&3\\4&0&1\end{pmatrix}\begin{pmatrix}2\\1\\3\end{pmatrix}$. Jede Zeile wird mit dem Vektor „skalar multipliziert“:</p>
+<ol>
+<li>Zeile 1: $1\cdot2+2\cdot1+0\cdot3=4$.</li>
+<li>Zeile 2: $0\cdot2+1\cdot1+3\cdot3=10$.</li>
+<li>Zeile 3: $4\cdot2+0\cdot1+1\cdot3=11$.</li>
+</ol>
+<p>Ergebnis: $(4,10,11)$. Eine $3\times3$-Matrix mal ein 3er-Vektor ergibt wieder einen 3er-Vektor.</p>
 <p>Die <b>Spalten</b> der Matrix haben eine anschauliche Bedeutung: Die erste Spalte ist das Bild von $\hat x=(1,0,0)$, die zweite das Bild von $\hat y$, die dritte das von $\hat z$. Eine Matrix ist also vollständig durch „wohin gehen die Achsen“ bestimmt.</p>
 
 <h3 id="matrixprodukt">2.2 Matrix mal Matrix</h3>
 <p>Zwei Matrizen $A\cdot B$ bedeuten: <i>erst $B$, dann $A$</i> anwenden. Der Eintrag in Zeile $i$, Spalte $j$ ist das Skalarprodukt aus Zeile $i$ von $A$ und Spalte $j$ von $B$:</p>
 $$(AB)_{ij}=\sum_k A_{ik}B_{kj}.$$
 <div class="box warn"><b class="t">Wichtig: Die Reihenfolge zählt!</b>Im Allgemeinen ist $AB\neq BA$. Beispiel aus dem Alltag: „Erst 90° um die $x$-Achse, dann 90° um $z$“ ergibt eine andere Lage als „erst $z$, dann $x$“. Genau deshalb ist die Reihenfolge der Gelenke beim Roboter entscheidend.</div>
+<div class="box ex"><b class="t">Beispiel: $AB\ne BA$</b>Mit $A=\begin{pmatrix}1&1\\0&1\end{pmatrix}$ und $B=\begin{pmatrix}1&0\\1&1\end{pmatrix}$ ist
+<br>$AB=\begin{pmatrix}1\cdot1+1\cdot1&1\cdot0+1\cdot1\\0\cdot1+1\cdot1&0\cdot0+1\cdot1\end{pmatrix}=\begin{pmatrix}2&1\\1&1\end{pmatrix}$, aber
+<br>$BA=\begin{pmatrix}1\cdot1+0\cdot0&1\cdot1+0\cdot1\\1\cdot1+1\cdot0&1\cdot1+1\cdot1\end{pmatrix}=\begin{pmatrix}1&1\\1&2\end{pmatrix}$.
+<br>Schon bei $2\times2$-Matrizen kommt also etwas anderes heraus.</div>
 <p><b>Spezielle Matrizen:</b></p>
 <ul>
 <li>Die <b>Einheitsmatrix</b> $I$ (Einsen auf der Diagonale) ändert nichts: $I\mathbf v=\mathbf v$.</li>
@@ -23,6 +35,10 @@ $$(AB)_{ij}=\sum_k A_{ik}B_{kj}.$$
 <p>Wie dreht man einen Punkt in der Ebene um den Ursprung um den Winkel $\theta$? Der Punkt $\hat x=(1,0)$ wandert nach $(\cos\theta,\sin\theta)$ (Einheitskreis!), der Punkt $\hat y=(0,1)$ wandert nach $(-\sin\theta,\cos\theta)$. Diese beiden Bilder sind nach 2.1 die Spalten der Matrix:</p>
 $$R(\theta)=\begin{pmatrix}\cos\theta&-\sin\theta\\ \sin\theta&\cos\theta\end{pmatrix},\qquad \mathbf p'=R(\theta)\,\mathbf p.$$
 {{fig:rot2d}}
+<div class="box ex"><b class="t">Beispiel: Drehung um $30^\circ$</b>Der Punkt $\mathbf p=(2,0)$ soll um $\theta=30^\circ$ gedreht werden. Es ist $\cos30^\circ=0{,}866$ und $\sin30^\circ=0{,}5$.
+<br>$\mathbf p'=\begin{pmatrix}0{,}866&-0{,}5\\0{,}5&0{,}866\end{pmatrix}\begin{pmatrix}2\\0\end{pmatrix}=\begin{pmatrix}0{,}866\cdot2-0{,}5\cdot0\\0{,}5\cdot2+0{,}866\cdot0\end{pmatrix}=\begin{pmatrix}1{,}732\\1{,}000\end{pmatrix}$.
+<br>Probe: Die Länge ist $\sqrt{1{,}732^2+1^2}=\sqrt{4}=2$ – unverändert, wie bei jeder Drehung. Der Winkel des neuen Punktes ist $\operatorname{atan2}(1;\,1{,}732)=30^\circ$ ✓.</div>
+<p><b>Merkregel für das Vorzeichen:</b> Positive Winkel drehen <i>gegen</i> den Uhrzeigersinn (von $x$ nach $y$). Das entspricht der Rechte-Hand-Regel: Daumen entlang der Drehachse, die gekrümmten Finger zeigen den Drehsinn.</p>
 <div data-widget="rot"></div>
 <p>Im Raum dreht man um eine der Koordinatenachsen. Die Koordinate <i>auf</i> der Achse bleibt unverändert:</p>
 $$R_x(\alpha)=\begin{pmatrix}1&0&0\\0&\cos\alpha&-\sin\alpha\\0&\sin\alpha&\cos\alpha\end{pmatrix},\;
@@ -49,6 +65,11 @@ $$\vartheta=-\arcsin R_{31},\qquad \varphi=\operatorname{atan2}(R_{32},R_{33}),\
 <p>Jede Drehung im Raum ist eine Drehung um <i>eine</i> Achse $\hat{\mathbf k}$ (Einheitsvektor) um einen Winkel $\theta$. Der Punkt $\mathbf v$ wird dann (<b>Rodrigues-Formel</b>) in drei Anteile zerlegt – Anteil längs der Achse (bleibt), Anteil senkrecht dazu (wird gedreht) und der dritte Richtung $\hat{\mathbf k}\times\mathbf v$:</p>
 $$\mathbf v'=\mathbf v\cos\theta+(\hat{\mathbf k}\times\mathbf v)\sin\theta+\hat{\mathbf k}\,(\hat{\mathbf k}\cdot\mathbf v)(1-\cos\theta).$$
 {{fig:rodrigues}}
+<div class="box ex"><b class="t">Beispiel: Rodrigues in Zahlen</b>Drehe $\mathbf v=(1,0,0)$ um die Achse $\hat{\mathbf k}=(0,0,1)$ um $\theta=90^\circ$ ($\cos=0$, $\sin=1$).
+<br>1. $\mathbf v\cos\theta=(0,0,0)$.
+<br>2. $\hat{\mathbf k}\times\mathbf v=(0\cdot0-1\cdot0,\;1\cdot1-0\cdot0,\;0)=(0,1,0)$, mal $\sin\theta=1$ ergibt $(0,1,0)$.
+<br>3. $\hat{\mathbf k}\cdot\mathbf v=0$, also verschwindet der dritte Summand.
+<br>Summe: $\mathbf v'=(0,1,0)$ – der Punkt ist von der $x$- auf die $y$-Achse gewandert, wie bei $R_z(90^\circ)$ erwartet.</div>
 <p>Hier kommen Skalar- <i>und</i> Kreuzprodukt zusammen. Als Matrix mit $K=\begin{pmatrix}0&-k_z&k_y\\k_z&0&-k_x\\-k_y&k_x&0\end{pmatrix}$ (so dass $K\mathbf v=\hat{\mathbf k}\times\mathbf v$):</p>
 $$R(\hat{\mathbf k},\theta)=I+\sin\theta\,K+(1-\cos\theta)\,K^2.$$
 <p><b>Rotationsvektor:</b> Den Fehler zwischen zwei Lagen kann man als einen einzigen Vektor $\boldsymbol\omega=\theta\,\hat{\mathbf k}$ schreiben (Richtung = Achse, Länge = Winkel). Die Levenberg-Marquardt-Iteration (4.7) braucht genau das als „Orientierungsfehler“; man gewinnt ihn aus $R_{\text{Soll}}R_{\text{Ist}}^{\mathsf T}$: $\theta=\arccos\frac{\operatorname{spur}-1}{2}$, die Achse folgt aus der antisymmetrischen Hälfte der Matrix.</p>

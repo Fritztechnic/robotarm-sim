@@ -23,6 +23,12 @@ $$A_i=R_z(\theta_i)\,T_z(d_i)\,T_x(a_i)\,R_x(\alpha_i)=\begin{pmatrix}\cos\theta
 <tr><td>J6</td><td>0</td><td>0°</td><td>84,09</td><td>0°</td></tr></table>
 <p>Die Offsets sorgen dafür, dass $q=0$ den Arm senkrecht nach oben streckt. Die vier Maße, die tatsächlich die Geometrie bestimmen, sind $d_1=130$ (Fuß bis Schulter), $a_2=240$ (Oberarm), $d_4=260$ (Unterarm bis Handgelenk) und $d_6=84{,}09$ (Handgelenk bis Flansch):</p>
 {{fig:armzero}}
+<h4>Schritt für Schritt: ein einzelnes Glied</h4>
+<p>Betrachte ein Glied mit $a=240$, $\alpha=0$, $d=0$ und dem Gelenkwinkel $\theta=30^\circ$ ($\cos=0{,}866$, $\sin=0{,}5$). Setzt man die vier Schritte zusammen, entsteht</p>
+$$A=\begin{pmatrix}\cos\theta&-\sin\theta&0&a\cos\theta\\\sin\theta&\cos\theta&0&a\sin\theta\\0&0&1&0\\0&0&0&1\end{pmatrix}=\begin{pmatrix}0{,}866&-0{,}5&0&207{,}8\\0{,}5&0{,}866&0&120{,}0\\0&0&1&0\\0&0&0&1\end{pmatrix}.$$
+<p>Die rechte Spalte sagt: Das Ende des Glieds liegt $207{,}8$ mm vor und $120$ mm seitlich der Schulter – ein Arm der Länge $240$, der um $30^\circ$ geschwenkt ist (Kontrolle: $\sqrt{207{,}8^2+120^2}=240$ ✓). Die linke obere Ecke ist die Drehung $R_z(30^\circ)$ aus Abschnitt 2.3.</p>
+<p>Der ganze Arm ist nun nichts anderes, als sechs solche Matrizen hintereinander zu multiplizieren. Jede Multiplikation <i>hängt ein weiteres Glied an</i>.</p>
+
 <h3 id="fkbeispiel">3.2 Ein nachgerechnetes Beispiel</h3>
 <p>In Nullstellung ergeben sich die Gelenkpunkte (Position der Spalte 4 von $A_1\cdots A_i$) schrittweise:</p>
 <table><tr><th>nach Gelenk</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6 (TCP)</th></tr>

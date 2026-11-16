@@ -32,10 +32,14 @@ $$\Delta q=\big((q_b-q_a+180^\circ)\bmod360^\circ\big)-180^\circ\ \in[-180^\circ
 $$v(\tau)=v_{\max}\cdot\min\!\Big(1,\ \sqrt{\tfrac{\min(\tau,\,T-\tau)}{T_r}}\Big).$$
 {{fig:ramp}}
 <p>Die Wurzel sorgt für ein sehr sanftes Anfahren aus dem Stillstand. Der Vorschub $v_{\max}$ ist die eingestellte TCP-Geschwindigkeit in mm/s.</p>
+<div class="box ex"><b class="t">Beispiel: Zeit eines Linienabschnitts</b>Ein Abschnitt ist $120$ mm lang, der Vorschub beträgt $v_{\max}=60$ mm/s. Ohne Rampen dauerte er $120/60=2$ s. Mit Rampen: Bei $T\approx2{,}3$ s und $T_r=0{,}35$ s ist der Faktor in der Mitte $1$, nach $\tau=0{,}0875$ s dagegen nur $\sqrt{0{,}0875/0{,}35}=\sqrt{0{,}25}=0{,}5$, also $30$ mm/s – der Arm fährt sanft an und kommt erst nach der Rampenzeit auf volle Geschwindigkeit.</div>
 <h3 id="zeit">5.8 Zeit pro Schritt</h3>
 <p>Jeder Kleinschritt hat die Länge $\Delta s$ (Weglänge der Spitze) und ändert die Gelenke um $\Delta\mathbf q$. Die Zeit, die er braucht, ist die größere der beiden Anforderungen – der Vorschub <i>oder</i> die schnellste Gelenkgeschwindigkeit $\omega$ begrenzen:</p>
 $$\Delta t=\max\!\Big(\frac{\Delta s}{v_{\text{TCP}}},\ \frac{\max_i|\Delta q_i|}{\omega}\Big).$$
 <p>So bleibt die Spitze auf der Linie mit dem eingestellten Vorschub, aber der Arm überschreitet nie die Motorgeschwindigkeit (bei Gelenkfahrten gilt nur der zweite Teil).</p>
+<div class="box ex"><b class="t">Beispiel: Winkel in Pulsweite</b>Ein Servo mit Bereich $180^\circ$ und Pulsweiten von $500$ bis $2500\,\mu$s soll auf $q=45^\circ$ mit Mittenversatz $c=90^\circ$ und Richtung $d=+1$ fahren. Dann ist $a=90+45=135^\circ$ und
+<br>$\mu\text{s}=500+\frac{135}{180}\cdot(2500-500)=500+0{,}75\cdot2000=2000$.
+<br>Die Servomitte ($a=90^\circ$) läge bei $1500\,\mu$s.</div>
 <h3 id="servo">5.9 Von Gelenkwinkeln zu Servo-Pulsweiten</h3>
 <p>Ein Modellbau-Servo erwartet ein PWM-Signal: Pulsweite $\mu\text{s}$ zwischen $p_{\min}$ und $p_{\max}$ entspricht einem Stellweg von 0 bis zum Bereich (z. B. 180°). Das Programm bildet jeden Gelenkwinkel $q$ so ab (Richtung $d=\pm1$ und Mittenversatz $c$ einstellbar):</p>
 $$a=\operatorname{clamp}\!\big(c+d\cdot q,\ 0,\ \text{Bereich}\big),\qquad \mu\text{s}=p_{\min}+\frac{a}{\text{Bereich}}\,(p_{\max}-p_{\min}).$$

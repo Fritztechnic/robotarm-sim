@@ -1,20 +1,3 @@
-<h1>Die Mathematik des Roboterarms</h1>
-<p class="lead">Von „noch nie lineare Algebra gemacht“ bis zur vollständigen Bahnplanung eines 6-Achs-Roboters – Schritt für Schritt, mit Bildern, Rechenbeispielen und Bausteinen zum Ausprobieren.</p>
-
-<div class="box"><b class="t">So liest du dieses Dokument</b>
-Die Kapitel bauen aufeinander auf. Kapitel 1 und 2 sind reine Grundlagen (Vektoren, Skalarprodukt, Kreuzprodukt, Matrizen). Kapitel 3 bis 5 benutzen genau diese Werkzeuge, um den Arm zu berechnen: erst <b>vorwärts</b> (Gelenkwinkel → Position), dann <b>rückwärts</b> (Position → Gelenkwinkel), dann die <b>Bahnplanung</b>. Kapitel 6 zeigt die Werkstatt-Szene. Wenn du schon Vorwissen hast, überspringe, was du kennst. Alle Beispiel-Zahlen sind nachgerechnet.</div>
-
-<div class="box tip"><b class="t">Die drei Farben in den Bildern</b>
-Die Abbildungen sind Strichzeichnungen: schwarz = gegebene Größen, blau = Ergebnis, gepunktet = Hilfslinien. Die Bausteine mit „Ausprobieren“ sind interaktiv: Punkte lassen sich mit der Maus ziehen, Schieberegler lassen sich bewegen.</div>
-
-<h3 id="ziel">Worum geht es überhaupt?</h3>
-<p>Ein Roboterarm hat sechs Gelenke (Motoren). Jedes Gelenk hat einen Winkel $q_1,\dots,q_6$. Zwei Fragen sind wichtig:</p>
-<ul>
-<li><b>Vorwärtskinematik (FK):</b> Ich kenne die sechs Winkel. <i>Wo</i> ist die Werkzeugspitze und <i>wie</i> ist sie gedreht? – Das ist eine reine Rechnung, es gibt genau eine Antwort.</li>
-<li><b>Inverse Kinematik (IK):</b> Ich kenne den gewünschten Ort und die gewünschte Drehung. <i>Welche</i> Winkel brauche ich? – Das ist schwerer: Es kann keine, eine oder mehrere (bis zu 8) Lösungen geben.</li>
-</ul>
-<p>Danach kommt die <b>Bahnplanung</b>: Wie fährt der Arm von Punkt zu Punkt, ohne dass die Gelenke unnötig herumschwingen, mit sanftem Anfahren und Bremsen? Dieses ganze Dokument beschreibt exakt das, was das Programm rechnet.</p>
-
 <h2 id="grundlagen">1 · Grundlagen</h2>
 
 <h3 id="koordinaten">1.1 Koordinaten und Punkte</h3>
@@ -50,6 +33,15 @@ $$|\mathbf a|=\sqrt{a_x^2+a_y^2+a_z^2}.$$
 <p>Ein <b>Einheitsvektor</b> hat Länge 1. Man erhält ihn durch Normieren: $\hat{\mathbf a}=\mathbf a/|\mathbf a|$. Einheitsvektoren beschreiben im Programm reine <i>Richtungen</i>, z. B. Gelenkachsen.</p>
 <div class="box ex"><b class="t">Beispiel</b>$\mathbf a=(2,3,6)$: $|\mathbf a|=\sqrt{4+9+36}=7$, also $\hat{\mathbf a}=(2/7,\,3/7,\,6/7)$.</div>
 
+<h4>Schritt für Schritt: Differenzvektor und Abstand</h4>
+<p>Wie weit ist der Punkt $P=(1,2,3)$ vom Punkt $Q=(4,6,15)$ entfernt? Der Pfeil <i>von</i> $P$ <i>nach</i> $Q$ ist „Ende minus Anfang“:</p>
+<ol>
+<li>Differenz bilden: $\mathbf d=Q-P=(4-1,\;6-2,\;15-3)=(3,4,12)$.</li>
+<li>Länge nach Pythagoras: $|\mathbf d|=\sqrt{3^2+4^2+12^2}=\sqrt{9+16+144}=\sqrt{169}=13$.</li>
+</ol>
+<p>Der Abstand beträgt also $13$ Einheiten. Dieselbe Rechnung braucht die inverse Kinematik, um den Abstand zwischen Schulter und Handgelenk zu bestimmen.</p>
+<div class="box"><b class="t">Ortsvektor und Richtungsvektor</b>Ein <i>Ortsvektor</i> zeigt vom Ursprung zu einem Punkt und beschreibt dessen Lage. Ein <i>Richtungsvektor</i> beschreibt nur Richtung und Länge, z. B. die Fahrtrichtung des Werkzeugs. Beide werden gleich notiert; welche Rolle gemeint ist, ergibt sich aus dem Zusammenhang.</div>
+
 <h3 id="skalarprodukt">1.5 Das Skalarprodukt</h3>
 <p>Das Skalarprodukt macht aus <i>zwei Vektoren eine Zahl</i>. Man multipliziert die gleichen Komponenten und addiert:</p>
 $$\mathbf a\cdot\mathbf b=a_xb_x+a_yb_y+a_zb_z.$$
@@ -63,6 +55,23 @@ $$\mathbf a\cdot\mathbf b=|\mathbf a|\,|\mathbf b|\cos\theta,$$
 </ol>
 {{fig:dot}}
 <div class="box ex"><b class="t">Beispiel</b>$\mathbf a=(1,2,2)$, $\mathbf b=(2,0,1)$: $\mathbf a\cdot\mathbf b=2+0+2=4$, $|\mathbf a|=3$, $|\mathbf b|=\sqrt5$. Winkel: $\arccos\frac{4}{3\sqrt5}=\arccos0{,}596\approx53{,}4^\circ$.</div>
+<h4>Schritt für Schritt: Skalarprodukt rechnen</h4>
+<p>Gegeben $\mathbf a=(3,-1,2)$ und $\mathbf b=(4,5,-2)$.</p>
+<ol>
+<li>Komponenten paarweise multiplizieren: $3\cdot4=12$, $(-1)\cdot5=-5$, $2\cdot(-2)=-4$.</li>
+<li>Alles addieren: $12-5-4=3$. Also $\mathbf a\cdot\mathbf b=3$.</li>
+<li>Längen: $|\mathbf a|=\sqrt{9+1+4}=\sqrt{14}\approx3{,}742$ und $|\mathbf b|=\sqrt{16+25+4}=\sqrt{45}\approx6{,}708$.</li>
+<li>Kosinus: $\cos\theta=\dfrac{3}{3{,}742\cdot6{,}708}\approx0{,}1195$.</li>
+<li>Winkel: $\theta=\arccos0{,}1195\approx83{,}1^\circ$ – fast senkrecht.</li>
+</ol>
+<h4>Was das Vorzeichen verrät</h4>
+<p>Weil $|\mathbf a|$ und $|\mathbf b|$ immer positiv sind, entscheidet allein $\cos\theta$ über das Vorzeichen:</p>
+<ul>
+<li>$\mathbf a\cdot\mathbf b>0$: Winkel kleiner als $90^\circ$, die Pfeile zeigen „ungefähr in dieselbe Richtung“.</li>
+<li>$\mathbf a\cdot\mathbf b=0$: genau $90^\circ$, senkrecht.</li>
+<li>$\mathbf a\cdot\mathbf b<0$: Winkel größer als $90^\circ$, die Pfeile zeigen „ungefähr gegeneinander“.</li>
+</ul>
+<p><b>Anschauung (Schattenwurf):</b> Stelle dir vor, Licht fällt senkrecht auf die Richtung von $\mathbf a$. Der Schatten von $\mathbf b$ auf der Geraden durch $\mathbf a$ hat die Länge $|\mathbf b|\cos\theta$. Das Skalarprodukt ist diese Schattenlänge mal $|\mathbf a|$.</p>
 <div data-widget="dot"></div>
 <p><b>Rechenregeln:</b> $\mathbf a\cdot\mathbf b=\mathbf b\cdot\mathbf a$ (Reihenfolge egal), $\mathbf a\cdot\mathbf a=|\mathbf a|^2$, $\mathbf a\cdot(\mathbf b+\mathbf c)=\mathbf a\cdot\mathbf b+\mathbf a\cdot\mathbf c$.</p>
 
@@ -78,11 +87,25 @@ $$\mathbf a\times\mathbf b=\begin{pmatrix}a_yb_z-a_zb_y\\ a_zb_x-a_xb_z\\ a_xb_y
 </ul>
 {{fig:cross}}
 <div class="box ex"><b class="t">Beispiel</b>$\hat x\times\hat y=\hat z$ bedeutet: $(1,0,0)\times(0,1,0)=(0\cdot0-0\cdot1,\;0\cdot0-1\cdot0,\;1\cdot1-0\cdot0)=(0,0,1)$. Genau so ist das Koordinatensystem rechtshändig definiert.</div>
+<h4>Schritt für Schritt: Kreuzprodukt rechnen</h4>
+<p>Gegeben $\mathbf a=(1,2,3)$ und $\mathbf b=(4,5,6)$. Wir setzen in die Formel ein, Komponente für Komponente:</p>
+<ol>
+<li>$x$-Komponente (ohne $x$): $a_yb_z-a_zb_y=2\cdot6-3\cdot5=12-15=-3$.</li>
+<li>$y$-Komponente (ohne $y$): $a_zb_x-a_xb_z=3\cdot4-1\cdot6=12-6=6$.</li>
+<li>$z$-Komponente (ohne $z$): $a_xb_y-a_yb_x=1\cdot5-2\cdot4=5-8=-3$.</li>
+</ol>
+<p>Ergebnis: $\mathbf a\times\mathbf b=(-3,\,6,\,-3)$.</p>
+<p><b>Probe:</b> Das Ergebnis muss senkrecht auf beiden Vektoren stehen, also müssen die Skalarprodukte $0$ sein: $(-3,6,-3)\cdot(1,2,3)=-3+12-9=0$ ✓ und $(-3,6,-3)\cdot(4,5,6)=-12+30-18=0$ ✓.</p>
+<p><b>Fläche:</b> $|\mathbf a\times\mathbf b|=\sqrt{9+36+9}=\sqrt{54}\approx7{,}35$ ist die Fläche des von $\mathbf a$ und $\mathbf b$ aufgespannten Parallelogramms.</p>
+
 <p><b>Wozu im Roboter?</b> Die Drehgeschwindigkeit eines Gelenks um die Achse $\hat{\mathbf z}$ bewegt einen Punkt im Abstand $\mathbf r$ mit $\hat{\mathbf z}\times\mathbf r$. Diese Beziehung bildet die Spalten der <i>Jacobi-Matrix</i> (Abschnitt 4.7). Außerdem liefert $\sin\theta=|\mathbf a\times\mathbf b|/(|\mathbf a||\mathbf b|)$ zusammen mit $\cos\theta$ aus dem Skalarprodukt den Winkel eindeutig: $\theta=\operatorname{atan2}\big(|\mathbf a\times\mathbf b|,\,\mathbf a\cdot\mathbf b\big)$ – das nutzt die IK in jedem Teilproblem.</p>
 
 <h3 id="kosinussatz">1.7 Der Kosinussatz</h3>
 <p>Im beliebigen Dreieck mit Seiten $a,b,c$ und dem Winkel $\gamma$ gegenüber von $c$ gilt</p>
 $$c^2=a^2+b^2-2ab\cos\gamma\quad\Longleftrightarrow\quad\gamma=\arccos\frac{a^2+b^2-c^2}{2ab}.$$
 <p>Für $\gamma=90^\circ$ wird $\cos\gamma=0$ – das ist der Satz des Pythagoras. <i>Beweisidee des Skalarprodukts:</i> Die drei Seiten sind $\mathbf a$, $\mathbf b$ und $\mathbf c=\mathbf a-\mathbf b$. Dann ist $|\mathbf c|^2=(\mathbf a-\mathbf b)\cdot(\mathbf a-\mathbf b)=|\mathbf a|^2+|\mathbf b|^2-2\,\mathbf a\cdot\mathbf b$. Vergleich mit dem Kosinussatz liefert $\mathbf a\cdot\mathbf b=|\mathbf a||\mathbf b|\cos\gamma$.</p>
+<div class="box ex"><b class="t">Beispiel: Ellbogenwinkel</b>Ein Dreieck hat die Seiten $a=240$, $b=260$ und $c=420$ (Millimeter). Gesucht ist der Winkel $\gamma$ gegenüber von $c$:
+<br>$\cos\gamma=\dfrac{a^2+b^2-c^2}{2ab}=\dfrac{57\,600+67\,600-176\,400}{2\cdot240\cdot260}=\dfrac{-51\,200}{124\,800}\approx-0{,}4103$,
+<br>also $\gamma=\arccos(-0{,}4103)\approx114{,}2^\circ$. Das negative Vorzeichen bedeutet einen stumpfen Winkel (über $90^\circ$).</div>
 {{fig:lawcos}}
 <p>Der Satz ist das Herz des Ellbogens: Kennt man die Längen der beiden Armglieder und den Abstand Schulter–Handgelenk, sind alle drei Seiten bekannt, und der Ellbogenwinkel folgt direkt.</p>

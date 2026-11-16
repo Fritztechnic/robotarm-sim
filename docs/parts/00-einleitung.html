@@ -1,0 +1,16 @@
+<h1>Die Mathematik des Roboterarms</h1>
+<p class="lead">Von „noch nie lineare Algebra gemacht“ bis zur vollständigen Bahnplanung eines 6-Achs-Roboters – Schritt für Schritt, mit Bildern und vollständig durchgerechneten Beispielen.</p>
+
+<div class="box"><b class="t">So liest du dieses Dokument</b>
+Die Kapitel bauen aufeinander auf. Kapitel 0 wiederholt die Schulmathematik, die Kapitel 1 und 2 sind die eigentlichen Grundlagen (Vektoren, Skalarprodukt, Kreuzprodukt, Matrizen). Kapitel 3 bis 5 benutzen genau diese Werkzeuge, um den Arm zu berechnen: erst <b>vorwärts</b> (Gelenkwinkel → Position), dann <b>rückwärts</b> (Position → Gelenkwinkel), dann die <b>Bahnplanung</b>. Kapitel 6 zeigt die Werkstatt-Szene. Wenn du schon Vorwissen hast, überspringe, was du kennst. Alle Beispiel-Zahlen sind nachgerechnet.</div>
+
+<div class="box tip"><b class="t">Die Abbildungen</b>Alle Abbildungen sind Strichzeichnungen: schwarz = gegebene Größen, blau = Ergebnis, gepunktet = Hilfslinien. Jede Zahl in einer Abbildung ist aus den echten Formeln berechnet.</div>
+
+<h3 id="ziel">Worum geht es überhaupt?</h3>
+<p>Ein Roboterarm hat sechs Gelenke (Motoren). Jedes Gelenk hat einen Winkel $q_1,\dots,q_6$. Zwei Fragen sind wichtig:</p>
+<ul>
+<li><b>Vorwärtskinematik (FK):</b> Ich kenne die sechs Winkel. <i>Wo</i> ist die Werkzeugspitze und <i>wie</i> ist sie gedreht? – Das ist eine reine Rechnung, es gibt genau eine Antwort.</li>
+<li><b>Inverse Kinematik (IK):</b> Ich kenne den gewünschten Ort und die gewünschte Drehung. <i>Welche</i> Winkel brauche ich? – Das ist schwerer: Es kann keine, eine oder mehrere (bis zu 8) Lösungen geben.</li>
+</ul>
+<p>Danach kommt die <b>Bahnplanung</b>: Wie fährt der Arm von Punkt zu Punkt, ohne dass die Gelenke unnötig herumschwingen, mit sanftem Anfahren und Bremsen? Dieses ganze Dokument beschreibt exakt das, was das Programm rechnet.</p>
+
