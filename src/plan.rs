@@ -47,6 +47,14 @@ pub struct Plan {
     pub start: [f64; 6],
     pub segs: Vec<Seg>,
     pub unreachable: Vec<usize>,
+    /// Schleife endet in der gespiegelten Handgelenk-Haltung: Versatz von J4/J6 (rad). Die nächste
+    /// Runde fährt dann gespiegelt (`flip`), die übernächste wieder normal – ohne Gelenkfahrt.
+    pub flip: Option<[f64; 2]>,
+}
+
+/// Gespiegeltes Handgelenk: (J4 + d₄, −J5, J6 + d₆) mit d = ±180° ergibt dieselbe Pose.
+pub fn flip(q: &[f64; 6], d: [f64; 2]) -> [f64; 6] {
+    [q[0], q[1], q[2], q[3] + d[0], -q[4], q[5] + d[1]]
 }
 
 /// Zielpose: Position (mm) und optional Werkzeugwinkel (Roll, Pitch, Yaw in rad).
@@ -228,11 +236,13 @@ pub fn build(arm: &Arm, pts: &[Pose]) -> Plan {
         // Sie wird nur bei Endlosschleife gefahren. Kreuzt die Bahn die Handgelenk-Singularität
         // ungerade oft, endet sie in der umgeklappten Haltung – dann gehört der Haltungswechsel
         // an den Schluss statt mitten in die Bahn.
+        let pi = std::f64::consts::PI;
+        let mirror = (0..cand[0].len()).find(|&j| kin::joint_dist(arm, &cand[0][j], &flip(&cand[0][s0], [pi, pi])) < 1e-6);
         let mut close: Option<(f64, usize, bool)> = None;
         for i in 0..cand[n - 1].len() {
             let Some((c, _, _)) = best[n - 1][i] else { continue };
             match &legs[n - 1][i] {
-                Some((path, j)) if *j == s0 => relax(&mut close, (c + path_len(path), i, true)),
+                Some((path, j)) if *j == s0 || Some(*j) == mirror => relax(&mut close, (c + path_len(path), i, true)),
                 _ => relax(&mut close, (c + PTP_COST / 2.0 + kin::joint_dist(arm, &cand[n - 1][i], &cand[0][s0]), i, false)),
             }
         }
@@ -266,6 +276,9 @@ pub fn build(arm: &Arm, pts: &[Pose]) -> Plan {
             lerp_path(arm, q, cand[to][j])
         };
         q = *path.last().unwrap();
+        if line && to == 0 && legs[k][route[k].0].as_ref().unwrap().1 != s0 {
+            plan.flip = Some([q[3] - plan.start[3], q[5] - plan.start[5]]);
+        }
         plan.segs.push(Seg { from: order[k], to: order[to], q: path, ptp: !line, closing: k + 1 == n });
     }
     plan

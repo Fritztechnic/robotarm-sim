@@ -217,6 +217,8 @@ struct App {
     use_orientation: bool,
     /// An: Yaw zählt relativ zur Richtung Sockel → Punkt (Werkzeug dreht mit J1 mit).
     radial: bool,
+    /// Aktuelle Runde läuft mit gespiegeltem Handgelenk (siehe `plan::Plan::flip`).
+    lap_flip: bool,
     show_left: bool,
     show_right: bool,
     ik_msg: Option<(bool, String)>,
@@ -287,6 +289,7 @@ impl App {
             target_rpy_deg: [0.0; 3],
             use_orientation: false,
             radial: true,
+            lap_flip: false,
             show_left: true,
             show_right: true,
             ik_msg: None,
@@ -547,6 +550,7 @@ impl App {
             return;
         }
         self.pl_idx = self.plan.first;
+        self.lap_flip = false;
         let to = kin::wrap_near(&self.cfg.arm, self.plan.start, &self.q_cmd);
         self.play = Play::Joint { from: self.q_cmd, to, s: 0.0 };
         self.ik_msg = Some(self.play_msg());
@@ -609,9 +613,16 @@ impl App {
             Play::Seg { k, u } => {
                 let seg = &self.plan.segs[k];
                 let (nu, end) = plan::advance(&self.cfg.arm, seg, u, dt, self.cfg.tcp_speed, self.cfg.speed_dps, self.cfg.ramp_s);
-                self.q_cmd = plan::sample(seg, nu);
+                let q = plan::sample(seg, nu);
+                self.q_cmd = match self.plan.flip {
+                    Some(d) if self.lap_flip => plan::flip(&q, d),
+                    _ => q,
+                };
                 self.q_view = self.q_cmd;
                 self.target_pos = self.tcp();
+                if end && seg.closing && self.plan.flip.is_some() {
+                    self.lap_flip = !self.lap_flip;
+                }
                 self.play = if end { Play::Dwell(dwell(seg.to)) } else { Play::Seg { k, u: nu } };
             }
         }
@@ -671,6 +682,7 @@ mod tests {
             target_rpy_deg: [0.0; 3],
             use_orientation: false,
             radial: true,
+            lap_flip: false,
             ik_msg: None,
             cam: Camera::default(),
             trail: vec![],
@@ -707,6 +719,40 @@ mod tests {
         }
         assert!(!a.playing(), "Playlist endet nicht");
         assert!(visited.iter().all(|v| *v), "nicht alle Punkte erreicht: {visited:?}");
+    }
+
+    #[test]
+    fn endless_loop_alternates_wrist_flip_without_jumps() {
+        // Radial waagrecht kreuzt J5 = 0 ungerade oft: jede zweite Runde gespiegelt, nirgends ein Sprung
+        let mut a = app();
+        a.cfg.tcp_speed = 2000.0;
+        a.cfg.speed_dps = 720.0;
+        for w in &mut a.cfg.waypoints {
+            w.dwell = 0.0;
+        }
+        a.use_orientation = true;
+        a.target_rpy_deg = [0.0, 90.0, 0.0];
+        a.looping = true;
+        a.play_all();
+        assert!(a.plan.flip.is_some() && a.plan.segs.iter().all(|s| !s.ptp));
+        let (mut t, mut laps, mut was) = (0.0, 0, false);
+        let mut prev = a.q_cmd;
+        while laps < 3 && t < 600.0 {
+            a.playlist_step(0.01);
+            t += 0.01;
+            // Vollkreis-Gelenke dürfen um ganze Umdrehungen springen (gleiche Pose), sonst kein Sprung
+            let d = (0..6).map(|i| {
+                let x = a.q_cmd[i] - prev[i];
+                if [0, 3, 5].contains(&i) { (x + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI } else { x }
+            }).fold(0.0, |m: f64, x| m.max(x.abs()));
+            assert!(d < 0.2, "Sprung {d} bei t={t}");
+            prev = a.q_cmd;
+            if a.lap_flip != was {
+                was = a.lap_flip;
+                laps += 1;
+            }
+        }
+        assert!(laps >= 3, "nur {laps} Rundenwechsel");
     }
 
     #[test]
@@ -816,13 +862,14 @@ mod tests {
         let w = demo_waypoints();
         let ptps = |radial: bool| {
             let p = plan::build(&arm, &w.iter().map(|w| (w.pos, Some([0.0, 90f64.to_radians(), if radial { w.pos[1].atan2(w.pos[0]) } else { 0.0 }]))).collect::<Vec<_>>());
-            p.segs.iter().filter(|s| s.ptp && !s.closing).map(|s| (s.from + 1, s.to + 1)).collect::<Vec<_>>()
+            p.segs.iter().filter(|s| s.ptp).map(|s| (s.from + 1, s.to + 1)).collect::<Vec<_>>()
         };
-        // radial („Gier mitdrehen“): ein Durchlauf ganz ohne Gelenkfahrt
+        // radial („Gier mitdrehen“): auch die Endlosschleife ganz ohne Gelenkfahrt (Runden abwechselnd gespiegelt)
         assert_eq!(ptps(true), vec![]);
-        // fest nach +x: hinter dem Sockel (Spirale) braucht es eine andere Haltung als im Raster bei z = 180
+        // fest nach +x: Raster bei z = 180 und Spirale hinter dem Sockel (dort J5 ≈ 166° > 146°) brauchen
+        // verschiedene Haltungen – hin und zurück je ein Wechsel
         let fixed = ptps(false);
-        assert!(!fixed.contains(&(1, 2)) && fixed.len() <= 1, "Gelenkfahrten {fixed:?}");
+        assert!(!fixed.contains(&(1, 2)) && fixed.len() <= 2, "Gelenkfahrten {fixed:?}");
     }
 
     fn free(p: &[V3]) -> Vec<plan::Pose> {
@@ -888,7 +935,9 @@ mod tests {
             }
             if let Some(c) = a.segs.last().filter(|s| s.closing) {
                 // gleiche Pose; Vollkreis-Gelenke dürfen um ganze Umdrehungen versetzt enden (kürzester Weg)
-                let end = kin::wrap_near(&arm, *c.q.last().unwrap(), &a.start);
+                let start = a.flip.map_or(a.start, |d| plan::flip(&a.start, d));
+                let end = kin::wrap_near(&arm, *c.q.last().unwrap(), &start);
+                let a = plan::Plan { start, ..Default::default() };
                 assert!((0..6).all(|i| (end[i] - a.start[i]).abs() < 1e-9), "Schleife schließt nicht");
             }
         }
