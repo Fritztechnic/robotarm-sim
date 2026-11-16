@@ -165,8 +165,8 @@ widget('fk', 'Ausprobieren: Vorwärtskinematik des Elfin (Gelenke einstellen)', 
       for (const [p0, p1] of [[[a, -500, 0], [a, 500, 0]], [[-500, a, 0], [500, a, 0]]]) el('line', { x1: pr(p0)[0], y1: pr(p0)[1], x2: pr(p1)[0], y2: pr(p1)[1], stroke: col('--line') }, gl);
     }
     [['#e5483b', [150, 0, 0]], ['#4dae4a', [0, 150, 0]], ['#3a78d6', [0, 0, 150]]].forEach(([c, d]) => ln([0, 0, 0], d, { stroke: c, 'stroke-width': 2 }));
-    for (let i = 0; i < 6; i++) if (Math.hypot(...P[i + 1].map((v, k) => v - P[i][k])) > 1e-6) { ln(P[i], P[i + 1], { stroke: '#2b3138', 'stroke-width': 11 }); ln(P[i], P[i + 1], { stroke: '#e07b00', 'stroke-width': 7 }); }
-    for (let i = 0; i < 6; i++) { const T = Ts[i], z = [T[0][2], T[1][2], T[2][2]], o = P[i]; ln(o.map((v, k) => v - 26 * z[k]), o.map((v, k) => v + 26 * z[k]), { stroke: '#3b3f45', 'stroke-width': 13 }); }
+    for (let i = 0; i < 6; i++) if (Math.hypot(...P[i + 1].map((v, k) => v - P[i][k])) > 1e-6) { ln(P[i], P[i + 1], { stroke: '#17406e', 'stroke-width': 11 }); ln(P[i], P[i + 1], { stroke: '#2f7fd3', 'stroke-width': 7 }); }
+    for (let i = 0; i < 6; i++) { const T = Ts[i], z = [T[0][2], T[1][2], T[2][2]], o = P[i]; ln(o.map((v, k) => v - 26 * z[k]), o.map((v, k) => v + 26 * z[k]), { stroke: '#8f98a3', 'stroke-width': 13 }); }
     const T6 = Ts[6];
     [['#e5483b', 0], ['#4dae4a', 1], ['#3a78d6', 2]].forEach(([c, k]) => ln(P[6], [0, 1, 2].map((j) => P[6][j] + 60 * T6[j][k]), { stroke: c, 'stroke-width': 2.5 }));
     const T = Ts[6], R = T;

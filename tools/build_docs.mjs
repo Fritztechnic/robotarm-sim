@@ -50,10 +50,8 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Die Mathematik des Roboterarms – von Null an erklärt</title>
 <style>${css}</style><style>${style}</style></head>
-<body><header id="top"><span class="logo"></span><b>ARM-SIM</b><span class="doc">Mathematik.f3d</span><nav class="tabs">${tabs}</nav></header>
-<div id="wrap"><aside id="toc"><div class="bh">BROWSER</div><ul><li class="root"><i class="chev open"></i>Dokument<ul>${toc}</ul></li></ul></aside>
-<main>${body}</main></div>
-<footer id="tl"><span class="play"></span><div class="track"><div id="prog"></div></div>${dots}</footer><script>${script}</script></body></html>`;
+<body><div id="wrap"><aside id="toc"><div class="bh">Inhalt</div><ul>${toc}</ul></aside>
+<main>${body}</main></div><script>${script}</script></body></html>`;
 
 fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
 fs.writeFileSync(path.join(root, 'docs/Mathematik.html'), html);

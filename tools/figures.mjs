@@ -49,6 +49,12 @@ function cam(az, el, s, ox, oy) {
   const ca = Math.cos(rad(az)), sa = Math.sin(rad(az)), ce = Math.cos(rad(el)), se = Math.sin(rad(el));
   return (p) => [ox + s * (p[0] * ca - p[1] * sa), oy - s * (p[2] * ce + (p[0] * sa + p[1] * ca) * se)];
 }
+function fitCam(az, el, pts, w, h, pad) {
+  const u = cam(az, el, 1, 0, 0), q = pts.map(u);
+  const x0 = Math.min(...q.map((p) => p[0])), x1 = Math.max(...q.map((p) => p[0])), y0 = Math.min(...q.map((p) => p[1])), y1 = Math.max(...q.map((p) => p[1]));
+  const sc = Math.min((w - 2 * pad) / (x1 - x0), (h - 2 * pad) / (y1 - y0));
+  return cam(az, el, sc, w / 2 - (sc * (x0 + x1)) / 2, h / 2 - (sc * (y0 + y1)) / 2);
+}
 function floor3d(pr, ext, step) {
   let s = '';
   for (let a = -ext; a <= ext + 1e-9; a += step) {
@@ -63,15 +69,9 @@ const arrow3d = (pr, a, b, c) => L(pr(a), pr(b), c, true);
 const DEFS = `<defs>
 <marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker>
 <marker id="dm" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>`;
-function cube(w, rot) {
-  const pr = cam(rot[0], rot[1], 13, w - 46, 44);
-  const C = [[-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1], [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]].map(pr);
-  return `<g>${poly([C[4], C[5], C[6], C[7]], 'cb t')}${poly([C[0], C[1], C[5], C[4]], 'cb f')}${poly([C[1], C[2], C[6], C[5]], 'cb r')}</g>`;
-}
-function fig(w, h, title, body, cap, opt = {}) {
-  return `<figure class="vp"><div class="vph"><span class="dot"></span><span class="ttl">${title}</span><span class="tools"><i></i><i></i><i></i></span></div>
-<svg viewBox="0 0 ${w} ${h}" role="img" xmlns="http://www.w3.org/2000/svg">${DEFS}${body}${opt.cube ? cube(w, opt.cube) : ''}</svg>
-<figcaption>${cap}</figcaption></figure>`;
+function fig(w, h, title, body, cap) {
+  return `<figure class="vp"><svg viewBox="0 0 ${w} ${h}" role="img" xmlns="http://www.w3.org/2000/svg">${DEFS}${body}</svg>
+<figcaption><b>${title}.</b> ${cap}</figcaption></figure>`;
 }
 
 /* ---------- Die echte Kinematik des Elfin ---------- */
@@ -180,7 +180,7 @@ ${rightMark(o, ux, [0, -1], 12)}
 ${T(pr(a), vb('a') + ' = (2 | 0 | 0)', 'tx a', 'start', 8, 18)}${T(pr(b), vb('b') + ' = (0,6 | 1,6 | 0)', 'tx b', 'start', 8, -6)}
 ${T(pr([0, 0, cz]), vb('a') + ' × ' + vb('b') + ' = (0 | 0 | ' + fm(cz, 1) + ')', 'tx c', 'start', 10, 0)}
 ${T(pr([(a[0] + b[0]) / 2 + 0.2, (a[1] + b[1]) / 2, 0]), 'Fläche = ' + fm(cz, 1), 'tx', 'middle', 0, 5)}`,
-      'a × b = (0 | 0 | 2·1,6 − 0·0,6) = (0 | 0 | 3,2). Der Vektor steht senkrecht auf der Fläche; seine Länge 3,2 ist genau die Fläche des Parallelogramms (Grundlinie 2 · Höhe 1,6).', { cube: [-38, 28] });
+      'a × b = (0 | 0 | 2·1,6 − 0·0,6) = (0 | 0 | 3,2). Der Vektor steht senkrecht auf der Fläche; seine Länge 3,2 ist genau die Fläche des Parallelogramms (Grundlinie 2 · Höhe 1,6).');
   },
 
   lawcos() {
@@ -226,7 +226,7 @@ ${arrow3d(pr, [0, 0, 0], vv, 'vec A')}${arrow3d(pr, [0, 0, 0], rot, 'vec C')}${a
 ${D(pr([0, 0, 0]), 4, 'dt o')}
 ${T(pr(vv), vb('v'), 'tx a', 'start', 8, 14)}${T(pr(rot), vb('v') + '′', 'tx c', 'start', 8, -4)}${T(pr([0, 0, 1.7]), vb('k') + '  (Drehachse)', 'tx', 'start', 8, 0)}${T(pr([0, 0, 0.45]), 'Anteil längs k', 'tx b', 'end', -10, 0)}
 ${T(pr([rp * Math.cos(ph + rad(th / 2)) * 0.6, rp * Math.sin(ph + rad(th / 2)) * 0.6, vv[2]]), 'θ = 70°', 'tx', 'middle', 0, -8)}`,
-      '<b>v</b> wird um die Achse <b>k</b> um 70° gedreht. Der Anteil längs der Achse bleibt (orange), der senkrechte Anteil läuft auf dem Kreis; die Länge |<b>v</b>′| = |<b>v</b>| bleibt erhalten.', { cube: [-35, 24] });
+      '<b>v</b> wird um die Achse <b>k</b> um 70° gedreht. Der Anteil längs der Achse bleibt (orange), der senkrechte Anteil läuft auf dem Kreis; die Länge |<b>v</b>′| = |<b>v</b>| bleibt erhalten.');
   },
 
   armzero() {
@@ -238,20 +238,22 @@ ${T(pr([rp * Math.cos(ph + rad(th / 2)) * 0.6, rp * Math.sin(ph + rad(th / 2)) *
     g += `<rect class="jbox" x="${n2(m(-34, 130)[0])}" y="${n2(m(0, 130)[1])}" width="${n2(68 * s)}" height="${n2(130 * s)}"/>`;
     for (const [z, lab] of [[130, 'J2'], [370, 'J3'], [630, 'J5']]) g += `<circle class="jc" cx="${n2(m(0, z)[0])}" cy="${n2(m(0, z)[1])}" r="12"/>${T(m(0, z), '×', 'tx s', 'middle', 0, 5)}${T(m(0, z), lab, 'tx a', 'end', -22, 5)}`;
     g += T(m(0, 60), 'J1', 'tx a', 'end', -22, 4) + T(m(0, 500), 'J4', 'tx a', 'end', -22, 5) + T(m(0, 672), 'J6', 'tx a', 'end', -22, 4);
-    g += D(m(0, 714.09), 6, 'dt C') + T(m(0, 714.09), 'TCP (0 | 0 | 714,09)', 'tx c', 'middle', 0, -16);
+    g += D(m(0, 714.09), 6, 'dt C') + T(m(0, 714.09), 'TCP (0 | 0 | 714,09)', 'tx c', 'start', 16, 4);
     const dim = (z0, z1, x, lab) => L(m(x, z0), m(x, z1), 'dim', false, 'marker-start="url(#dm)" marker-end="url(#dm)"') + L(m(x - 8, z0), m(x + 8, z0), 'dim') + L(m(x - 8, z1), m(x + 8, z1), 'dim') + T(m(x, (z0 + z1) / 2), lab, 'tx', 'start', 10, 4);
-    g += dim(0, 130, 110, 'd₁ = 130') + dim(130, 370, 110, 'a₂ = 240') + dim(370, 630, 110, 'd₄ = 260') + dim(630, 714.09, 110, 'd₆ = 84,09');
-    g += T(m(160, 450), 'Σ = 714,09 mm', 'tx b', 'start');
+    g += dim(0, 130, 120, 'd₁ = 130') + dim(130, 370, 120, 'a₂ = 240') + dim(370, 630, 120, 'd₄ = 260') + dim(630, 714.09, 120, 'd₆ = 84,09');
+    g += T(m(190, 450), 'Σ = 714,09 mm', 'tx b', 'start');
     return fig(580, 440, 'Elfin in Nullstellung (Seitenansicht, alle q = 0)', g, 'Alle Gelenke auf 0: Der Arm steht senkrecht. Die Gesamthöhe ist die Summe der vier Maße: 130 + 240 + 260 + 84,09 = 714,09 mm. Die Längen sind maßstäblich gezeichnet (Gelenke J2, J3, J5 drehen um Achsen senkrecht zur Zeichenebene).');
   },
 
   dhframes() {
-    const pr = cam(-50, 22, 0.78, 360, 500), q = [35, 50, -70, 40, 60, 30];
-    const arm = armDrawing(pr, q, { frames: true, tri: 55 }), tcp = org(arm.Ts[6]);
-    return fig(720, 570, 'DH-Koordinatensysteme am Elfin  (q = 35°, 50°, −70°, 40°, 60°, 30°)',
-      `${floor3d(pr, 400, 100)}${axes3d(pr, 150)}${arm.svg}
-${T([20, 536], 'Rot = x  ·  Grün = y  ·  Blau = z (Gelenkachse)', 'tx s', 'start')}${T([20, 556], 'TCP = (' + fm(tcp[0], 1) + ' | ' + fm(tcp[1], 1) + ' | ' + fm(tcp[2], 1) + ') mm', 'tx c s', 'start')}`,
-      'Jedes Glied trägt ein eigenes Koordinatensystem (x rot, y grün, z blau); z ist stets die Drehachse des Gelenks. Die Lage jedes Systems ist das Matrizenprodukt A₁···Aᵢ – hier mit der echten Elfin-Tabelle berechnet.', { cube: [-50, 22] });
+    const q = [35, 50, -70, 40, 60, 30], Ts = fk(q), pts = [[0, 0, 0], [150, 0, 0], [0, 150, 0], [0, 0, 150]];
+    Ts.forEach((M) => { const o = org(M); pts.push(o, add(o, col(M, 0), 70), add(o, col(M, 1), 70), add(o, col(M, 2), 70)); });
+    const pr = fitCam(-50, 22, pts, 720, 500, 40);
+    const arm = armDrawing(pr, q, { frames: true, tri: 70 }), tcp = org(Ts[6]);
+    return fig(720, 560, 'DH-Koordinatensysteme am Elfin (q = 35°, 50°, −70°, 40°, 60°, 30°)',
+      `${floor3d(pr, 300, 100)}${axes3d(pr, 150)}${arm.svg}
+${T([20, 540], 'x rot · y grün · z blau (Gelenkachse)', 'tx s', 'start')}${T([700, 540], 'TCP = (' + fm(tcp[0], 1) + ' | ' + fm(tcp[1], 1) + ' | ' + fm(tcp[2], 1) + ') mm', 'tx c s', 'end')}`,
+      'Jedes Glied trägt ein eigenes Koordinatensystem; z ist stets die Drehachse des Gelenks. Die Lage jedes Systems ist das Matrizenprodukt A₁···Aᵢ – mit der echten Elfin-Tabelle berechnet.');
   },
 
   sp1() {
@@ -269,11 +271,11 @@ ${D(pr(pp(a1)), 6, 'dt A')}${D(pr(pp(a2)), 6, 'dt C')}${D(pr(C), 3.5, 'dt')}
 ${T(pr(pp(a1)), vb('p'), 'tx a', 'start', 10, 14)}${T(pr(pp(a2)), vb('q'), 'tx c', 'end', -10, -6)}
 ${T(pr(pp((a1 + a2) / 2)), 'θ = ?', 'tx', 'middle', 0, -14)}
 ${T([20, 380], 'θ = atan2( k·(u×v), u·v ) = ' + fm(a2 - a1, 1) + '°', 'tx s', 'start')}`,
-      'Beide Punkte liegen im gleichen Abstand von der Achse <b>k</b> (Kreis). Gesucht ist der Winkel θ, der <b>p</b> in <b>q</b> dreht. Das Kreuzprodukt liefert sin θ, das Skalarprodukt cos θ.', { cube: [-40, 30] });
+      'Beide Punkte liegen im gleichen Abstand von der Achse <b>k</b> (Kreis). Gesucht ist der Winkel θ, der <b>p</b> in <b>q</b> dreht. Das Kreuzprodukt liefert sin θ, das Skalarprodukt cos θ.');
   },
 
   twolink() {
-    const L1 = 240, L2 = 260, s = 0.7, m = plane(70, 340, s), Tg = [330, 260], d = Math.hypot(...Tg);
+    const L1 = 240, L2 = 260, s = 0.6, m = plane(70, 340, s), Tg = [330, 260], d = Math.hypot(...Tg);
     const c2 = (d * d - L1 * L1 - L2 * L2) / (2 * L1 * L2);
     let g = grid2d(m, 0, 500, 0, 450, 100);
     g += path(arcPath(m, [0, 0], L1 + L2, 0, 90, 90), 'ln dash') + path(arcPath(m, [0, 0], Math.abs(L1 - L2), 0, 90, 20), 'ln dash');
@@ -287,27 +289,27 @@ ${T([20, 380], 'θ = atan2( k·(u×v), u·v ) = ' + fm(a2 - a1, 1) + '°', 'tx s
     g += D(m([0, 0]), 8, 'dt o') + D(m(Tg), 7, 'dt C') + T(m(Tg), 'Ziel (330 | 260)', 'tx c', 'start', 12, -10);
     g += T([450, 300], 'L₁ = 240, L₂ = 260, Abstand d = ' + fm(d, 1), 'tx s', 'start') + T([450, 324], 'cos q₂ = (d² − L₁² − L₂²) / (2 L₁ L₂) = ' + fm(c2, 3), 'tx s', 'start');
     g += T([450, 348], 'Lösungen: q₂ = ±' + fm(deg(Math.acos(c2)), 1) + '°', 'tx s c', 'start');
-    return fig(820, 400, 'Zwei Glieder, ein Ziel – zwei Lösungen', g, 'Der Kosinussatz liefert den Ellbogenwinkel q₂ = ±arccos(…): zwei spiegelbildliche Lösungen. Die gestrichelten Kreise begrenzen die erreichbaren Abstände |L₁−L₂| … L₁+L₂.');
+    return fig(760, 400, 'Zwei Glieder, ein Ziel – zwei Lösungen', g, 'Der Kosinussatz liefert den Ellbogenwinkel q₂ = ±arccos(…): zwei spiegelbildliche Lösungen. Die gestrichelten Kreise begrenzen die erreichbaren Abstände |L₁−L₂| … L₁+L₂.');
   },
 
   wristsing() {
     const make = (q5, ox, label) => {
-      const pr = cam(-35, 12, 0.6, ox, 440), q = [0, 70, -70, 0, q5, 0];
+      const q = [0, 70, -70, 0, q5, 0], F = fk(q), wq = org(F[4]), pts = [[0, 0, 0], wq, add(wq, col(F[3], 2), 200), add(wq, col(F[3], 2), -150), add(wq, col(F[5], 2), 200), add(wq, col(F[5], 2), -150), [-150, 0, 0], [150, 0, 0]], pr0 = fitCam(-35, 12, pts, 340, 400, 20), pr = (p) => { const r = pr0(p); return [r[0] + ox - 170, r[1] + 85]; };
       const arm = armDrawing(pr, q), Ts = arm.Ts, wp = org(Ts[4]);
       const z3 = col(Ts[3], 2), z5 = col(Ts[5], 2);
-      const ax = (z, c) => L(pr(add(wp, z, -200)), pr(add(wp, z, 200)), 'ln dash ' + c);
+      const ax = (z, c) => L(pr(add(wp, z, -150)), pr(add(wp, z, 200)), 'ln dash ' + c);
       const dp = Math.abs(z3[0] * z5[0] + z3[1] * z5[1] + z3[2] * z5[2]);
-      const lab = dp > 0.9999 ? T(pr(add(wp, z3, 215)), 'J4- und J6-Achse', 'tx b', 'middle', 0, -6)
-        : T(pr(add(wp, z3, 215)), 'J4-Achse', 'tx a', 'middle', 0, -6) + T(pr(add(wp, z5, 215)), 'J6-Achse', 'tx b', 'start', 8, 4);
-      return `${L(pr([-200, 0, 0]), pr([200, 0, 0]), 'axl')}${arm.svg}${ax(z3, 'A')}${ax(z5, 'B')}${lab}${D(pr(wp), 5, 'dt o')}
-${T([ox, 34], label, 'tx b', 'middle')}${T([ox, 504], '|z₃·z₅| = ' + fm(dp, 3) + (dp > 0.9999 ? ' → Achsen fallen zusammen' : ''), 'tx s', 'middle')}`;
+      const lab = dp > 0.9999 ? T(pr(add(wp, z3, 205)), 'J4- und J6-Achse', 'tx b', 'middle', 0, -6)
+        : T(pr(add(wp, z3, 205)), 'J4-Achse', 'tx a', 'middle', 0, -6) + T(pr(add(wp, z5, 205)), 'J6-Achse', 'tx b', 'start', 8, 4);
+      return `${L(pr([-150, 0, 0]), pr([150, 0, 0]), 'axl')}${arm.svg}${ax(z3, 'A')}${ax(z5, 'B')}${lab}${D(pr(wp), 5, 'dt o')}
+${T([ox, 18], label, 'tx b', 'middle')}${T([ox, 504], '|z₃·z₅| = ' + fm(dp, 3) + (dp > 0.9999 ? ' → Achsen fallen zusammen' : ''), 'tx s', 'middle')}`;
     };
     return fig(760, 520, 'Handgelenk-Singularität', make(0, 200, 'J5 = 0°  (Singularität)') + make(50, 540, 'J5 = 50°  (regulär)'),
       'Links: Bei J5 = 0 liegen die Drehachsen von J4 und J6 exakt übereinander (|z₃·z₅| = 1); die Hand kann nur noch die Summe J4 + J6 festlegen. Rechts: Bei J5 = 50° sind beide Achsen verschieden. Die Achsen sind aus der echten Elfin-Kinematik berechnet.');
   },
 
   linevsptp() {
-    const L1 = 240, L2 = 260, s = 0.78, m = plane(60, 380, s);
+    const L1 = 240, L2 = 260, s = 0.78, m = plane(230, 380, s);
     const ik = (p) => { const d = Math.hypot(...p), c2 = (d * d - L1 * L1 - L2 * L2) / (2 * L1 * L2), q2 = -Math.acos(c2); return [Math.atan2(p[1], p[0]) - Math.atan2(L2 * Math.sin(q2), L1 + L2 * Math.cos(q2)), q2]; };
     const tipOf = (q) => [L1 * Math.cos(q[0]) + L2 * Math.cos(q[0] + q[1]), L1 * Math.sin(q[0]) + L2 * Math.sin(q[0] + q[1])];
     const elb = (q) => [L1 * Math.cos(q[0]), L1 * Math.sin(q[0])];
@@ -318,11 +320,11 @@ ${T([ox, 34], label, 'tx b', 'middle')}${T([ox, 504], '|z₃·z₅| = ' + fm(dp,
     let dev = 0;
     const nx = B[1] - A[1], ny = -(B[0] - A[0]), nl = Math.hypot(nx, ny);
     for (let i = 0; i <= 200; i++) { const p = tipOf(lerp(i / 200)); dev = Math.max(dev, Math.abs(((p[0] - A[0]) * nx + (p[1] - A[1]) * ny) / nl)); }
-    return fig(680, 450, 'Linearbahn gegen Gelenkfahrt (PTP)',
-      `${grid2d(m, 0, 500, 0, 450, 100)}${pose(qa, 'A')}${pose(lerp(0.5), 'C')}${pose(qb, 'B')}
+    return fig(760, 450, 'Linearbahn gegen Gelenkfahrt (PTP)',
+      `${grid2d(m, -200, 500, 0, 450, 100)}${pose(qa, 'A')}${pose(lerp(0.5), 'C')}${pose(qb, 'B')}
 ${L(m(A), m(B), 'vec C thick')}${polyline(ptp, 'ln B thick')}${D(m(A), 6, 'dt A')}${D(m(B), 6, 'dt B')}${D(m([0, 0]), 7, 'dt o')}
 ${T(m(A), 'Start', 'tx a', 'start', 10, 16)}${T(m(B), 'Ziel', 'tx b', 'start', 12, 0)}
-${T([400, 60], 'Linie: Spitze exakt gerade', 'tx c', 'start')}${T([400, 84], 'PTP: Bogen, bis ' + fm(dev, 0) + ' mm neben der Linie', 'tx b', 'start')}`,
+${T([480, 60], 'Linie: Spitze exakt gerade', 'tx c', 'start')}${T([480, 84], 'PTP: Bogen, bis ' + fm(dev, 0) + ' mm neben der Linie', 'tx b', 'start')}`,
       'Planarer Arm (L₁ = 240, L₂ = 260). Bei der Gelenkfahrt interpoliert jedes Gelenk linear; die Spitze weicht bis zu ' + fm(dev, 0) + ' mm von der Geraden ab. Die Zwischenstellung nach der halben Zeit ist als Geist eingezeichnet.');
   },
 
@@ -386,7 +388,7 @@ ${T([400, 60], 'Linie: Spitze exakt gerade', 'tx c', 'start')}${T([400, 84], 'PT
     g += L(m(tip), m([0, 130]), 'ln dash') + L(m(fl), m(a2(fl, zW, -30)), 'ln dash');
     g += path(arcPath(m, tip, 70, 90, 105, 12), 'ln arc') + T(m([-4, 78]), '15°', 'tx', 'end', -6, 0);
 g += D(m(fl), 6, 'dt A') + D(m(tip), 6, 'dt C');
-    g += T(m(fl), 'Flansch (wird gerechnet)', 'tx a', 'end', -16, -30) + T(m(tip), 'Spitze (Aufgabe)', 'tx c', 'start', 14, 22);
+    g += T(m(fl), 'Flansch (wird gerechnet)', 'tx a', 'end', -16, -30) + T(m(tip), 'Spitze (Aufgabe)', 'tx c', 'start', 14, -14);
     const o1 = a2(fl, nrm, -22), o2 = a2(tip, nrm, -22);
     g += L(m(o1), m(o2), 'dim', false, 'marker-start="url(#dm)" marker-end="url(#dm)"') + T(m([(o1[0] + o2[0]) / 2, (o1[1] + o2[1]) / 2]), 'L = 100', 'tx', 'end', -10, 0);
     g += T([440, 120], 'p_Flansch = p_Spitze − L·z_W', 'tx', 'start') + T([440, 146], 'z_W = (0 | ' + fm(zW[0], 4) + ' | ' + fm(zW[1], 4) + ')', 'tx s', 'start');
