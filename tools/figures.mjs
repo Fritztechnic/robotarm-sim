@@ -192,8 +192,8 @@ ${D(pr([0, 0, 0]), 4, 'dt o')}${D(pr(P2), 4, 'dt o')}`,
     return fig(600, 420, 'Das Handgelenk liegt d₆ vor dem Flansch',
       `${L(m([-40, 0]), m([80, 0]), 'axl')}${L(m([0, 0]), m(S), 'ln thick')}${polyline([S, E, w].map(m), 'ln thick')}${L(m(w), m(p), 'vec B', true)}
 ${L(m(S), m(w), 'ln dash')}${D(m(S), 6, 'dt o')}${D(m(E), 6, 'dt o')}${D(m(w), 6, 'dt o')}${D(m(p), 4)}
-${T(m(S), 'Schulter S', 'tx', 'end', -12, 4)}${T(m(E), 'Ellbogen', 'tx', 'middle', 0, -14)}${T(m(w), 'Handgelenk W', 'tx', 'end', -10, -12)}
-${T(m(p), 'Flansch p*', 'tx b', 'start', 10, -12)}${T(m([(w[0] + p[0]) / 2, (w[1] + p[1]) / 2]), 'd₆ · z*', 'tx b', 'start', 14, 26)}
+${T(m(S), 'Schulter S', 'tx', 'end', -12, 4)}${T(m(E), 'Ellbogen', 'tx', 'middle', 0, -14)}${T(m(w), 'Handgelenk W', 'tx', 'start', 8, -14)}
+${T(m(p), 'Flansch p*', 'tx b', 'start', 12, 6)}${T(m([(w[0] + p[0]) / 2, (w[1] + p[1]) / 2]), 'd₆ · z*', 'tx b', 'end', -6, 30)}
 ${T(m([(S[0] + w[0]) / 2, (S[1] + w[1]) / 2]), 'Abstand |W − S|', 'tx s', 'middle', 40, 22)}
 ${T([330, 380], 'W = p* − d₆ · z*', 'tx', 'start')}${T([330, 404], 'Seitenansicht, z* = Werkzeugachse', 'tx s', 'start')}`,
       'Das Werkzeug legt die Richtung z* fest. Geht man vom Flansch p* um d₆ entgegen z* zurück, erhält man das Handgelenk W. Nur seine Lage entscheidet über J1–J3; J4–J6 drehen um Achsen durch W und bewegen W nicht.');

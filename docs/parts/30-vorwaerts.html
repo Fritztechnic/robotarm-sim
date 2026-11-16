@@ -37,6 +37,7 @@ $$A_i=R_z(\theta_i)\,T_z(d_i)\,T_x(a_i)\,R_x(\alpha_i)=\begin{pmatrix}\cos\theta
 $$A=\begin{pmatrix}\cos\theta&-\sin\theta&0&a\cos\theta\\\sin\theta&\cos\theta&0&a\sin\theta\\0&0&1&0\\0&0&0&1\end{pmatrix}=\begin{pmatrix}0{,}866&-0{,}5&0&207{,}8\\0{,}5&0{,}866&0&120{,}0\\0&0&1&0\\0&0&0&1\end{pmatrix}.$$
 <p>Die rechte Spalte sagt: Das Ende des Glieds liegt $207{,}8$ mm vor und $120$ mm seitlich der Schulter – ein Arm der Länge $240$, der um $30^\circ$ geschwenkt ist (Kontrolle: $\sqrt{207{,}8^2+120^2}=240$ ✓). Die linke obere Ecke ist die Drehung $R_z(30^\circ)$ aus Abschnitt 2.3.</p>
 <p>Der ganze Arm ist nun nichts anderes, als sechs solche Matrizen hintereinander zu multiplizieren. Jede Multiplikation <i>hängt ein weiteres Glied an</i>.</p>
+<div class="box side"><b class="t">Hintergrund · Herkunft</b> Jacques Denavit und Richard Hartenberg veröffentlichten die Konvention 1955 für Mechanismen. Heute gibt es zwei Varianten: die <i>klassische</i> (hier verwendet) und die <i>modifizierte</i> von John Craig (1986), bei der die Reihenfolge der vier Schritte anders ist. Tabellen aus Datenblättern sind deshalb nur dann übertragbar, wenn man die Variante kennt. Viele moderne Programme (z. B. URDF für ROS) verzichten ganz auf DH und geben stattdessen pro Gelenk eine freie Verschiebung und Achse an – das ist flexibler, aber mathematisch dasselbe.</div>
 
 <h3 id="fkbeispiel">3.2 Ein nachgerechnetes Beispiel</h3>
 <p>In Nullstellung ergeben sich die Gelenkpunkte (Position der Spalte 4 von $A_1\cdots A_i$) schrittweise:</p>
@@ -52,6 +53,8 @@ $$A=\begin{pmatrix}\cos\theta&-\sin\theta&0&a\cos\theta\\\sin\theta&\cos\theta&0
 <p><b>Zeile 2 nachgerechnet:</b> Mit $q_2=90^\circ$ kippt der Oberarm um $90^\circ$ nach vorn. Er liegt dann waagrecht und reicht $240$ mm nach vorn; der Unterarm ($260$) und die Hand ($84{,}09$) zeigen in dieselbe Richtung (alle anderen Winkel sind $0$). Es ergibt sich $x=240+260+84{,}09=584{,}09$, die Höhe bleibt die Schulterhöhe $z=130$. Der Arm ist also ganz waagrecht nach vorn gestreckt – das passt zur Tabelle.</p>
 <p><b>Die Werkzeugrichtung</b> ist die dritte Spalte der Drehmatrix; bei Nullstellung ist das $(0,0,1)$ (nach oben). Die Achsen des Gelenks $i$ sind $\mathbf z_{i-1}$ (dritte Spalte von $A_1\cdots A_{i-1}$): das ist die Grundlage der Jacobi-Matrix (4.7).</p>
 <div data-widget="fk"></div>
+<div class="box side"><b class="t">Hintergrund · Genauigkeit der Realität</b> Die Vorwärtskinematik ist exakt – der echte Roboter ist es nicht. Fertigungstoleranzen, Getriebespiel, Durchbiegung der Glieder und Temperatur verändern die „wahren“ DH-Parameter um Bruchteile eines Millimeters. Bei Industrierobotern unterscheidet man deshalb die <i>Wiederholgenauigkeit</i> (Rückkehr zu einem gespeicherten Punkt, typisch ±0,02–0,1 mm) von der meist deutlich schlechteren <i>Absolutgenauigkeit</i> (Anfahren einer berechneten Koordinate). Wer Letztere braucht, kalibriert die Parameter mit einem Messgerät.</div>
+
 <h3 id="reichweite">3.3 Grenzen der Gelenke</h3>
 <table><tr><th>Gelenk</th><th>Bereich</th></tr>
 <tr><td>J1, J4, J6</td><td>intern ±720° (Anzeige: bei ±360° zurück auf 0°)</td></tr>
@@ -59,3 +62,5 @@ $$A=\begin{pmatrix}\cos\theta&-\sin\theta&0&a\cos\theta\\\sin\theta&\cos\theta&0
 <tr><td>J3</td><td>±149°</td></tr>
 <tr><td>J5</td><td>±146°</td></tr></table>
 <p>Der <b>Arbeitsraum</b> ist die Menge aller TCP-Positionen, die der Arm erreichen kann. Das Programm bestimmt die Hüllfläche durch viele zufällige Gelenkstellungen innerhalb der Grenzen und rechnet sie jeweils mit der Vorwärtskinematik in den Raum um.</p>
+<div class="box side"><b class="t">Hintergrund · Warum Gelenkgrenzen?</b> Reale Gelenke sind durch Kabel, Anschläge oder Getriebe begrenzt. Eine Drehung von $+170^\circ$ und eine von $-190^\circ$ führen zur selben Stellung, sind für den Roboter aber verschieden: bei einem Gelenk ohne Endlos-Drehung liegt der erste Wert im erlaubten Bereich, der zweite nicht. Genau deshalb muss die Bahnplanung (Kapitel 5) nicht nur „die richtige Stellung“, sondern auch „den richtigen Weg dorthin“ kennen.</div>
+

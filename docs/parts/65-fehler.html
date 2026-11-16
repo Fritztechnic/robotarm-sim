@@ -1,0 +1,47 @@
+<h2 id="fehler">7 · Typische Fehler, Kontrollen und weiterführende Literatur</h2>
+<p>Dieses Kapitel sammelt, was in der Praxis am häufigsten schiefgeht, und gibt Dir Werkzeuge, ein Ergebnis <i>selbst</i> zu prüfen, bevor Du dem Roboter traust.</p>
+
+<h3 id="fehlerliste">7.1 Die zehn häufigsten Fehler</h3>
+<ol>
+<li><b>Grad und Bogenmaß verwechselt.</b> Bibliotheken (und Rust: <code>f64::sin</code>) erwarten Bogenmaß. Symptom: Winkel „sind winzig“ oder der Arm dreht um das 57-fache zu viel. Kontrolle: $180^\circ=\pi\approx3{,}14$.</li>
+<li><b>Falsche Multiplikationsreihenfolge.</b> $AB\neq BA$. Symptom: Die Drehung geschieht „um die falsche Achse“. Kontrolle: Werte für einen einfachen Fall (z. B. $90^\circ$ um $x$, dann $90^\circ$ um $z$) von Hand durchrechnen.</li>
+<li><b>Transponierte und Inverse vertauscht.</b> Nur bei Drehmatrizen gilt $R^{-1}=R^{\mathsf T}$. Für homogene Matrizen ist die Inverse $\begin{pmatrix}R^{\mathsf T}&-R^{\mathsf T}\mathbf t\\\mathbf 0^{\mathsf T}&1\end{pmatrix}$, nicht einfach die Transponierte.</li>
+<li><b>Vorzeichen bei $\operatorname{atan2}$.</b> Die Reihenfolge ist $\operatorname{atan2}(y,x)$, nicht $(x,y)$. Symptom: Winkel um $90^\circ$ verschoben und gespiegelt.</li>
+<li><b>Argument von $\arccos$ knapp außerhalb $[-1,1]$.</b> Ursache sind Rundungsfehler. Abhilfe: vorher begrenzen (<i>clamp</i>), aber nur, wenn die Abweichung winzig ist – sonst ist das Ziel wirklich unerreichbar.</li>
+<li><b>Gelenk-Offsets vergessen.</b> Die Nullstellung des Modells ist nicht immer die Nullstellung des Motors. Symptom: Alle Winkel sind um einen festen Betrag daneben. Kontrolle: Nullstellung zeichnen und mit dem echten Arm vergleichen (Kapitel 3.2).</li>
+<li><b>Flansch statt Werkzeugspitze.</b> Der Roboter fährt den Flansch an den Zielpunkt, obwohl die <i>Spitze</i> dort hinsoll (Kapitel 6.1). Symptom: Der Fehler wächst mit der Werkzeuglänge und hängt von der Neigung ab.</li>
+<li><b>Haltungswechsel übersehen.</b> Zwei mathematisch richtige Lösungen können eine Gelenkfahrt erzwingen (Kapitel 5.3). Symptom: Der Arm „schwingt durch“, obwohl Start und Ziel nah beieinander liegen.</li>
+<li><b>Singularität nicht beachtet.</b> Nahe $q_5=0$ gibt es keine eindeutige Aufteilung von $q_4$ und $q_6$ (Kapitel 4.7). Symptom: Gelenke drehen schnell und gegenläufig.</li>
+<li><b>Winkelsprung bei $\pm180^\circ$.</b> $179^\circ\to-179^\circ$ ist ein Sprung von $358^\circ$ im Zahlenwert, aber nur $2^\circ$ in der Wirklichkeit (Kapitel 5.5). Immer die Differenz normieren.</li>
+</ol>
+
+<h3 id="kontrollen">7.2 Selbsttests für jedes Ergebnis</h3>
+<p>Mit wenigen Proben erkennt man fast jeden Fehler, ohne den Roboter zu bewegen:</p>
+<ul>
+<li><b>Rundlauf-Probe:</b> Aus Gelenkwinkeln $\mathbf q$ die Lage berechnen (FK), daraus mit der IK wieder Gelenkwinkel gewinnen – eine der Lösungen muss $\mathbf q$ sein. Dann FK der Lösung ergibt wieder dieselbe Lage.</li>
+<li><b>Längenprobe:</b> Alle Gliedlängen im Modell sind konstant. Der Abstand zwischen zwei Gelenkpunkten darf sich bei keiner Stellung ändern ($|\mathbf p_{i+1}-\mathbf p_i|=\text{konst.}$).</li>
+<li><b>Orthonormalität:</b> $R^{\mathsf T}R=I$ und $\det R=+1$ (auf etwa $10^{-9}$ genau). Weicht das ab, ist die Matrix keine Drehung mehr.</li>
+<li><b>Grenzfälle:</b> Nullstellung ($q=0$), gestreckter Arm ($d=a_2+d_4$) und das Ziel direkt über der Basis sind Fälle mit bekanntem Ergebnis und erzeugen leicht Division durch null.</li>
+<li><b>Einheiten:</b> Länge in mm und Winkel in Grad/Radiant nie mischen. Eine Formel wie $s=r\theta$ stimmt nur, wenn $\theta$ im Bogenmaß steht.</li>
+</ul>
+<div class="box side"><b class="t">Hintergrund · Warum Proben so mächtig sind</b> Ein richtiges Ergebnis erfüllt <i>mehrere</i> unabhängige Bedingungen gleichzeitig (Länge, Orthogonalität, Rückrechnung). Ein falsches besteht meist nur zufällig eine davon. Profis nennen das <i>Invariantentest</i>: Man prüft Eigenschaften, die sich bei richtiger Rechnung nie ändern.</div>
+
+<h3 id="lesen">7.3 So liest Du eine Formel</h3>
+<p>Wenn Dir eine Formel in diesem oder einem anderen Text zu dicht erscheint, hilft ein festes Vorgehen:</p>
+<ol>
+<li><b>Symbole klären:</b> Was ist eine Zahl, ein Vektor ($\mathbf a$ fett), eine Matrix (Großbuchstabe)? Siehe Tabelle in 0.7.</li>
+<li><b>Einheiten und Größen prüfen:</b> Passt jede Seite zusammen? Eine Länge kann man nicht zu einem Winkel addieren.</li>
+<li><b>Einen Spezialfall einsetzen:</b> $\theta=0$, $\theta=90^\circ$, $a=1$. Meist „fällt die Formel zusammen“ und wird einfach.</li>
+<li><b>Von innen nach außen lesen:</b> Klammern und Wurzeln zuerst, Funktionen (sin, atan2) danach.</li>
+<li><b>Mit Zahlen durchrechnen:</b> Genau wie in den „Schritt-für-Schritt“-Beispielen.</li>
+</ol>
+
+<h3 id="literatur">7.4 Weiterführende Literatur und Videos</h3>
+<ul>
+<li>John J. Craig: <i>Introduction to Robotics: Mechanics and Control</i> – der Klassiker, mit DH-Parametern.</li>
+<li>Bruno Siciliano, Lorenzo Sciavicco et al.: <i>Robotics: Modelling, Planning and Control</i> – umfassendes Lehrbuch, auch zu Bahnplanung.</li>
+<li>Mark W. Spong, Seth Hutchinson, M. Vidyasagar: <i>Robot Modeling and Control</i>.</li>
+<li>Richard M. Murray, Zexiang Li, S. Shankar Sastry: <i>A Mathematical Introduction to Robotic Manipulation</i> – Schraubentheorie und Paden-Kahan-Teilprobleme (frei im Netz verfügbar).</li>
+<li>Gilbert Strang: <i>Introduction to Linear Algebra</i> – wenn Du die Lineare Algebra aus Kapitel 1 und 2 vertiefen willst.</li>
+<li>3Blue1Brown: <i>Essence of Linear Algebra</i> (Videoreihe) – sehr anschaulich zu Matrizen als Abbildungen.</li>
+</ul>

@@ -42,3 +42,7 @@ figcaption{background:none;border:0;padding:2mm 0 0;font-size:9.5pt;line-height:
 figcaption>b:first-child::before{content:"Abbildung " counter(fig) ": "}
 .widget{display:none}
 a{color:inherit;text-decoration:none}
+.box.side{border-left-color:#9a6a00;background:#faf6ec}.box.side b.t{color:#8a5a00}
+table,ol,ul{break-inside:avoid}#glossar+table,table[style*="100%"]{break-inside:auto}tr{break-inside:avoid}li,p{orphans:2;widows:2}
+table.l td,table.l th{text-align:left}
+p:has(+ol),p:has(+ul),p:has(+table),p:has(+.eq){break-after:avoid}

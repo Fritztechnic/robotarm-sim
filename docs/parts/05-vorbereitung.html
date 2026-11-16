@@ -11,6 +11,7 @@
 </ol>
 <p>Beim Vorzeichen gilt: „Minus mal Minus ergibt Plus“. Beispiele: $(-2)\cdot3=-6$, $(-2)\cdot(-3)=6$, $-(-5)=5$, $4-(-1)=5$.</p>
 <div class="box ex"><b class="t">Beispiel</b>Berechne $3-2\cdot(4-6)$. Zuerst die Klammer: $4-6=-2$. Dann Punkt vor Strich: $2\cdot(-2)=-4$. Zuletzt $3-(-4)=7$.</div>
+<div class="box side"><b class="t">Hintergrund · Warum „Punkt vor Strich“?</b> Das ist keine Naturgesetz-, sondern eine <i>Vereinbarung</i>, damit man Klammern spart. Taschenrechner und Programmiersprachen (auch Rust) halten sich ebenfalls daran. Im Zweifel gilt: lieber eine Klammer zu viel als eine zu wenig. Außerdem rechnet der Computer nicht exakt: Zahlen wie $0{,}1$ lassen sich im Binärsystem nicht genau darstellen, deshalb vergleicht man Gleitkommazahlen nie mit „=“, sondern mit einer kleinen Toleranz (im Programm z. B. $10^{-9}$).</div>
 
 <h3 id="brueche">0.2 Brüche</h3>
 <p>Ein Bruch $\tfrac{a}{b}$ bedeutet „$a$ geteilt durch $b$“. Oben steht der <b>Zähler</b>, unten der <b>Nenner</b>. Der Nenner darf nie $0$ sein. Drei Rechenregeln reichen:</p>
@@ -26,6 +27,7 @@
 <p>Die <b>Quadratwurzel</b> $\sqrt{x}$ ist die Umkehrung: die nichtnegative Zahl, deren Quadrat $x$ ist. $\sqrt{25}=5$, weil $5^2=25$. Man kann nur aus Zahlen $\ge0$ die Wurzel ziehen.</p>
 <div class="box warn"><b class="t">Typischer Fehler</b>$\sqrt{a^2+b^2}$ ist <i>nicht</i> $a+b$. Beispiel: $\sqrt{3^2+4^2}=\sqrt{25}=5$, aber $3+4=7$.</div>
 <p>Die Gleichung $x^2=25$ hat <b>zwei</b> Lösungen, $x=+5$ und $x=-5$. Diese Doppeldeutigkeit taucht später bei der inversen Kinematik wieder auf: Zu einem Ziel gibt es oft zwei Armhaltungen („Ellbogen oben“ und „Ellbogen unten“).</p>
+<div class="box side"><b class="t">Hintergrund · $\sqrt2$ ist „unendlich“</b> Die Zahl $\sqrt2$ lässt sich nicht als Bruch zweier ganzer Zahlen schreiben (sie ist <i>irrational</i>); ihre Dezimalstellen brechen nie ab und wiederholen sich nie. Schon die Pythagoreer kannten das – sie stießen darauf bei der Diagonale eines Quadrats mit Seitenlänge 1. Für uns heißt das nur: Ergebnisse mit Wurzeln sind fast immer gerundet, und wir rechnen intern mit ca. 15 gültigen Stellen.</div>
 
 <h3 id="gleichungen">0.4 Gleichungen umstellen</h3>
 <p>Eine Gleichung ist eine Waage: Beide Seiten sind gleich schwer. Alles, was man auf einer Seite tut, muss man auf der anderen genauso tun – dann bleibt sie im Gleichgewicht. Ziel ist, die gesuchte Größe allein auf eine Seite zu bringen.</p>
@@ -41,6 +43,7 @@
 <p>Das <b>Summenzeichen</b> $\sum$ ist Kurzschreibweise für eine lange Summe:</p>
 $$\sum_{i=1}^{3} a_i = a_1+a_2+a_3 .$$
 <p>Beispiel: $\sum_{i=1}^{3} i^2=1+4+9=14$. Das Skalarprodukt in Abschnitt 1.5 ist genau so eine Summe.</p>
+<div class="box side"><b class="t">Hintergrund · Index ist nicht Exponent</b> Ein kleiner tiefgestellter Wert wie in $q_2$ ist ein Name („zweites Gelenk“), ein hochgestellter wie in $q^2$ ist eine Rechenvorschrift („mal sich selbst“). Verwechslungen sind die häufigste Fehlerquelle beim Lesen von Formeln. Die Reihenfolge der Zählung beginnt hier bei 1; viele Programmiersprachen (auch Rust) zählen Listeneinträge dagegen ab 0 – der Gelenkindex $i$ im Text entspricht also dem Listenplatz $i-1$ im Code.</div>
 
 <h3 id="dreieck">0.6 Das rechtwinklige Dreieck</h3>
 <p>Fast die gesamte Kinematik besteht aus Dreiecken. Das einfachste Dreieck hat einen rechten Winkel ($90^\circ$). Seine Seiten haben feste Namen (Abbildung unten).</p>
@@ -55,6 +58,7 @@ $$\sin\theta=\frac{\text{Gegenkathete}}{\text{Hypotenuse}},\qquad \cos\theta=\fr
 $$a^2+b^2=c^2 .$$
 {{fig:pyth}}
 <p>Das ist die Formel für die <b>Länge</b> einer Strecke: Hat ein Pfeil die Komponenten $(a,b)$, so hat er die Länge $\sqrt{a^2+b^2}$. In Abschnitt 1.4 wird daraus die Länge eines Vektors.</p>
+<div class="box side"><b class="t">Hintergrund · Warum immer Dreiecke?</b> Jedes Vieleck lässt sich in Dreiecke zerlegen, und ein Dreieck ist <i>starr</i>: Kennt man seine drei Seiten, ist die Form festgelegt. Genau diese Starrheit nutzen wir beim Ellbogen: Oberarm, Unterarm und Abstand Schulter–Handgelenk bilden ein Dreieck, dessen Winkel sich eindeutig berechnen lassen. Das Wort „Trigonometrie“ heißt wörtlich „Dreiecksmessung“.</div>
 
 <h3 id="notation">0.7 Schreibweisen in diesem Dokument</h3>
 <table>

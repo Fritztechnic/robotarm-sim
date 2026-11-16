@@ -1,0 +1,34 @@
+<h2 id="glossar">8 · Glossar</h2>
+<table style="width:100%">
+<tr><td><b>Arbeitsraum</b></td><td style="text-align:left">alle Positionen, die der TCP erreichen kann</td></tr>
+<tr><td><b>Atan2</b></td><td style="text-align:left">Arcus-Tangens mit zwei Argumenten; liefert den Winkel im richtigen Quadranten</td></tr>
+<tr><td><b>Determinante</b></td><td style="text-align:left">Zahl zu einer Matrix; 0 bedeutet nicht umkehrbar</td></tr>
+<tr><td><b>DH-Parameter</b></td><td style="text-align:left">$a,\alpha,d,\theta$: vier Zahlen pro Glied, die die Kette beschreiben</td></tr>
+<tr><td><b>Dreiecksungleichung</b></td><td style="text-align:left">Jede Seite ist höchstens so lang wie die Summe der beiden anderen; bestimmt die Reichweite</td></tr>
+<tr><td><b>Einheitsvektor</b></td><td style="text-align:left">Vektor der Länge 1 (reine Richtung)</td></tr>
+<tr><td><b>FK</b></td><td style="text-align:left">Vorwärtskinematik: Gelenkwinkel → Lage</td></tr>
+<tr><td><b>Flansch</b></td><td style="text-align:left">Montagefläche am Ende des Arms (Endpunkt der Kinematik)</td></tr>
+<tr><td><b>Gelenkfahrt / PTP</b></td><td style="text-align:left">Bewegung, bei der jedes Gelenk linear interpoliert; Spitze fährt einen Bogen</td></tr>
+<tr><td><b>Gimbal Lock</b></td><td style="text-align:left">Kardan-Sperre: Verlust eines Freiheitsgrades bei Drei-Winkel-Schreibweisen (Pitch = ±90°)</td></tr>
+<tr><td><b>Gleitkommazahl</b></td><td style="text-align:left">Computerzahl mit begrenzter Genauigkeit (ca. 15 Stellen); darum nie auf exakte Gleichheit prüfen</td></tr>
+<tr><td><b>Haltung</b></td><td style="text-align:left">eine von bis zu 8 Gelenkstellungen, die dieselbe Werkzeuglage erzeugen</td></tr>
+<tr><td><b>Handgelenkpunkt</b></td><td style="text-align:left">Schnittpunkt der Achsen J4–J6; seine Lage hängt nur von J1–J3 ab</td></tr>
+<tr><td><b>Homogene Matrix</b></td><td style="text-align:left">4×4-Matrix, die Drehung und Verschiebung vereint</td></tr>
+<tr><td><b>IK</b></td><td style="text-align:left">Inverse Kinematik: Lage → Gelenkwinkel</td></tr>
+<tr><td><b>Inverse Matrix</b></td><td style="text-align:left">Macht eine Matrix rückgängig; bei Drehungen die Transponierte</td></tr>
+<tr><td><b>Jacobi-Matrix</b></td><td style="text-align:left">Verknüpft Gelenkgeschwindigkeiten mit TCP-Geschwindigkeit</td></tr>
+<tr><td><b>Kardan-Winkel / Euler-Winkel</b></td><td style="text-align:left">Drei Winkel für eine Drehung; Reihenfolge und Achsen sind Konvention</td></tr>
+<tr><td><b>Kreuzprodukt</b></td><td style="text-align:left">Vektor senkrecht auf zwei Vektoren; Länge = Parallelogrammfläche</td></tr>
+<tr><td><b>Manipulierbarkeit</b></td><td style="text-align:left">$w=\sqrt{\det JJ^{\mathsf T}}$; nahe 0 = Singularität</td></tr>
+<tr><td><b>Orthonormal</b></td><td style="text-align:left">Einheitsvektoren, paarweise senkrecht (Spalten einer Drehmatrix)</td></tr>
+<tr><td><b>Quaternion</b></td><td style="text-align:left">Vier Zahlen für eine Drehung ohne Kardan-Sperre (Hamilton, 1843)</td></tr>
+<tr><td><b>Rodrigues-Formel</b></td><td style="text-align:left">Drehung um beliebige Achse</td></tr>
+<tr><td><b>Ruck</b></td><td style="text-align:left">Änderung der Beschleunigung; wird bei S-Kurven begrenzt</td></tr>
+<tr><td><b>Servo-Puls</b></td><td style="text-align:left">Impulsbreite (ca. 0,5–2,5 ms alle 20 ms), die den Zielwinkel eines Modellbau-Servos vorgibt</td></tr>
+<tr><td><b>Singularität</b></td><td style="text-align:left">Stellung, in der Achsen zusammenfallen und die Jacobi-Matrix nicht umkehrbar ist</td></tr>
+<tr><td><b>Skalarprodukt</b></td><td style="text-align:left">Zahl aus zwei Vektoren: $|a||b|\cos\theta$</td></tr>
+<tr><td><b>Slerp</b></td><td style="text-align:left">gleichmäßige Drehinterpolation auf dem kürzesten Weg</td></tr>
+<tr><td><b>TCP</b></td><td style="text-align:left">Tool Center Point; hier der Flansch, in der Werkstatt die Werkzeugspitze</td></tr>
+<tr><td><b>Transponierte</b></td><td style="text-align:left">Matrix an der Diagonale gespiegelt: Zeilen und Spalten vertauscht</td></tr>
+</table>
+<p class="fn">Dieses Dokument wird aus <code>docs/parts/*.html</code> mit <code>tools/build_pdf.mjs</code> erzeugt (KaTeX für die Formeln, Paged.js und Chromium für das PDF).</p>
