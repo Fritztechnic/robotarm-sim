@@ -538,6 +538,23 @@ impl App {
                 });
             });
         }
+        card(ui, Some("Bewegung"), |ui| {
+            egui::Grid::new("motion").num_columns(2).show(ui, |ui| {
+                ui.label("Gelenkgeschw.");
+                dv(ui, &mut self.cfg.speed_dps, " °/s", 5.0);
+                ui.end_row();
+                ui.label("TCP-Geschw.");
+                dv(ui, &mut self.cfg.tcp_speed, " mm/s", 5.0);
+                ui.end_row();
+                ui.label("Anfahr-Rampe");
+                dv(ui, &mut self.cfg.ramp_s, " s", 0.01);
+                ui.end_row();
+            });
+            self.cfg.speed_dps = self.cfg.speed_dps.clamp(1.0, 720.0);
+            self.cfg.tcp_speed = self.cfg.tcp_speed.clamp(1.0, 2000.0);
+            self.cfg.ramp_s = self.cfg.ramp_s.clamp(0.02, 3.0);
+            ui.label(RichText::new("Werkzeuglänge: d von Gelenk 6.").size(11.0).color(MUTED));
+        });
         if ch {
             self.play = Play::Idle;
             self.clamp_cmd();

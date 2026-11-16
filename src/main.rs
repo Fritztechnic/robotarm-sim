@@ -41,6 +41,12 @@ struct Config {
     tcp_speed: f64,
     #[serde(default)]
     waypoints: Vec<Waypoint>,
+    #[serde(default = "default_ramp")]
+    ramp_s: f64,
+}
+
+fn default_ramp() -> f64 {
+    plan::RAMP
 }
 
 fn default_tcp_speed() -> f64 {
@@ -144,6 +150,7 @@ impl Default for Config {
             speed_dps: 180.0,
             tcp_speed: default_tcp_speed(),
             waypoints: demo_waypoints(),
+            ramp_s: plan::RAMP,
         }
     }
 }
@@ -540,7 +547,7 @@ impl App {
                 let mut ns = s;
                 let n = (dt / 0.004).ceil().max(1.0);
                 for _ in 0..n as usize {
-                    ns = (ns + dt / n / total * plan::ramp(ns * total, total)).min(1.0);
+                    ns = (ns + dt / n / total * plan::ramp(ns * total, total, self.cfg.ramp_s)).min(1.0);
                 }
                 self.q_cmd = std::array::from_fn(|i| from[i] + (to[i] - from[i]) * ns);
                 self.q_view = self.q_cmd;
@@ -549,7 +556,7 @@ impl App {
             }
             Play::Seg { k, u } => {
                 let seg = &self.plan.segs[k];
-                let (nu, end) = plan::advance(&self.cfg.arm, seg, u, dt, self.cfg.tcp_speed, self.cfg.speed_dps);
+                let (nu, end) = plan::advance(&self.cfg.arm, seg, u, dt, self.cfg.tcp_speed, self.cfg.speed_dps, self.cfg.ramp_s);
                 self.q_cmd = plan::sample(seg, nu);
                 self.q_view = self.q_cmd;
                 self.target_pos = self.tcp();

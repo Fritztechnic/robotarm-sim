@@ -369,13 +369,13 @@ pub const RAMP: f64 = 0.35;
 /// Geschwindigkeitsfaktor 0..1 bei Nennzeit `tau` einer Fahrt der Nenndauer `total`.
 /// Konstante Beschleunigung (v² ∝ zurückgelegter Weg): sanftes Anfahren und Abbremsen
 /// statt Ruck von 0 auf volle Geschwindigkeit. Kurze Fahrten erreichen Vollgas gar nicht erst.
-pub fn ramp(tau: f64, total: f64) -> f64 {
-    ((tau.min(total - tau) / RAMP).max(0.0).sqrt()).clamp(0.04, 1.0)
+pub fn ramp(tau: f64, total: f64, ramp_s: f64) -> f64 {
+    ((tau.min(total - tau) / ramp_s.max(0.02)).max(0.0).sqrt()).clamp(0.04, 1.0)
 }
 
 /// Läuft `dt` Sekunden auf der Strecke weiter. Rückgabe: neuer Index `u` (Bruchteil = Position
 /// zwischen zwei Samples) und true, wenn das Ende erreicht ist.
-pub fn advance(arm: &Arm, seg: &Seg, u: f64, dt: f64, tcp_speed: f64, speed_dps: f64) -> (f64, bool) {
+pub fn advance(arm: &Arm, seg: &Seg, u: f64, dt: f64, tcp_speed: f64, speed_dps: f64, ramp_s: f64) -> (f64, bool) {
     let n = seg.q.len() - 1;
     let times: Vec<f64> = (0..n).map(|i| step_time(arm, &seg.q[i], &seg.q[i + 1], seg.ptp, tcp_speed, speed_dps)).collect();
     let total: f64 = times.iter().sum();
@@ -397,7 +397,7 @@ pub fn advance(arm: &Arm, seg: &Seg, u: f64, dt: f64, tcp_speed: f64, speed_dps:
     let mut left = dt;
     while left > 0.0 && tau < total {
         let h = left.min(0.004);
-        tau = (tau + h * ramp(tau, total)).min(total);
+        tau = (tau + h * ramp(tau, total, ramp_s)).min(total);
         left -= h;
     }
     if tau >= total - 1e-9 {
