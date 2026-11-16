@@ -48,6 +48,7 @@ $$\vartheta=-\arcsin R_{31},\qquad \varphi=\operatorname{atan2}(R_{32},R_{33}),\
 <h3 id="achsewinkel">2.5 Drehung um eine beliebige Achse</h3>
 <p>Jede Drehung im Raum ist eine Drehung um <i>eine</i> Achse $\hat{\mathbf k}$ (Einheitsvektor) um einen Winkel $\theta$. Der Punkt $\mathbf v$ wird dann (<b>Rodrigues-Formel</b>) in drei Anteile zerlegt – Anteil längs der Achse (bleibt), Anteil senkrecht dazu (wird gedreht) und der dritte Richtung $\hat{\mathbf k}\times\mathbf v$:</p>
 $$\mathbf v'=\mathbf v\cos\theta+(\hat{\mathbf k}\times\mathbf v)\sin\theta+\hat{\mathbf k}\,(\hat{\mathbf k}\cdot\mathbf v)(1-\cos\theta).$$
+{{fig:rodrigues}}
 <p>Hier kommen Skalar- <i>und</i> Kreuzprodukt zusammen. Als Matrix mit $K=\begin{pmatrix}0&-k_z&k_y\\k_z&0&-k_x\\-k_y&k_x&0\end{pmatrix}$ (so dass $K\mathbf v=\hat{\mathbf k}\times\mathbf v$):</p>
 $$R(\hat{\mathbf k},\theta)=I+\sin\theta\,K+(1-\cos\theta)\,K^2.$$
 <p><b>Rotationsvektor:</b> Den Fehler zwischen zwei Lagen kann man als einen einzigen Vektor $\boldsymbol\omega=\theta\,\hat{\mathbf k}$ schreiben (Richtung = Achse, Länge = Winkel). Die Levenberg-Marquardt-Iteration (4.7) braucht genau das als „Orientierungsfehler“; man gewinnt ihn aus $R_{\text{Soll}}R_{\text{Ist}}^{\mathsf T}$: $\theta=\arccos\frac{\operatorname{spur}-1}{2}$, die Achse folgt aus der antisymmetrischen Hälfte der Matrix.</p>

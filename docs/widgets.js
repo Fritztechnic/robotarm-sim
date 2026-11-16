@@ -145,18 +145,30 @@ widget('fk', 'Ausprobieren: Vorwärtskinematik des Elfin (Gelenke einstellen)', 
   });
   const btn = h('<button style="margin-left:6px">Alle auf 0</button>'); host.appendChild(btn);
   btn.onclick = () => { sl.forEach((s, i) => { s.value = 0; s.oninput(); }); };
-  const svg = el('svg', { viewBox: '0 0 460 300', width: 460 }, host);
-  const poly = el('polyline', { fill: 'none', stroke: col('--acc'), 'stroke-width': 7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg);
-  const dots = [...Array(7)].map(() => el('circle', { r: 5, fill: col('--fg') }, svg));
+  const svg = el('svg', { viewBox: '0 0 460 320', width: 460 }, host);
+  svg.style.cursor = 'grab';
+  let az = -50, el_ = 22;
+  const gl = el('g', {}, svg), body = el('g', {}, svg);
   const out = h('<span class="res"></span>'); host.appendChild(out);
+  let drag = null;
+  svg.addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY, az, el_]; svg.setPointerCapture(e.pointerId); });
+  svg.addEventListener('pointerup', () => (drag = null));
+  svg.addEventListener('pointermove', (e) => { if (drag) { az = drag[2] + (e.clientX - drag[0]) * 0.5; el_ = Math.max(-10, Math.min(80, drag[3] + (e.clientY - drag[1]) * 0.4)); draw(); } });
   const draw = () => {
     const Ts = [[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]], ...fk(q)];
     const P = Ts.map((T) => [T[0][3], T[1][3], T[2][3]]);
-    // Seitenansicht (x | z), Maßstab 0,3; Ursprung unten Mitte
-    const s = 0.3, ox = 230, oy = 280;
-    const pts = P.map((p) => [ox + p[0] * s, oy - p[2] * s]);
-    poly.setAttribute('points', pts.map((p) => p.join(',')).join(' '));
-    dots.forEach((d, i) => { d.setAttribute('cx', pts[i][0]); d.setAttribute('cy', pts[i][1]); });
+    const ca = Math.cos(rad(az)), sa = Math.sin(rad(az)), ce = Math.cos(rad(el_)), se = Math.sin(rad(el_)), s = 0.3, ox = 230, oy = 270;
+    const pr = (p) => [ox + s * (p[0] * ca - p[1] * sa), oy - s * (p[2] * ce + (p[0] * sa + p[1] * ca) * se)];
+    const ln = (a, b, attrs) => el('line', { x1: pr(a)[0], y1: pr(a)[1], x2: pr(b)[0], y2: pr(b)[1], 'stroke-linecap': 'round', ...attrs }, body);
+    gl.innerHTML = ''; body.innerHTML = '';
+    for (let a = -500; a <= 500; a += 100) {
+      for (const [p0, p1] of [[[a, -500, 0], [a, 500, 0]], [[-500, a, 0], [500, a, 0]]]) el('line', { x1: pr(p0)[0], y1: pr(p0)[1], x2: pr(p1)[0], y2: pr(p1)[1], stroke: col('--line') }, gl);
+    }
+    [['#e5483b', [150, 0, 0]], ['#4dae4a', [0, 150, 0]], ['#3a78d6', [0, 0, 150]]].forEach(([c, d]) => ln([0, 0, 0], d, { stroke: c, 'stroke-width': 2 }));
+    for (let i = 0; i < 6; i++) if (Math.hypot(...P[i + 1].map((v, k) => v - P[i][k])) > 1e-6) { ln(P[i], P[i + 1], { stroke: '#2b3138', 'stroke-width': 11 }); ln(P[i], P[i + 1], { stroke: '#e07b00', 'stroke-width': 7 }); }
+    for (let i = 0; i < 6; i++) { const T = Ts[i], z = [T[0][2], T[1][2], T[2][2]], o = P[i]; ln(o.map((v, k) => v - 26 * z[k]), o.map((v, k) => v + 26 * z[k]), { stroke: '#3b3f45', 'stroke-width': 13 }); }
+    const T6 = Ts[6];
+    [['#e5483b', 0], ['#4dae4a', 1], ['#3a78d6', 2]].forEach(([c, k]) => ln(P[6], [0, 1, 2].map((j) => P[6][j] + 60 * T6[j][k]), { stroke: c, 'stroke-width': 2.5 }));
     const T = Ts[6], R = T;
     const pitch = -Math.asin(Math.max(-1, Math.min(1, R[2][0])));
     const yaw = Math.atan2(R[1][0], R[0][0]), roll = Math.atan2(R[2][1], R[2][2]);
@@ -165,7 +177,27 @@ widget('fk', 'Ausprobieren: Vorwärtskinematik des Elfin (Gelenke einstellen)', 
       `Matrix  T = [ ${T[0].slice(0, 3).map((v) => fmt(v, 3)).join('  ')} | ${fmt(T[0][3])} ]\n` +
       `            [ ${T[1].slice(0, 3).map((v) => fmt(v, 3)).join('  ')} | ${fmt(T[1][3])} ]\n` +
       `            [ ${T[2].slice(0, 3).map((v) => fmt(v, 3)).join('  ')} | ${fmt(T[2][3])} ]\n` +
-      'Bei allen Gelenken 0 muss (0 | 0 | 714,09) herauskommen. Ansicht: Seitenansicht (x nach rechts, z nach oben).';
+      'Bei allen Gelenken 0 muss (0 | 0 | 714,09) herauskommen. Ansicht: mit der Maus ziehen, um zu drehen.';
   };
   draw();
 });
+
+/* ---------- Scroll-Spy für Browser-Baum und Zeitleiste ---------- */
+(() => {
+  const links = [...document.querySelectorAll('#toc a')];
+  const map = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
+  const heads = [...document.querySelectorAll('main h2[id],main h3[id]')];
+  const bar = document.getElementById('prog');
+  const upd = () => {
+    let cur = heads[0];
+    for (const hd of heads) if (hd.getBoundingClientRect().top < 120) cur = hd;
+    links.forEach((a) => a.classList.remove('on'));
+    const a = cur && map.get(cur.id);
+    if (a) { a.classList.add('on'); a.scrollIntoView({ block: 'nearest' }); }
+    const max = document.documentElement.scrollHeight - innerHeight;
+    if (bar) bar.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%';
+    document.querySelectorAll('#tl a').forEach((d) => d.classList.toggle('on', cur && d.dataset.h2 === (cur.tagName === 'H2' ? cur.id : cur.dataset.parent)));
+  };
+  let h2 = null; heads.forEach((hd) => { if (hd.tagName === 'H2') h2 = hd.id; else hd.dataset.parent = h2; });
+  addEventListener('scroll', upd, { passive: true }); upd();
+})();
