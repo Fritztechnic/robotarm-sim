@@ -72,6 +72,10 @@ fn demo_simple() -> Vec<Waypoint> {
 }
 
 // Große Demo: Rechteck, Kreis, Zickzack-Raster, Doppel-Spirale und ein Stern, alles in einer Schleife
+fn wrap_deg(d: f64) -> f64 {
+    (d + 180.0).rem_euclid(360.0) - 180.0
+}
+
 fn demo_waypoints() -> Vec<Waypoint> {
     let mut v: Vec<(V3, f64)> = vec![([300.0, 0.0, 400.0], 0.4)];
     // Rechteck in der Ebene x = 330
@@ -211,6 +215,8 @@ struct App {
     target_rpy_deg: V3,
     /// An: Werkzeugwinkel wird vorgegeben (6D). Aus: IK wählt den Winkel selbst (3D-Position).
     use_orientation: bool,
+    /// An: Yaw zählt relativ zur Richtung Sockel → Punkt (Werkzeug dreht mit J1 mit).
+    radial: bool,
     show_left: bool,
     show_right: bool,
     ik_msg: Option<(bool, String)>,
@@ -247,12 +253,14 @@ impl App {
                 }
                 c
             });
-            if kin::is_model_geometry(&c.arm) {
-                kin::idealize(&mut c.arm);
-            }
             c.style.part_offset = Default::default();
             c
         });
+        // alte, ungenau gemessene Geometrie → aus den Modellflächen bestimmte; Teile-Versatz war Ausgleich dafür
+        if kin::is_model_geometry(&cfg.arm) {
+            kin::idealize(&mut cfg.arm);
+            cfg.style.part_offset = Default::default();
+        }
         // alte Standardgrenzen (±120/150/120°) auf die Elfin-Herstellerwerte heben, eigene Werte bleiben
         let real = kin::cobot_arm();
         for (i, old) in [(1, 120.0), (2, 150.0), (4, 120.0)] {
@@ -278,6 +286,7 @@ impl App {
             target_pos: [0.0; 3],
             target_rpy_deg: [0.0; 3],
             use_orientation: false,
+            radial: true,
             show_left: true,
             show_right: true,
             ik_msg: None,
@@ -305,8 +314,11 @@ impl App {
         };
         if let Ok(v) = std::env::var("ROBOTARM_VIEW") {
             let n: Vec<f64> = v.split(',').filter_map(|s| s.parse().ok()).collect();
-            if n.len() == 2 {
+            if n.len() >= 2 {
                 app.cam.set_view(n[0], n[1]);
+            }
+            if n.len() == 6 {
+                app.cam.set_focus(n[2], [n[3], n[4], n[5]]);
             }
         }
         if let Ok(v) = std::env::var("ROBOTARM_POSE") {
@@ -314,6 +326,11 @@ impl App {
             if n.len() == 6 {
                 app.set_pose(std::array::from_fn(|i| n[i]));
             }
+        }
+        if std::env::var("ROBOTARM_CLEAN").is_ok() {
+            let st = &mut app.cfg.style;
+            (st.show_frames, st.show_labels, st.show_target, st.show_trail, st.show_reach, st.show_playlist) = (false, false, false, false, false, false);
+            (app.show_left, app.show_right) = (false, false);
         }
         app.show_math = std::env::var("ROBOTARM_MATH").is_ok();
         app.show_formulas = std::env::var("ROBOTARM_FORMULAS").is_ok();
@@ -356,11 +373,33 @@ impl App {
         let m = kin::fk(&self.cfg.arm, &self.q_cmd);
         self.target_pos = kin::pos(&m);
         self.target_rpy_deg = kin::to_rpy(&m).map(f64::to_degrees);
+        self.to_relative();
+    }
+
+    /// Richtung Sockel → Punkt in Grad (Drehung um die Hochachse).
+    fn azimuth(p: V3) -> f64 {
+        p[1].atan2(p[0]).to_degrees()
+    }
+
+    /// Absoluter Werkzeugwinkel (RPY, Grad) an Position `p`: bei „mitdrehen“ kommt die Richtung zum Punkt dazu.
+    fn rpy_at(&self, p: V3) -> V3 {
+        let mut r = self.target_rpy_deg;
+        if self.radial && self.use_orientation {
+            r[2] = wrap_deg(r[2] + Self::azimuth(p));
+        }
+        r
+    }
+
+    /// Absoluten Yaw in den relativen umrechnen (nach dem Einschalten von „vorgeben“/„mitdrehen“).
+    fn to_relative(&mut self) {
+        if self.radial && self.use_orientation {
+            self.target_rpy_deg[2] = wrap_deg(self.target_rpy_deg[2] - Self::azimuth(self.target_pos));
+        }
     }
 
     // IK ausführen und Meldung für die Statusleiste bauen
     fn solve(&mut self, restarts: usize) {
-        let t = kin::from_xyz_rpy(self.target_pos, self.target_rpy_deg.map(f64::to_radians));
+        let t = kin::from_xyz_rpy(self.target_pos, self.rpy_at(self.target_pos).map(f64::to_radians));
         let opt = kin::IkOptions { use_orientation: self.use_orientation, pos_tol: 1e-3, rot_tol: 1e-5, restarts };
         let r = kin::solve_ik(&self.cfg.arm, &t, self.q_cmd, &opt);
         self.q_cmd = r.q;
@@ -443,8 +482,8 @@ impl App {
     /// Sobald irgendein Punkt einen Winkel hat, behält jeder Punkt ohne eigenen den zuletzt gültigen
     /// (zyklisch): der Werkzeugwinkel bleibt dann während der ganzen Fahrt vorgegeben.
     fn poses(&self) -> Vec<plan::Pose> {
-        let global = self.use_orientation.then_some(self.target_rpy_deg);
-        let mut o: Vec<Option<V3>> = self.cfg.waypoints.iter().map(|w| w.rpy_deg.or(global).map(|d| d.map(f64::to_radians))).collect();
+        let global = |p: V3| self.use_orientation.then(|| self.rpy_at(p));
+        let mut o: Vec<Option<V3>> = self.cfg.waypoints.iter().map(|w| w.rpy_deg.or(global(w.pos)).map(|d| d.map(f64::to_radians))).collect();
         if let Some(last) = o.iter().rev().flatten().next().copied() {
             let mut cur = last;
             for v in o.iter_mut() {
@@ -631,6 +670,7 @@ mod tests {
             target_pos: [0.0; 3],
             target_rpy_deg: [0.0; 3],
             use_orientation: false,
+            radial: true,
             ik_msg: None,
             cam: Camera::default(),
             trail: vec![],
@@ -774,11 +814,15 @@ mod tests {
         // Werkzeug waagrecht (Pitch 90°): Punkt 1 liegt fast in J5 = 0, J4/J6 drehen dort schnell durch
         let arm = kin::cobot_arm();
         let w = demo_waypoints();
-        let r = Some([0.0, 90f64.to_radians(), 0.0]);
-        let p = plan::build(&arm, &w.iter().map(|w| (w.pos, r)).collect::<Vec<_>>());
-        let ptp: Vec<_> = p.segs.iter().filter(|s| s.ptp).map(|s| (s.from + 1, s.to + 1)).collect();
-        println!("Gelenkfahrten {ptp:?}");
-        assert!(!ptp.contains(&(1, 2)) && ptp.len() <= 2, "Gelenkfahrten {ptp:?}");
+        let ptps = |radial: bool| {
+            let p = plan::build(&arm, &w.iter().map(|w| (w.pos, Some([0.0, 90f64.to_radians(), if radial { w.pos[1].atan2(w.pos[0]) } else { 0.0 }]))).collect::<Vec<_>>());
+            p.segs.iter().filter(|s| s.ptp && !s.closing).map(|s| (s.from + 1, s.to + 1)).collect::<Vec<_>>()
+        };
+        // radial („Gier mitdrehen“): ein Durchlauf ganz ohne Gelenkfahrt
+        assert_eq!(ptps(true), vec![]);
+        // fest nach +x: hinter dem Sockel (Spirale) braucht es eine andere Haltung als im Raster bei z = 180
+        let fixed = ptps(false);
+        assert!(!fixed.contains(&(1, 2)) && fixed.len() <= 1, "Gelenkfahrten {fixed:?}");
     }
 
     fn free(p: &[V3]) -> Vec<plan::Pose> {

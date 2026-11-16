@@ -57,7 +57,7 @@ fn opt(ori: bool) -> IkOptions {
     IkOptions { use_orientation: ori, pos_tol: 1e-3, rot_tol: 1e-5, restarts: 0 }
 }
 
-fn target(p: &Pose) -> M4 {
+pub fn target(p: &Pose) -> M4 {
     kin::from_xyz_rpy(p.0, p.1.unwrap_or([0.0; 3]))
 }
 
@@ -224,13 +224,16 @@ pub fn build(arm: &Arm, pts: &[Pose]) -> Plan {
                 }
             }
         }
-        // Schleifenschluss zurück in die Starthaltung
+        // Schleifenschluss zurück in die Starthaltung. Eine Gelenkfahrt hier kostet nur die Hälfte:
+        // Sie wird nur bei Endlosschleife gefahren. Kreuzt die Bahn die Handgelenk-Singularität
+        // ungerade oft, endet sie in der umgeklappten Haltung – dann gehört der Haltungswechsel
+        // an den Schluss statt mitten in die Bahn.
         let mut close: Option<(f64, usize, bool)> = None;
         for i in 0..cand[n - 1].len() {
             let Some((c, _, _)) = best[n - 1][i] else { continue };
             match &legs[n - 1][i] {
                 Some((path, j)) if *j == s0 => relax(&mut close, (c + path_len(path), i, true)),
-                _ => relax(&mut close, (c + PTP_COST + kin::joint_dist(arm, &cand[n - 1][i], &cand[0][s0]), i, false)),
+                _ => relax(&mut close, (c + PTP_COST / 2.0 + kin::joint_dist(arm, &cand[n - 1][i], &cand[0][s0]), i, false)),
             }
         }
         let Some((total, mut i, line)) = close else { continue };

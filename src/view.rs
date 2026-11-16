@@ -77,6 +77,11 @@ impl Camera {
     pub fn set_view(&mut self, yaw_deg: f64, pitch_deg: f64) {
         *self = Self { yaw: yaw_deg.to_radians(), pitch: pitch_deg.to_radians(), ..Self::default() };
     }
+
+    /// Nahaufnahme (für Screenshot-Prüfungen): Abstand und Blickpunkt.
+    pub fn set_focus(&mut self, dist: f64, center: V3) {
+        (self.dist, self.center) = (dist, center);
+    }
 }
 
 // Was die Maus im 3D-Bereich gemacht hat (Ziel gezogen, View gewechselt ...)

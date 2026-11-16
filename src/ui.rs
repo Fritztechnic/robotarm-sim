@@ -182,7 +182,7 @@ impl App {
                     }
                 }
             }
-            let target = kin::from_xyz_rpy(self.target_pos, self.target_rpy_deg.map(f64::to_radians));
+            let target = kin::from_xyz_rpy(self.target_pos, self.rpy_at(self.target_pos).map(f64::to_radians));
             let wps: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
             let cur = (self.tab == Tab::Playlist || self.playing()).then_some(self.pl_idx);
             let reach = self.reach(ui.ctx());
@@ -331,9 +331,25 @@ impl App {
                 ui.horizontal(|ui| {
                     ui.label("Winkel vorgeben");
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ch |= toggle(ui, &mut self.use_orientation).changed();
+                        if toggle(ui, &mut self.use_orientation).changed() {
+                            self.to_relative();
+                            ch = true;
+                        }
                     });
                 });
+                if self.use_orientation {
+                    ui.horizontal(|ui| {
+                        ui.label("Gier mitdrehen").on_hover_text("Yaw zählt ab der Richtung Sockel → Ziel: „Waagerecht“ zeigt überall radial nach außen, das Werkzeug dreht mit J1 mit. Aus: fester Winkel in Weltkoordinaten.");
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            let was = self.rpy_at(self.target_pos);
+                            if toggle(ui, &mut self.radial).changed() {
+                                self.target_rpy_deg = was;
+                                self.to_relative();
+                                ch = true;
+                            }
+                        });
+                    });
+                }
                 let names = [("Roll", -180.0..=180.0), ("Pitch", -90.0..=90.0), ("Yaw", -180.0..=180.0)];
                 if self.use_orientation {
                     for (i, (n, r)) in names.into_iter().enumerate() {
@@ -394,7 +410,7 @@ impl App {
             });
             ui.label(RichText::new("Gerade Linien zwischen den Punkten. Winkel: automatisch, global (Werkzeugwinkel „vorgeben“ in der Steuerung bleibt im ganzen Ablauf konstant) oder pro Punkt (Achsen-Symbol). Start/Stopp in der Zeitleiste unten.").size(11.0).color(MUTED));
         });
-        let cur_rpy = self.target_rpy_deg;
+        let (cur_rpy, rad) = (self.target_rpy_deg, self.radial && self.use_orientation);
         let (mut del, mut up, mut go, mut dup) = (None, None, None, None);
         card(ui, Some("Zielpunkte (mm)"), |ui| {
             ui.spacing_mut().item_spacing.x = 3.0;
@@ -433,7 +449,7 @@ impl App {
                     ui.horizontal(|ui| {
                         ui.add_space(19.0);
                         if ibtn(ui, Icon::Axes, "Eigenen Werkzeugwinkel für diesen Punkt vorgeben", w.rpy_deg.is_some()).clicked() {
-                            w.rpy_deg = if w.rpy_deg.is_some() { None } else { Some(cur_rpy) };
+                            w.rpy_deg = if w.rpy_deg.is_some() { None } else { Some(if rad { [cur_rpy[0], cur_rpy[1], crate::wrap_deg(cur_rpy[2] + App::azimuth(w.pos))] } else { cur_rpy }) };
                         }
                         match &mut w.rpy_deg {
                             Some(r) => {

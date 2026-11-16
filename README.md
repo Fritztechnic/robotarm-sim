@@ -2,7 +2,7 @@
 
 Desktop-Simulator für einen 6-DOF-Roboterarm (Elfin-Cobot) in Rust (eframe/egui + wgpu).
 
-- Vorwärts- und inverse Kinematik: ideale Elfin-Geometrie, geschlossene IK (Paden-Kahan, alle bis zu 8 Haltungen exakt), Levenberg-Marquardt nur als Rückfall für selbst geänderte Geometrie
+- Vorwärts- und inverse Kinematik: ideale Elfin-Geometrie (E10 1:2, d₁ 130 / a₂ 240 / d₄ 260 / d₆ 84,09 mm, Achsen aus dem 3D-Netz vermessen), geschlossene IK (Paden-Kahan, alle bis zu 8 Haltungen exakt), Levenberg-Marquardt nur als Rückfall für selbst geänderte Geometrie
 - Automatischer Werkzeugwinkel (schaltbar) nach fester Regel: die Haltung hängt nur von der Zielposition ab, Hin- und Rückweg sind identisch
 - Zielpunkt per Eingabe oder Maus im 3D-Raum, Winkel und Servo-Pulse werden berechnet
 - Playlist: mehrere Zielpunkte, Bahn wird vorausberechnet (jede Runde exakt gleich), gerade Linien oder Gelenkfahrt, Loop

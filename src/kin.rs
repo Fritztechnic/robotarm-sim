@@ -232,29 +232,42 @@ pub fn fk(arm: &Arm, q: &[f64; 6]) -> M4 {
 type Dh = [(f64, f64, f64, f64); 6];
 
 /// Elfin-Cobot, ideale Geometrie: Kugelhandgelenk, J1/J2 schneiden sich, J2 ∥ J3, alle α exakt ±90°/0°.
+/// Maße aus den Gelenkflächen des 3D-Modells (Achsen per Linienkomplex-Ausgleich über die Flächennormalen):
+/// Schulterhöhe 130, Oberarm 240, Unterarm 260, Handgelenk → Flanschfläche 84,09 (Modell im Maßstab 1:2).
 const COBOT_DH: Dh = [
-    (0.0, -90.0, 131.673, 0.0),
-    (240.342, 0.0, 0.0, -90.0),
+    (0.0, -90.0, 130.0, 0.0),
+    (240.0, 0.0, 0.0, -90.0),
     (0.0, 90.0, 0.0, 90.0),
-    (0.0, -90.0, 261.045, 180.0),
+    (0.0, -90.0, 260.0, 180.0),
     (0.0, 90.0, 0.0, 0.0),
-    (0.0, 0.0, 83.335, 0.0),
+    (0.0, 0.0, 84.09, 0.0),
 ];
 
-/// Aus dem 3D-Modell gemessene Achsen (Ausgleichsrechnung über die Gelenkflächen). Die kleinen Abweichungen
-/// (a₁, a₃, a₄, d₃, d₅ ≈ 0, α um bis zu 3,3° schief) sind Messrauschen, sie verdrehten den Kopf um ~2,5°.
-/// Sie dienen nur noch als Anker, um die Modellteile auf die idealen Achsen zu setzen.
-const MODEL_DH: Dh = [
-    (0.278, -90.0, 131.673, 0.0),
-    (240.342, 0.0, 0.0, -90.0),
-    (0.757, 89.157, -1.113, 90.0),
-    (3.826, -93.323, 261.045, 180.0),
-    (0.133, 91.621, 3.769, 0.0),
-    (0.0, 0.0, 83.335, 0.0),
+/// Frühere, ungenau gemessene Geometrien (alte Configs werden auf COBOT_DH umgestellt).
+const OLD_DH: [Dh; 2] = [
+    [
+        (0.278, -90.0, 131.673, 0.0),
+        (240.342, 0.0, 0.0, -90.0),
+        (0.757, 89.157, -1.113, 90.0),
+        (3.826, -93.323, 261.045, 180.0),
+        (0.133, 91.621, 3.769, 0.0),
+        (0.0, 0.0, 83.335, 0.0),
+    ],
+    [
+        (0.0, -90.0, 131.673, 0.0),
+        (240.342, 0.0, 0.0, -90.0),
+        (0.0, 90.0, 0.0, 90.0),
+        (0.0, -90.0, 261.045, 180.0),
+        (0.0, 90.0, 0.0, 0.0),
+        (0.0, 0.0, 83.335, 0.0),
+    ],
 ];
 
-/// Gesamt-θ der Modell-Ruhepose: So stand der Arm im importierten Modell.
-const MODEL_REST_THETA_DEG: [f64; 6] = [-57.797, -83.942, -156.059, -175.644, -73.088, 0.0];
+/// So stand der Arm im importierten Modell (Gesamt-θ inkl. Offset, mit COBOT_DH; Achsen auf < 0,15° / 0,1 mm
+/// getroffen). θ₆ legt die Flanschbohrungen bei J6 = 0 auf die Gehäuseachsen.
+const MODEL_REST_THETA_DEG: [f64; 6] = [-57.8555, -84.1819, -157.0172, -174.7799, -74.3371, 5.10];
+/// J1-Achse des Modells liegt minimal neben dem Ursprung (mm).
+const MODEL_BASE: V3 = [0.1331, -0.6436, 0.0];
 
 fn arm_from(dh: &Dh, lim: [f64; 6]) -> Arm {
     std::array::from_fn(|i| {
@@ -269,9 +282,9 @@ pub fn cobot_arm() -> Arm {
     arm_from(&COBOT_DH, [720.0, 134.0, 149.0, 720.0, 146.0, 720.0])
 }
 
-/// Ist das (noch) die gemessene Modellgeometrie? Dann wird sie durch die ideale ersetzt (alte Configs).
+/// Ist das (noch) eine alte, ungenaue Geometrie? Dann wird sie durch die ideale ersetzt (alte Configs).
 pub fn is_model_geometry(arm: &Arm) -> bool {
-    arm.iter().zip(MODEL_DH).all(|(j, m)| (j.a - m.0).abs() < 1e-6 && (j.alpha_deg - m.1).abs() < 1e-6 && (j.d - m.2).abs() < 1e-6 && (j.offset_deg - m.3).abs() < 1e-6)
+    OLD_DH.iter().any(|dh| arm.iter().zip(dh).all(|(j, m)| (j.a - m.0).abs() < 1e-6 && (j.alpha_deg - m.1).abs() < 1e-6 && (j.d - m.2).abs() < 1e-6 && (j.offset_deg - m.3).abs() < 1e-6))
 }
 
 /// Ideale DH-Werte übernehmen, Anschläge behalten.
@@ -281,11 +294,13 @@ pub fn idealize(arm: &mut Arm) {
     }
 }
 
-/// Frames der Modell-Ruhepose (gemessene Achsen): Teil k wird mit F_k(q) · F_k(Ruhe)⁻¹ bewegt.
+/// Frames der Modell-Ruhepose (Basis in der J1-Achse des Modells): Teil k wird mit F_k(q) · F_k(Ruhe)⁻¹ bewegt.
 pub fn model_rest_frames() -> [M4; 7] {
-    let arm = arm_from(&MODEL_DH, [720.0; 6]);
-    let q: [f64; 6] = std::array::from_fn(|i| (MODEL_REST_THETA_DEG[i] - MODEL_DH[i].3).to_radians());
-    fk_frames(&arm, &q)
+    let arm = arm_from(&COBOT_DH, [720.0; 6]);
+    let q: [f64; 6] = std::array::from_fn(|i| (MODEL_REST_THETA_DEG[i] - COBOT_DH[i].3).to_radians());
+    let mut b = IDENT;
+    (0..3).for_each(|k| b[k][3] = MODEL_BASE[k]);
+    fk_frames(&arm, &q).map(|f| mul(&b, &f))
 }
 
 /// Winkel auf (−π, π].
@@ -915,7 +930,7 @@ mod tests {
         }
         // Idealer Elfin: gerade nach oben, Werkzeug exakt senkrecht (keine 2,5°-Verdrehung mehr)
         let t = fk(&cobot_arm(), &[0.0; 6]);
-        assert!(norm(sub(pos(&t), [0.0, 0.0, 716.395])) < 1e-9, "{:?}", pos(&t));
+        assert!(norm(sub(pos(&t), [0.0, 0.0, 714.09])) < 1e-9, "{:?}", pos(&t));
         assert!(norm(sub(col(&t, 2), [0.0, 0.0, 1.0])) < 1e-12, "Werkzeugachse nicht senkrecht");
     }
 
@@ -923,7 +938,7 @@ mod tests {
     fn cobot_has_exact_spherical_wrist_and_shoulder() {
         assert!(chain(&cobot_arm()).exact);
         assert!(chain(&default_arm()).exact);
-        assert!(!chain(&arm_from(&MODEL_DH, [720.0; 6])).exact);
+        assert!(!chain(&arm_from(&OLD_DH[0], [720.0; 6])).exact);
     }
 
     #[test]
@@ -1076,7 +1091,7 @@ mod tests {
     #[test]
     fn edited_geometry_still_solves_via_newton() {
         // Gemessene (schiefe) Geometrie: geschlossene Form nur als Startwert, Newton macht es exakt.
-        let arm = arm_from(&MODEL_DH, [720.0, 120.0, 150.0, 720.0, 120.0, 720.0]);
+        let arm = arm_from(&OLD_DH[0], [720.0, 120.0, 150.0, 720.0, 120.0, 720.0]);
         let mut rnd = Lcg(5);
         for _ in 0..50 {
             let q: [f64; 6] = std::array::from_fn(|i| rnd.next() * arm[i].max().min(PI) * 0.8);
