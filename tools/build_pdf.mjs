@@ -41,7 +41,7 @@ const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>
 <script>window.PagedConfig={auto:true,after:()=>{window.__done=true}}</script></head><body>
 <section id="titel"><div class="tk">Skript</div><h1>${title}</h1>
 <p class="sub">Lineare Algebra, Vorwärts- und inverse Kinematik und Bahnplanung eines 6-Achs-Roboterarms – Schritt für Schritt von Grund auf erklärt</p>
-<p class="meta">Begleitdokument zum Programm <i>robotarm-sim</i></p></section>
+<p class="meta">Autor: Fritz Israel<br>16. November 2026</p></section>
 <nav id="inhalt"><h2 class="plain">Inhaltsverzeichnis</h2>${toc}</nav>
 <main>${body}</main><script>document.querySelectorAll('figure.vp svg').forEach((sv)=>{const v=sv.viewBox.baseVal,b=sv.getBBox(),p=6,x0=Math.min(0,b.x-p),y0=Math.min(0,b.y-p),x1=Math.max(v.width,b.x+b.width+p),y1=Math.max(v.height,b.y+b.height+p);sv.setAttribute('viewBox',[x0,y0,x1-x0,y1-y0].join(' '));});</script><script>${paged}</script></body></html>`;
 
