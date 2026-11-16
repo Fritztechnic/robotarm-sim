@@ -538,6 +538,23 @@ impl App {
                 });
             });
         }
+        card(ui, Some("Modell-Ausrichtung (nur Darstellung)"), |ui| {
+            ui.label(RichText::new("Dreht/verschiebt das 3D-Teil im Frame seines Gelenks. Rechnung und Servo-Werte bleiben unberührt.").size(11.0).color(MUTED));
+            for i in 0..6 {
+                egui::CollapsingHeader::new(format!("Teil {}{}", i + 1, if i == 5 { " (Kopf/Flansch)" } else { "" })).id_salt(("po", i)).show(ui, |ui| {
+                    egui::Grid::new(("pog", i)).num_columns(2).show(ui, |ui| {
+                        for (k, (l, u, sp)) in [("x", " mm", 0.5), ("y", " mm", 0.5), ("z", " mm", 0.5), ("Roll", "°", 0.1), ("Pitch", "°", 0.1), ("Yaw (um Z)", "°", 0.1)].into_iter().enumerate() {
+                            ui.label(l);
+                            dv(ui, &mut self.cfg.style.part_offset[i][k], u, sp);
+                            ui.end_row();
+                        }
+                    });
+                    if ui.button("Zurücksetzen").clicked() {
+                        self.cfg.style.part_offset[i] = [0.0; 6];
+                    }
+                });
+            }
+        });
         card(ui, Some("Bewegung"), |ui| {
             egui::Grid::new("motion").num_columns(2).show(ui, |ui| {
                 ui.label("Gelenkgeschw.");

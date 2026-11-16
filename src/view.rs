@@ -24,6 +24,8 @@ pub struct Style {
     pub show_reach: bool,
     #[serde(default = "yes")]
     pub show_playlist: bool,
+    /// Feinausrichtung der Modellteile 1..6 im jeweiligen Gelenk-Frame: x, y, z (mm), Roll, Pitch, Yaw (°)
+    pub part_offset: [[f64; 6]; 6],
 }
 
 fn yes() -> bool {
@@ -45,6 +47,7 @@ impl Default for Style {
             show_shadow: true,
             show_reach: true,
             show_playlist: true,
+            part_offset: [[0.0; 6]; 6],
         }
     }
 }
@@ -162,11 +165,14 @@ impl Proj {
 // ---------- Modell-Matrizen ----------
 
 /// Modellmatrix je Teil: Frame(q) · Frame(Ruhepose)⁻¹. Teil 0 (Basis) bleibt stehen.
-fn part_matrices(arm: &Arm, q: &[f64; 6]) -> [M4; 7] {
+fn part_matrices(arm: &Arm, q: &[f64; 6], off: &[[f64; 6]; 6]) -> [M4; 7] {
     let rest_arm = kin::cobot_arm();
     let q_rest: [f64; 6] = std::array::from_fn(|i| kin::COBOT_REST_THETA_DEG[i].to_radians() - rest_arm[i].offset_deg.to_radians());
     let (cur, rest) = (kin::fk_frames(arm, q), kin::fk_frames(&rest_arm, &q_rest));
-    std::array::from_fn(|k| kin::mul(&cur[k], &kin::inv(&rest[k])))
+    std::array::from_fn(|k| {
+        let o = if k == 0 { kin::IDENT } else { let d = off[k - 1]; kin::from_xyz_rpy([d[0], d[1], d[2]], [d[3].to_radians(), d[4].to_radians(), d[5].to_radians()]) };
+        kin::mul(&kin::mul(&cur[k], &o), &kin::inv(&rest[k]))
+    })
 }
 
 fn push_mat(u: &mut Uniforms, base: usize, m: &M4) {
@@ -263,7 +269,7 @@ pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64
         let a = k as f64 / SHADOW_PASSES as f64 * std::f64::consts::TAU;
         u[8 + k] = v3(norm([light[0] + 0.03 * a.cos(), light[1] + 0.03 * a.sin(), light[2]]), 0.0);
     }
-    let parts = part_matrices(arm, q);
+    let parts = part_matrices(arm, q, &st.part_offset);
     let body = mat(st.accent, 0.35, 0.34);
     for i in 0..16 {
         let m = parts.get(i).copied().unwrap_or(kin::IDENT);
