@@ -11,7 +11,7 @@
 <p>Im Alltag misst man Winkel in Grad (ein Vollkreis = $360^\circ$). Die Mathematik rechnet lieber im <b>Bogenmaß</b> (Radiant): Der Winkel ist die Länge des Kreisbogens auf einem Kreis mit Radius 1. Ein Vollkreis hat den Umfang $2\pi$, also gilt</p>
 $$\text{Bogenmaß} = \text{Grad}\cdot\frac{\pi}{180^\circ},\qquad \text{Grad} = \text{Bogenmaß}\cdot\frac{180^\circ}{\pi}.$$
 <table><tr><th>Grad</th><td>0°</td><td>30°</td><td>45°</td><td>90°</td><td>180°</td><td>360°</td></tr>
-<tr><th>Bogenmaß</th><td>0</td><td>$\pi/6$</td><td>$\pi/4$</td><td>$\pi/2$</td><td>$\pi$</td><td>$2\pi$</td></tr></table>
+<tr><th>Bogenmaß</th><td>0</td><td>$\tfrac{\pi}{6}$</td><td>$\tfrac{\pi}{4}$</td><td>$\tfrac{\pi}{2}$</td><td>$\pi$</td><td>$2\pi$</td></tr></table>
 <p>Das Programm zeigt Grad an und rechnet intern im Bogenmaß.</p>
 <div class="box side"><b class="t">Hintergrund · Warum Bogenmaß?</b> Das Bogenmaß ist der „natürliche“ Winkel: Ein Winkel von 1 rad schneidet auf einem Kreis vom Radius $r$ einen Bogen der Länge $r$ aus. Dadurch wird die Bogenlänge einfach $s=r\theta$, und viele Formeln (Ableitungen von $\sin$ und $\cos$, die Kleinwinkelnäherung $\sin\theta\approx\theta$) werden schlicht. Die 360 Grad stammen vermutlich von den Babyloniern mit ihrem Zählsystem zur Basis 60; die Zahl hat viele Teiler (2, 3, 4, 5, 6, 8, 9, 10, 12, …), das macht Bruchteile handlich.</div>
 
@@ -24,11 +24,11 @@ $$\text{Bogenmaß} = \text{Grad}\cdot\frac{\pi}{180^\circ},\qquad \text{Grad} = 
 {{fig:unit}}
 <p>Weil der Punkt auf dem Kreis liegt, gilt nach Pythagoras ($x^2+y^2=1$):</p>
 $$\cos^2\theta+\sin^2\theta=1.$$
-<p>Der <b>Tangens</b> ist das Verhältnis $\tan\theta=\sin\theta/\cos\theta$ – die Steigung der Linie. Man möchte oft die Gegenrichtung: aus Koordinaten $(x|y)$ den Winkel finden. Die Funktion $\arctan(y/x)$ kann aber nicht zwischen $(1|1)$ und $(-1|-1)$ unterscheiden (beide haben $y/x=1$). Deshalb benutzt man überall im Programm</p>
+<p>Der <b>Tangens</b> ist das Verhältnis $\tan\theta=\tfrac{\sin\theta}{\cos\theta}$ – die Steigung der Linie. Man möchte oft die Gegenrichtung: aus Koordinaten $(x|y)$ den Winkel finden. Die Funktion $\arctan\tfrac{y}{x}$ kann aber nicht zwischen $(1|1)$ und $(-1|-1)$ unterscheiden (beide haben $\tfrac{y}{x}=1$). Deshalb benutzt man überall im Programm</p>
 $$\theta=\operatorname{atan2}(y,x)\in(-180^\circ,180^\circ],$$
 <p>das beide Vorzeichen auswertet und den Winkel im richtigen Quadranten liefert. Ebenso ist $\arccos$ nur für Werte in $[-1,1]$ definiert; wegen Rundungsfehlern wird das Argument vorher in diesen Bereich geklemmt.</p>
 <div class="box ex"><b class="t">Beispiel</b>$\operatorname{atan2}(1,1)=45^\circ$, $\operatorname{atan2}(1,-1)=135^\circ$, $\operatorname{atan2}(-1,-1)=-135^\circ$.</div>
-<div class="box side"><b class="t">Hintergrund · atan2 und die Fallen von arccos</b> Die Funktion $\arctan(y/x)$ kennt nur das <i>Verhältnis</i> und kann deshalb $(1,1)$ und $(-1,-1)$ nicht unterscheiden. $\operatorname{atan2}(y,x)$ bekommt beide Zahlen einzeln und liefert den Winkel im richtigen Quadranten; außerdem funktioniert es bei $x=0$, wo $y/x$ undefiniert wäre. Dagegen ist $\arccos$ nur für Argumente in $[-1,1]$ definiert und bei $\pm1$ sehr „flach“: Ein winziger Rundungsfehler (z. B. $1{,}0000000002$) würde zu einem Programmabsturz führen. Das Programm begrenzt deshalb jedes Argument vorher auf $[-1,1]$ (<i>clamp</i>). Außerdem ist $\arccos$ in der Nähe von $0^\circ$ und $180^\circ$ ungenau – wo es geht, bevorzugt die Software $\operatorname{atan2}$.</div>
+<div class="box side"><b class="t">Hintergrund · atan2 und die Fallen von arccos</b> Die Funktion $\arctan\tfrac{y}{x}$ kennt nur das <i>Verhältnis</i> und kann deshalb $(1,1)$ und $(-1,-1)$ nicht unterscheiden. $\operatorname{atan2}(y,x)$ bekommt beide Zahlen einzeln und liefert den Winkel im richtigen Quadranten; außerdem funktioniert es bei $x=0$, wo $\tfrac{y}{x}$ undefiniert wäre. Dagegen ist $\arccos$ nur für Argumente in $[-1,1]$ definiert und bei $\pm1$ sehr „flach“: Ein winziger Rundungsfehler (z. B. $1{,}0000000002$) würde zu einem Programmabsturz führen. Das Programm begrenzt deshalb jedes Argument vorher auf $[-1,1]$ (<i>clamp</i>). Außerdem ist $\arccos$ in der Nähe von $0^\circ$ und $180^\circ$ ungenau – wo es geht, bevorzugt die Software $\operatorname{atan2}$.</div>
 
 <h4>Vorzeichen in den vier Quadranten und wichtige Identitäten</h4>
 <table class="l"><tr><th>Quadrant</th><th>Winkel</th><th>$\sin$</th><th>$\cos$</th><th>$\tan$</th></tr>
@@ -52,8 +52,8 @@ $$\begin{pmatrix}3\\1\end{pmatrix}+\begin{pmatrix}1\\2\end{pmatrix}=\begin{pmatr
 <p>Wichtig ist die Reihenfolge bei der Differenz: „Ende minus Anfang“. $\mathbf b-\mathbf a$ zeigt von $\mathbf a$ nach $\mathbf b$, dagegen zeigt $\mathbf a-\mathbf b$ in die Gegenrichtung. Diese Regel brauchen wir ständig – etwa um den Pfeil von der Schulter zum Ziel zu bilden.</p>
 <p><b>Länge (Betrag)</b> – Satz des Pythagoras:</p>
 $$|\mathbf a|=\sqrt{a_x^2+a_y^2+a_z^2}.$$
-<p>Ein <b>Einheitsvektor</b> hat Länge 1. Man erhält ihn durch Normieren: $\hat{\mathbf a}=\mathbf a/|\mathbf a|$. Einheitsvektoren beschreiben im Programm reine <i>Richtungen</i>, z. B. Gelenkachsen.</p>
-<div class="box ex"><b class="t">Beispiel</b>$\mathbf a=(2,3,6)$: $|\mathbf a|=\sqrt{4+9+36}=7$, also $\hat{\mathbf a}=(2/7,\,3/7,\,6/7)$.</div>
+<p>Ein <b>Einheitsvektor</b> hat Länge 1. Man erhält ihn durch Normieren: $\hat{\mathbf a}=\tfrac{\mathbf a}{|\mathbf a|}$. Einheitsvektoren beschreiben im Programm reine <i>Richtungen</i>, z. B. Gelenkachsen.</p>
+<div class="box ex"><b class="t">Beispiel</b>$\mathbf a=(2,3,6)$: $|\mathbf a|=\sqrt{4+9+36}=7$, also $\hat{\mathbf a}=\left(\tfrac27,\,\tfrac37,\,\tfrac67\right)$.</div>
 
 <h4>Schritt für Schritt: Differenzvektor und Abstand</h4>
 <p>Wie weit ist der Punkt $P=(1,2,3)$ vom Punkt $Q=(4,6,15)$ entfernt? Der Pfeil <i>von</i> $P$ <i>nach</i> $Q$ ist „Ende minus Anfang“:</p>
@@ -133,7 +133,7 @@ $$\mathbf a\times\mathbf b=\begin{pmatrix}a_yb_z-a_zb_y\\ a_zb_x-a_xb_z\\ a_xb_y
 <p><b>Probe:</b> Das Ergebnis muss senkrecht auf beiden Vektoren stehen, also müssen die Skalarprodukte $0$ sein: $(-3,6,-3)\cdot(1,2,3)=-3+12-9=0$ ✓ und $(-3,6,-3)\cdot(4,5,6)=-12+30-18=0$ ✓.</p>
 <p><b>Fläche:</b> $|\mathbf a\times\mathbf b|=\sqrt{9+36+9}=\sqrt{54}\approx7{,}35$ ist die Fläche des von $\mathbf a$ und $\mathbf b$ aufgespannten Parallelogramms.</p>
 
-<p><b>Wozu im Roboter?</b> Die Drehgeschwindigkeit eines Gelenks um die Achse $\hat{\mathbf z}$ bewegt einen Punkt im Abstand $\mathbf r$ mit $\hat{\mathbf z}\times\mathbf r$. Diese Beziehung bildet die Spalten der <i>Jacobi-Matrix</i> (Abschnitt 4.7). Außerdem liefert $\sin\theta=|\mathbf a\times\mathbf b|/(|\mathbf a||\mathbf b|)$ zusammen mit $\cos\theta$ aus dem Skalarprodukt den Winkel eindeutig: $\theta=\operatorname{atan2}\big(|\mathbf a\times\mathbf b|,\,\mathbf a\cdot\mathbf b\big)$ – das nutzt die IK in jedem Teilproblem.</p>
+<p><b>Wozu im Roboter?</b> Die Drehgeschwindigkeit eines Gelenks um die Achse $\hat{\mathbf z}$ bewegt einen Punkt im Abstand $\mathbf r$ mit $\hat{\mathbf z}\times\mathbf r$. Diese Beziehung bildet die Spalten der <i>Jacobi-Matrix</i> (Abschnitt 4.7). Außerdem liefert $\sin\theta=\tfrac{|\mathbf a\times\mathbf b|}{|\mathbf a||\mathbf b|}$ zusammen mit $\cos\theta$ aus dem Skalarprodukt den Winkel eindeutig: $\theta=\operatorname{atan2}\big(|\mathbf a\times\mathbf b|,\,\mathbf a\cdot\mathbf b\big)$ – das nutzt die IK in jedem Teilproblem.</p>
 <div class="box side"><b class="t">Hintergrund · Nur in 3D (fast)</b> Ein Kreuzprodukt, das zwei Vektoren einen dritten, auf beiden senkrechten Vektor zuordnet, gibt es in dieser einfachen Form nur im dreidimensionalen Raum (und kurioserweise noch in 7 Dimensionen). In 2D kann man nur den Skalar $a_xb_y-a_yb_x$ bilden – er ist die $z$-Komponente des 3D-Kreuzprodukts und gibt die Drehrichtung an: positiv heißt „$\mathbf b$ liegt links von $\mathbf a$“. Die Rechte-Hand-Regel ist eine <i>Konvention</i>: Mit der linken Hand würde das Kreuzprodukt in die Gegenrichtung zeigen, und alle Formeln in diesem Dokument blieben richtig, wenn man das konsequent so festlegte. Wichtig: Parallele Vektoren ergeben den Nullvektor – das ist die Wurzel vieler Singularitäten.</div>
 
 <h4>Normalenvektor und Spatprodukt</h4>

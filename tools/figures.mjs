@@ -205,7 +205,7 @@ ${T([330, 380], 'W = p* − d₆ · z*', 'tx', 'start')}${T([330, 404], 'Seitena
 ${path(arcPath(m, A, 70, 0, th), 'ln arc')}${T(m([86, 14]), 'θ', 'tx', 'start')}
 ${T(m([165, 0]), 'Ankathete  b', 'tx', 'middle', 0, 24)}${T(m([330, 100]), 'Gegenkathete  a', 'tx', 'start', 14, 4)}${T(m([165, 100]), 'Hypotenuse  c', 'tx', 'end', -14, -24)}
 ${T(m(A), 'A', 'tx', 'end', -10, 6)}${T(m(B), 'B', 'tx', 'start', 8, 22)}${T(m(C), 'C', 'tx', 'start', 8, -6)}
-${T([20, 40], 'sin θ = a / c', 'tx s', 'start')}${T([20, 66], 'cos θ = b / c', 'tx s', 'start')}${T([20, 92], 'tan θ = a / b', 'tx s', 'start')}${T([20, 118], 'a² + b² = c²', 'tx s', 'start')}`,
+${[['sin θ =','a','c'],['cos θ =','b','c'],['tan θ =','a','b']].map(([l,nu,de],i)=>{const y=34+i*38;return T([20,y+4],l,'tx s','start')+T([86,y-5],nu,'tx s','middle')+`<line x1="76" y1="${y-1}" x2="96" y2="${y-1}" stroke="#111" stroke-width="1"/>`+T([86,y+13],de,'tx s','middle');}).join('')}${T([20, 150], 'a² + b² = c²', 'tx s', 'start')}`,
       'Die Seite gegenüber vom rechten Winkel heißt Hypotenuse (<i>c</i>), die anliegende Seite des Winkels θ Ankathete (<i>b</i>), die gegenüberliegende Gegenkathete (<i>a</i>). Daraus folgen Sinus, Kosinus, Tangens und der Satz des Pythagoras.');
   },
 
