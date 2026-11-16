@@ -1,0 +1,43 @@
+<h2 id="vorwaerts">3 · Vorwärtskinematik</h2>
+<p>Aufgabe: Gegeben sind die sechs Gelenkwinkel $q_1,\dots,q_6$. Gesucht ist die Lage (Position und Drehung) des Werkzeugs. Mit Kapitel 2 ist das eine Kette von Matrix-Multiplikationen: Jedes Glied sitzt relativ zum vorherigen, also</p>
+$$T_{0\to6}=A_1(q_1)\,A_2(q_2)\,A_3(q_3)\,A_4(q_4)\,A_5(q_5)\,A_6(q_6).$$
+<p>Jedes $A_i$ ist eine $4\times4$-Matrix (Abschnitt 2.6). Die Spalte ganz rechts von $T_{0\to6}$ ist die Position des Werkzeugs, die linke obere $3\times3$-Matrix seine Drehung.</p>
+
+<h3 id="dh">3.1 Die Denavit-Hartenberg-Parameter</h3>
+<p>Wie beschreibt man jedes Glied mit möglichst wenigen Zahlen? Die <b>Denavit-Hartenberg-Konvention (DH)</b> wählt die Koordinatensysteme der Glieder so, dass der Übergang von Glied $i-1$ zu Glied $i$ aus <i>vier einfachen Schritten</i> besteht:</p>
+<ol>
+<li>Drehen um die $z$-Achse um $\theta_i$ (das ist das Gelenk: $\theta_i=q_i+\text{Offset}_i$),</li>
+<li>Schieben entlang $z$ um $d_i$,</li>
+<li>Schieben entlang der neuen $x$-Achse um $a_i$,</li>
+<li>Drehen um die neue $x$-Achse um $\alpha_i$.</li>
+</ol>
+$$A_i=R_z(\theta_i)\,T_z(d_i)\,T_x(a_i)\,R_x(\alpha_i)=\begin{pmatrix}\cos\theta&-\sin\theta\cos\alpha&\sin\theta\sin\alpha&a\cos\theta\\ \sin\theta&\cos\theta\cos\alpha&-\cos\theta\sin\alpha&a\sin\theta\\ 0&\sin\alpha&\cos\alpha&d\\0&0&0&1\end{pmatrix}.$$
+<p>Nur $\theta$ ändert sich beim Fahren; $d$, $a$ und $\alpha$ sind feste Maße des Roboters. Für den Elfin (im Programm im Maßstab 1:2 eines E10, alle Längen in mm):</p>
+<table><tr><th>Gelenk</th><th>$a_i$ (mm)</th><th>$\alpha_i$</th><th>$d_i$ (mm)</th><th>Offset</th></tr>
+<tr><td>J1</td><td>0</td><td>−90°</td><td>130</td><td>0°</td></tr>
+<tr><td>J2</td><td>240</td><td>0°</td><td>0</td><td>−90°</td></tr>
+<tr><td>J3</td><td>0</td><td>90°</td><td>0</td><td>90°</td></tr>
+<tr><td>J4</td><td>0</td><td>−90°</td><td>260</td><td>180°</td></tr>
+<tr><td>J5</td><td>0</td><td>90°</td><td>0</td><td>0°</td></tr>
+<tr><td>J6</td><td>0</td><td>0°</td><td>84,09</td><td>0°</td></tr></table>
+<p>Die Offsets sorgen dafür, dass $q=0$ den Arm senkrecht nach oben streckt. Die vier Maße, die tatsächlich die Geometrie bestimmen, sind $d_1=130$ (Fuß bis Schulter), $a_2=240$ (Oberarm), $d_4=260$ (Unterarm bis Handgelenk) und $d_6=84{,}09$ (Handgelenk bis Flansch):</p>
+{{fig:armzero}}
+<h3 id="fkbeispiel">3.2 Ein nachgerechnetes Beispiel</h3>
+<p>In Nullstellung ergeben sich die Gelenkpunkte (Position der Spalte 4 von $A_1\cdots A_i$) schrittweise:</p>
+<table><tr><th>nach Gelenk</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6 (TCP)</th></tr>
+<tr><td>$z$ in mm</td><td>130</td><td>370</td><td>370</td><td>630</td><td>630</td><td>714,09</td></tr></table>
+<p>Jeder Schritt addiert genau das Maß aus der Tabelle (130 + 240 + 260 + 84,09 = 714,09), und $x=y=0$. Weitere geprüfte Beispiele für den TCP:</p>
+<table><tr><th>$(q_1,\dots,q_6)$</th><th>$x$</th><th>$y$</th><th>$z$</th><th>Anschaulich</th></tr>
+<tr><td>(0, 0, 0, 0, 0, 0)</td><td>0</td><td>0</td><td>714,09</td><td>senkrecht</td></tr>
+<tr><td>(0, 90°, 0, 0, 0, 0)</td><td>584,09</td><td>0</td><td>130</td><td>ganz waagrecht nach vorn</td></tr>
+<tr><td>(0, 90°, −90°, 0, 0, 0)</td><td>240</td><td>0</td><td>474,09</td><td>Oberarm waagrecht, Unterarm hoch</td></tr>
+<tr><td>(90°, 0, 0, 0, 0, 0)</td><td>0</td><td>0</td><td>714,09</td><td>nur die Basis gedreht</td></tr></table>
+<p><b>Die Werkzeugrichtung</b> ist die dritte Spalte der Drehmatrix; bei Nullstellung ist das $(0,0,1)$ (nach oben). Die Achsen des Gelenks $i$ sind $\mathbf z_{i-1}$ (dritte Spalte von $A_1\cdots A_{i-1}$): das ist die Grundlage der Jacobi-Matrix (4.7).</p>
+<div data-widget="fk"></div>
+<h3 id="reichweite">3.3 Grenzen der Gelenke</h3>
+<table><tr><th>Gelenk</th><th>Bereich</th></tr>
+<tr><td>J1, J4, J6</td><td>intern ±720° (Anzeige: bei ±360° zurück auf 0°)</td></tr>
+<tr><td>J2</td><td>±134°</td></tr>
+<tr><td>J3</td><td>±149°</td></tr>
+<tr><td>J5</td><td>±146°</td></tr></table>
+<p>Der <b>Arbeitsraum</b> ist die Menge aller TCP-Positionen, die der Arm erreichen kann. Das Programm bestimmt die Hüllfläche durch viele zufällige Gelenkstellungen innerhalb der Grenzen und rechnet sie jeweils mit der Vorwärtskinematik in den Raum um.</p>

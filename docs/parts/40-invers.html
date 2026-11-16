@@ -1,0 +1,55 @@
+<h2 id="invers">4 · Inverse Kinematik</h2>
+<p>Jetzt der umgekehrte Weg: Gegeben ist die gewünschte Lage $T^*=(R^*,\mathbf p^*)$ des Werkzeugs, gesucht sind $q_1,\dots,q_6$ mit $T_{0\to6}(q)=T^*$. Wegen der vielen $\sin$ und $\cos$ im Produkt gibt es keine einfache Umkehrformel – aber bei diesem Arm eine <b>geschlossene</b> Lösung, weil sich die Achsen von J4, J5, J6 in einem Punkt (dem <b>Handgelenk</b>) und die Achsen von J1 und J2 in einem Punkt (der <b>Schulter</b>) schneiden. Das zerlegt das Problem in drei kleine, anschauliche Teilaufgaben.</p>
+
+<h3 id="ikidee">4.1 Die Grundidee: erst Position, dann Drehung</h3>
+<p>Der Flansch sitzt $d_6$ vor dem Handgelenk entlang der Werkzeugachse $\mathbf z^*=R^*\hat z$. Das Handgelenk liegt also bei</p>
+$$\mathbf w=\mathbf p^*-d_6\,\mathbf z^*.$$
+<p>Die Gelenke J4–J6 drehen nur um Achsen <i>durch</i> $\mathbf w$ und bewegen $\mathbf w$ nicht. Die Lage von $\mathbf w$ hängt deshalb nur von J1, J2, J3 ab. Danach gilt:</p>
+<ol>
+<li>Aus $\mathbf w$ folgen $q_1,q_2,q_3$ (Position, 3 Unbekannte, 3 Gleichungen).</li>
+<li>Mit $q_1,q_2,q_3$ ist die Drehung $R_{0\to3}$ bekannt. Die Hand muss den Rest liefern: $R_{3\to6}=R_{0\to3}^{\mathsf T}R^*$. Daraus folgen $q_4,q_5,q_6$ (Drehung, 3 Unbekannte).</li>
+</ol>
+
+<h3 id="sp">4.2 Die drei Bausteine (Paden-Kahan-Teilprobleme)</h3>
+<p><b>Teilproblem 1 – Drehen auf einen Zielpunkt.</b> Gegeben sind eine Achse $\hat{\mathbf k}$, ein Punkt $\mathbf p$ und ein Punkt $\mathbf q$ mit demselben Abstand zur Achse. Gesucht: Winkel $\theta$, so dass die Drehung um $\hat{\mathbf k}$ den Punkt $\mathbf p$ nach $\mathbf q$ bringt. Man projiziert beide Punkte auf die Ebene senkrecht zur Achse und misst den Winkel zwischen den Projektionen – mit <b>Skalar- und Kreuzprodukt</b>:</p>
+$$\mathbf u=\mathbf p-\hat{\mathbf k}(\hat{\mathbf k}\cdot\mathbf p),\quad \mathbf v=\mathbf q-\hat{\mathbf k}(\hat{\mathbf k}\cdot\mathbf q),\qquad \theta=\operatorname{atan2}\!\big(\hat{\mathbf k}\cdot(\mathbf u\times\mathbf v),\;\mathbf u\cdot\mathbf v\big).$$
+{{fig:sp1}}
+<p>Das Kreuzprodukt liefert $\sin\theta$ (mit Vorzeichen durch $\hat{\mathbf k}$), das Skalarprodukt $\cos\theta$; $\operatorname{atan2}$ macht daraus den eindeutigen Winkel. Genau eine Lösung.</p>
+
+<p><b>Teilproblem 3 – Abstand einstellen (Ellbogen).</b> Gegeben: Achse $\hat{\mathbf k}$, Punkt $\mathbf p$, Zielpunkt $\mathbf q$ und ein gewünschter Abstand $\delta$. Gesucht: $\theta$, so dass der gedrehte Punkt von $\mathbf q$ den Abstand $\delta$ hat. Nach dem Projizieren (wie oben, $\mathbf u$ und $\mathbf v$ jetzt von der Achse aus gesehen) bleibt ein Dreieck mit den Seiten $|\mathbf u|$, $|\mathbf v|$ und $\delta'$, wobei $\delta'^2=\delta^2-\big(\hat{\mathbf k}\cdot(\mathbf p-\mathbf q)\big)^2$. Der <b>Kosinussatz</b> (1.7) liefert den Winkel zwischen den Seiten:</p>
+$$\theta=\operatorname{atan2}\!\big(\hat{\mathbf k}\cdot(\mathbf u\times\mathbf v),\mathbf u\cdot\mathbf v\big)\;\pm\;\arccos\frac{|\mathbf u|^2+|\mathbf v|^2-\delta'^2}{2\,|\mathbf u|\,|\mathbf v|}.$$
+<p>Das „±“ ergibt <b>zwei</b> Lösungen: Ellbogen oben oder unten. Gibt es kein Dreieck (Argument des $\arccos$ außerhalb $[-1,1]$), ist das Ziel zu weit weg oder zu nah: <i>unerreichbar</i>.</p>
+{{fig:twolink}}
+<div data-widget="ik2"></div>
+
+<p><b>Teilproblem 2 – zwei sich schneidende Achsen.</b> Gegeben: zwei Achsen $\hat{\mathbf k}_1,\hat{\mathbf k}_2$ durch denselben Punkt, Punkt $\mathbf p$ und Zielpunkt $\mathbf q$. Gesucht: $\theta_1,\theta_2$ mit $R(\hat{\mathbf k}_1,\theta_1)R(\hat{\mathbf k}_2,\theta_2)\mathbf p=\mathbf q$. Zwischen beiden Drehungen liegt ein Zwischenpunkt $\mathbf z$ mit $\mathbf z=R(\hat{\mathbf k}_2,\theta_2)\mathbf p$ und $\hat{\mathbf k}_1$-Abstand gleich dem von $\mathbf q$. Mit $c=\hat{\mathbf k}_1\cdot\hat{\mathbf k}_2$:</p>
+$$\alpha=\frac{c\,(\hat{\mathbf k}_2\cdot\mathbf p)-\hat{\mathbf k}_1\cdot\mathbf q}{c^2-1},\quad \beta=\frac{c\,(\hat{\mathbf k}_1\cdot\mathbf q)-\hat{\mathbf k}_2\cdot\mathbf p}{c^2-1},\quad \gamma=\pm\sqrt{\frac{|\mathbf p|^2-\alpha^2-\beta^2-2\alpha\beta c}{|\hat{\mathbf k}_1\times\hat{\mathbf k}_2|^2}},$$
+$$\mathbf z=\alpha\hat{\mathbf k}_1+\beta\hat{\mathbf k}_2+\gamma\,(\hat{\mathbf k}_1\times\hat{\mathbf k}_2).$$
+<p>Danach sind es zwei Teilprobleme 1: $\theta_2$ dreht $\mathbf p\to\mathbf z$ um $\hat{\mathbf k}_2$, $\theta_1$ dreht $\mathbf z\to\mathbf q$ um $\hat{\mathbf k}_1$. Das „±“ bei $\gamma$ ergibt wieder bis zu zwei Lösungen (bei $\gamma^2<0$: keine).</p>
+
+<h3 id="ikablauf">4.3 Der komplette Ablauf</h3>
+<ol>
+<li><b>Handgelenk bestimmen:</b> $\mathbf w=\mathbf p^*-d_6R^*\hat z$.</li>
+<li><b>Ellbogen (J3):</b> Der Abstand Schulter→Handgelenk $|\mathbf w-\mathbf s|$ hängt nur vom Ellbogenwinkel ab. Teilproblem 3 mit den Gliedlängen $a_2=240$ und $d_4=260$ liefert $q_3$ (zwei Lösungen: Ellbogen oben/unten).</li>
+<li><b>Schulter (J1, J2):</b> Teilproblem 2 mit den Achsen J1 (senkrecht) und J2 dreht den Handgelenkpunkt an seine Zielposition. Zwei Lösungen: Arm vorn oder nach hinten über den Kopf (Schulter „front/back“).</li>
+<li><b>Handgelenk (J4, J5, J6):</b> $R_{3\to6}=R_{0\to3}^{\mathsf T}R^*$. J4, J5, J6 drehen um sich schneidende Achsen – wieder Teilproblem 2 und 1. Zwei Lösungen: Handgelenk „+“ oder gespiegelt „−“ (J4+180°, −J5, J6+180°, gleiche Pose).</li>
+</ol>
+<div class="box"><b class="t">Bis zu 8 Haltungen</b>Schulter 2 × Ellbogen 2 × Handgelenk 2 = 8 verschiedene Gelenkstellungen, die alle <i>exakt dieselbe</i> Werkzeuglage erzeugen. Diese Auswahl heißt <b>Haltung</b> (engl. <i>configuration</i>). Alle Haltungen werden berechnet; nicht erlaubte (außerhalb der Gelenkgrenzen) werden verworfen. Die Lösung wird auf Rechengenauigkeit genau, ohne Iteration und unabhängig von der aktuellen Stellung gefunden.</div>
+<h3 id="ikwahl">4.4 Welche Haltung gilt?</h3>
+<p>Aus den übrig gebliebenen Haltungen wählt man die zur aktuellen Stellung nächste (geringste Winkeländerung, jeweils auf dem kurzen Weg, siehe 5.5). Beim Planen einer ganzen Bahn entscheidet stattdessen die Optimierung in 5.4 – dort wird die <i>Folge</i> von Haltungen gesucht, bei der der Arm möglichst nie umgreifen muss.</p>
+<h3 id="autotool">4.5 Ohne Werkzeugwinkel: die Auto-Regel</h3>
+<p>Soll nur die <i>Position</i> erreicht werden (Werkzeugwinkel aus), fehlen drei Gleichungen. Eine feste Regel legt dann die Werkzeugrichtung fest: Das Werkzeug zeigt gestreckt von der Schulter zum Ziel; nahe an der Schulter, wo der Ellbogen sonst an seinen Anschlag käme, knickt es weich ab (die Übergangsfunktion ist eine Parabel, die an beiden Enden den Wert <i>und</i> die Steigung stetig übergibt). Außerdem gilt $q_4\approx0$ und $q_6=0$. Die Haltung hängt damit <b>nur von der Position</b> ab: Von A nach B und von B nach A werden dieselben Stellungen gefahren.</p>
+<h3 id="limits">4.6 Gelenkgrenzen</h3>
+<p>Jede Lösung wird gegen die Grenzen aus 3.3 geprüft. Bei den drehbaren Gelenken J1, J4, J6 gibt es zu jedem Winkel $\theta$ auch $\theta\pm360^\circ$; es wird die Variante gewählt, die in den internen Bereich ±720° fällt und der aktuellen Stellung am nächsten liegt.</p>
+
+<h3 id="jacobi">4.7 Jacobi-Matrix, Singularitäten und der iterative Notnagel</h3>
+<p>Die <b>Jacobi-Matrix</b> $J$ ($6\times6$) beschreibt, wie die Werkzeuggeschwindigkeit (Position und Drehung) von den Gelenkgeschwindigkeiten abhängt: $\dot{\mathbf x}=J\,\dot{\mathbf q}$. Die Spalte des Drehgelenks $i$ ist</p>
+$$J_i=\begin{pmatrix}\mathbf z_{i-1}\times(\mathbf p_6-\mathbf p_{i-1})\\ \mathbf z_{i-1}\end{pmatrix}.$$
+<p>Das ist das Kreuzprodukt aus 1.6: Dreht ein Gelenk um die Achse $\mathbf z_{i-1}$, bewegt sich der TCP im Hebelarm $\mathbf p_6-\mathbf p_{i-1}$ senkrecht dazu und senkrecht zur Achse; der untere Teil ist die Drehgeschwindigkeit um die Achse.</p>
+<p><b>Singularitäten:</b> Wenn $J$ nicht mehr umkehrbar ist ($\det J=0$), kann der TCP in manchen Richtungen nicht mehr bewegt werden – oder winzige TCP-Bewegungen erfordern riesige Gelenkbewegungen. Das Programm zeigt die <b>Manipulierbarkeit</b></p>
+$$w=\sqrt{\det\!\big(JJ^{\mathsf T}\big)}$$
+<p>an (nahe 0 = Singularität). Typische Fälle: Handgelenk ($J5=0$, J4 und J6 liegen auf einer Achse), Schulter (Handgelenk liegt auf der J1-Achse) und Ellbogen (Arm ganz gestreckt).</p>
+{{fig:wristsing}}
+<p><b>Notnagel (Levenberg-Marquardt):</b> Nur wenn jemand die Geometrie so ändert, dass sich die Achsen nicht mehr schneiden, taugt die geschlossene Lösung nicht mehr exakt; sie liefert dann den Startwert für eine Iteration. Mit dem Fehlervektor $\mathbf e=(\mathbf p^*-\mathbf p,\ \boldsymbol\omega)$ ($\boldsymbol\omega$ = Rotationsvektor von $R^*R^{\mathsf T}$, siehe 2.5) rechnet man wiederholt</p>
+$$\Delta\mathbf q=J^{\mathsf T}\big(JJ^{\mathsf T}+\lambda^2I\big)^{-1}\mathbf e,\qquad \mathbf q\leftarrow\mathbf q+\Delta\mathbf q,$$
+<p>bis $\mathbf e$ verschwindend klein ist (Position &lt; 1 µm, Winkel &lt; $10^{-9}$ rad). Der Dämpfungsterm $\lambda^2I$ verhindert, dass die Schritte nahe Singularitäten explodieren; die Schrittweite wird zusätzlich begrenzt.</p>

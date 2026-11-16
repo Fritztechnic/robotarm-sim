@@ -24,3 +24,7 @@ Dev-Hooks: `ROBOTARM_SHOT=/pfad.ppm` (Screenshot), `ROBOTARM_TAB`, `ROBOTARM_VIE
 ## Werkstatt
 
 Im Playlist-Tab lädt die Karte „Werkstatt“ eine Aufgabe (Bohren, Fräsen, Schweißen): Werkbank, Werkstück, Werkzeug und passende Bahnpunkte. Die Punkte sind Positionen der Werkzeugspitze; der Flansch sitzt um die Werkzeuglänge entlang der Werkzeugachse versetzt (p_Flansch = p_Spitze − L·z_Werkzeug). Bohrungen, Nut und Schweißraupe entstehen live, wo die Spitze das Werkstück erreicht.
+
+## Mathematik-Dokumentation
+
+`docs/Mathematik.html` erklärt die gesamte Mathematik von Grund auf (Vektoren, Skalar-/Kreuzprodukt, Matrizen, FK, IK, Planung, Werkstatt) – eine einzige Datei, offline lesbar, mit interaktiven Bausteinen. Neu bauen: `cd tools && npm i --no-save katex && node build_docs.mjs` (Quellen: `docs/parts/*.html`).

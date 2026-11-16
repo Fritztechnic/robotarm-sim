@@ -1,0 +1,88 @@
+<h1>Die Mathematik des Roboterarms</h1>
+<p class="lead">Von „noch nie lineare Algebra gemacht“ bis zur vollständigen Bahnplanung eines 6-Achs-Roboters – Schritt für Schritt, mit Bildern, Rechenbeispielen und Bausteinen zum Ausprobieren.</p>
+
+<div class="box"><b class="t">So liest du dieses Dokument</b>
+Die Kapitel bauen aufeinander auf. Kapitel 1 und 2 sind reine Grundlagen (Vektoren, Skalarprodukt, Kreuzprodukt, Matrizen). Kapitel 3 bis 5 benutzen genau diese Werkzeuge, um den Arm zu berechnen: erst <b>vorwärts</b> (Gelenkwinkel → Position), dann <b>rückwärts</b> (Position → Gelenkwinkel), dann die <b>Bahnplanung</b>. Kapitel 6 zeigt die Werkstatt-Szene. Wenn du schon Vorwissen hast, überspringe, was du kennst. Alle Beispiel-Zahlen sind nachgerechnet.</div>
+
+<div class="box tip"><b class="t">Die drei Farben in den Bildern</b>
+Rot = erste Größe (z. B. Vektor <b>a</b>), Blau = zweite Größe (<b>b</b>), Grün = Ergebnis. Die Bausteine mit „Ausprobieren“ sind interaktiv: Punkte lassen sich mit der Maus ziehen, Schieberegler lassen sich bewegen.</div>
+
+<h3 id="ziel">Worum geht es überhaupt?</h3>
+<p>Ein Roboterarm hat sechs Gelenke (Motoren). Jedes Gelenk hat einen Winkel $q_1,\dots,q_6$. Zwei Fragen sind wichtig:</p>
+<ul>
+<li><b>Vorwärtskinematik (FK):</b> Ich kenne die sechs Winkel. <i>Wo</i> ist die Werkzeugspitze und <i>wie</i> ist sie gedreht? – Das ist eine reine Rechnung, es gibt genau eine Antwort.</li>
+<li><b>Inverse Kinematik (IK):</b> Ich kenne den gewünschten Ort und die gewünschte Drehung. <i>Welche</i> Winkel brauche ich? – Das ist schwerer: Es kann keine, eine oder mehrere (bis zu 8) Lösungen geben.</li>
+</ul>
+<p>Danach kommt die <b>Bahnplanung</b>: Wie fährt der Arm von Punkt zu Punkt, ohne dass die Gelenke unnötig herumschwingen, mit sanftem Anfahren und Bremsen? Dieses ganze Dokument beschreibt exakt das, was das Programm rechnet.</p>
+
+<h2 id="grundlagen">1 · Grundlagen</h2>
+
+<h3 id="koordinaten">1.1 Koordinaten und Punkte</h3>
+<p>Ein Punkt in der Ebene wird durch zwei Zahlen beschrieben: wie weit nach rechts ($x$) und wie weit nach oben ($y$). Im Raum kommt eine dritte Zahl dazu: die Höhe $z$. Der Roboter benutzt ein <b>rechtshändiges</b> Koordinatensystem: $x$ zeigt nach vorn, $y$ nach links, $z$ nach oben. Der Ursprung $(0|0|0)$ liegt in der Mitte des Roboterfußes. Alle Längen sind in <b>Millimetern</b>.</p>
+{{fig:axes2d}}
+
+<h3 id="winkel">1.2 Winkel: Grad und Bogenmaß</h3>
+<p>Im Alltag misst man Winkel in Grad (ein Vollkreis = $360^\circ$). Die Mathematik rechnet lieber im <b>Bogenmaß</b> (Radiant): Der Winkel ist die Länge des Kreisbogens auf einem Kreis mit Radius 1. Ein Vollkreis hat den Umfang $2\pi$, also gilt</p>
+$$\text{Bogenmaß} = \text{Grad}\cdot\frac{\pi}{180^\circ},\qquad \text{Grad} = \text{Bogenmaß}\cdot\frac{180^\circ}{\pi}.$$
+<table><tr><th>Grad</th><td>0°</td><td>30°</td><td>45°</td><td>90°</td><td>180°</td><td>360°</td></tr>
+<tr><th>Bogenmaß</th><td>0</td><td>$\pi/6$</td><td>$\pi/4$</td><td>$\pi/2$</td><td>$\pi$</td><td>$2\pi$</td></tr></table>
+<p>Das Programm zeigt Grad an und rechnet intern im Bogenmaß.</p>
+
+<h3 id="trig">1.3 Sinus, Kosinus, Tangens und atan2</h3>
+<p>Zeichne einen Kreis mit Radius 1 um den Ursprung und einen Punkt darauf, der zum Winkel $\theta$ gehört (gemessen von der $x$-Achse gegen den Uhrzeigersinn). Dann ist <b>Kosinus</b> die $x$-Koordinate und <b>Sinus</b> die $y$-Koordinate dieses Punktes.</p>
+{{fig:unit}}
+<p>Weil der Punkt auf dem Kreis liegt, gilt nach Pythagoras ($x^2+y^2=1$):</p>
+$$\cos^2\theta+\sin^2\theta=1.$$
+<p>Der <b>Tangens</b> ist das Verhältnis $\tan\theta=\sin\theta/\cos\theta$ – die Steigung der Linie. Man möchte oft die Gegenrichtung: aus Koordinaten $(x|y)$ den Winkel finden. Die Funktion $\arctan(y/x)$ kann aber nicht zwischen $(1|1)$ und $(-1|-1)$ unterscheiden (beide haben $y/x=1$). Deshalb benutzt man überall im Programm</p>
+$$\theta=\operatorname{atan2}(y,x)\in(-180^\circ,180^\circ],$$
+<p>das beide Vorzeichen auswertet und den Winkel im richtigen Quadranten liefert. Ebenso ist $\arccos$ nur für Werte in $[-1,1]$ definiert; wegen Rundungsfehlern wird das Argument vorher in diesen Bereich geklemmt.</p>
+<div class="box ex"><b class="t">Beispiel</b>$\operatorname{atan2}(1,1)=45^\circ$, $\operatorname{atan2}(1,-1)=135^\circ$, $\operatorname{atan2}(-1,-1)=-135^\circ$.</div>
+
+<h3 id="vektoren">1.4 Vektoren</h3>
+<p>Ein <b>Vektor</b> ist ein Pfeil: Er hat eine Richtung und eine Länge, aber keinen festen Ort. Man schreibt ihn als Zahlenliste, z. B. $\mathbf a=(3,2)$ für „3 nach rechts, 2 nach oben“. Im Raum hat er drei Komponenten $\mathbf a=(a_x,a_y,a_z)$. Ein Punkt $P$ und der Vektor vom Ursprung zu $P$ werden dabei gleich geschrieben.</p>
+
+<p><b>Addition:</b> komponentenweise. Geometrisch hängt man den zweiten Pfeil an die Spitze des ersten.</p>
+$$\begin{pmatrix}3\\1\end{pmatrix}+\begin{pmatrix}1\\2\end{pmatrix}=\begin{pmatrix}4\\3\end{pmatrix}$$
+{{fig:vecadd}}
+<p><b>Skalieren:</b> Mit einer Zahl $s$ multipliziert man jede Komponente: $s\cdot(a_x,a_y,a_z)=(sa_x,sa_y,sa_z)$. Der Pfeil wird $s$-mal so lang (bei $s<0$ zeigt er umgekehrt). <b>Subtraktion</b> $\mathbf b-\mathbf a$ ist der Pfeil <i>von</i> der Spitze von $\mathbf a$ <i>zur</i> Spitze von $\mathbf b$.</p>
+<p><b>Länge (Betrag)</b> – Satz des Pythagoras:</p>
+$$|\mathbf a|=\sqrt{a_x^2+a_y^2+a_z^2}.$$
+<p>Ein <b>Einheitsvektor</b> hat Länge 1. Man erhält ihn durch Normieren: $\hat{\mathbf a}=\mathbf a/|\mathbf a|$. Einheitsvektoren beschreiben im Programm reine <i>Richtungen</i>, z. B. Gelenkachsen.</p>
+<div class="box ex"><b class="t">Beispiel</b>$\mathbf a=(2,3,6)$: $|\mathbf a|=\sqrt{4+9+36}=7$, also $\hat{\mathbf a}=(2/7,\,3/7,\,6/7)$.</div>
+
+<h3 id="skalarprodukt">1.5 Das Skalarprodukt</h3>
+<p>Das Skalarprodukt macht aus <i>zwei Vektoren eine Zahl</i>. Man multipliziert die gleichen Komponenten und addiert:</p>
+$$\mathbf a\cdot\mathbf b=a_xb_x+a_yb_y+a_zb_z.$$
+<p>Die Geometrie dahinter: Es gilt (Beweis über den Kosinussatz, Abschnitt 1.7)</p>
+$$\mathbf a\cdot\mathbf b=|\mathbf a|\,|\mathbf b|\cos\theta,$$
+<p>wobei $\theta$ der Winkel zwischen den Pfeilen ist. Das erklärt drei wichtige Anwendungen:</p>
+<ol>
+<li><b>Winkel berechnen:</b> $\displaystyle\theta=\arccos\frac{\mathbf a\cdot\mathbf b}{|\mathbf a||\mathbf b|}$.</li>
+<li><b>Senkrecht-Test:</b> $\mathbf a\cdot\mathbf b=0\iff$ die Vektoren stehen senkrecht aufeinander ($\cos90^\circ=0$).</li>
+<li><b>Projektion:</b> Der Anteil von $\mathbf b$ in Richtung $\mathbf a$ ist $\displaystyle\mathbf b_\parallel=\frac{\mathbf a\cdot\mathbf b}{\mathbf a\cdot\mathbf a}\,\mathbf a$. Der Rest $\mathbf b-\mathbf b_\parallel$ steht senkrecht auf $\mathbf a$.</li>
+</ol>
+{{fig:dot}}
+<div class="box ex"><b class="t">Beispiel</b>$\mathbf a=(1,2,2)$, $\mathbf b=(2,0,1)$: $\mathbf a\cdot\mathbf b=2+0+2=4$, $|\mathbf a|=3$, $|\mathbf b|=\sqrt5$. Winkel: $\arccos\frac{4}{3\sqrt5}=\arccos0{,}596\approx53{,}4^\circ$.</div>
+<div data-widget="dot"></div>
+<p><b>Rechenregeln:</b> $\mathbf a\cdot\mathbf b=\mathbf b\cdot\mathbf a$ (Reihenfolge egal), $\mathbf a\cdot\mathbf a=|\mathbf a|^2$, $\mathbf a\cdot(\mathbf b+\mathbf c)=\mathbf a\cdot\mathbf b+\mathbf a\cdot\mathbf c$.</p>
+
+<h3 id="kreuzprodukt">1.6 Das Kreuzprodukt</h3>
+<p>Das Kreuzprodukt gibt es nur im Raum und macht aus <i>zwei Vektoren einen dritten Vektor</i>:</p>
+$$\mathbf a\times\mathbf b=\begin{pmatrix}a_yb_z-a_zb_y\\ a_zb_x-a_xb_z\\ a_xb_y-a_yb_x\end{pmatrix}.$$
+<p>Merkhilfe: Jede Komponente „lässt ihre eigene Achse aus“ und rechnet über Kreuz die beiden anderen. Die Geometrie:</p>
+<ul>
+<li>Das Ergebnis steht <b>senkrecht auf $\mathbf a$ und auf $\mathbf b$</b> – es ist eine <i>Normale</i> der Ebene, die beide aufspannen.</li>
+<li>Die Richtung folgt der <b>Rechte-Hand-Regel</b>: Zeigefinger = $\mathbf a$, Mittelfinger = $\mathbf b$, Daumen = $\mathbf a\times\mathbf b$.</li>
+<li>Die Länge ist $|\mathbf a\times\mathbf b|=|\mathbf a||\mathbf b|\sin\theta$ = Fläche des Parallelogramms. Parallele Vektoren ergeben $\mathbf 0$.</li>
+<li>Die Reihenfolge zählt: $\mathbf b\times\mathbf a=-\,\mathbf a\times\mathbf b$.</li>
+</ul>
+{{fig:cross}}
+<div class="box ex"><b class="t">Beispiel</b>$\hat x\times\hat y=\hat z$ bedeutet: $(1,0,0)\times(0,1,0)=(0\cdot0-0\cdot1,\;0\cdot0-1\cdot0,\;1\cdot1-0\cdot0)=(0,0,1)$. Genau so ist das Koordinatensystem rechtshändig definiert.</div>
+<p><b>Wozu im Roboter?</b> Die Drehgeschwindigkeit eines Gelenks um die Achse $\hat{\mathbf z}$ bewegt einen Punkt im Abstand $\mathbf r$ mit $\hat{\mathbf z}\times\mathbf r$. Diese Beziehung bildet die Spalten der <i>Jacobi-Matrix</i> (Abschnitt 4.7). Außerdem liefert $\sin\theta=|\mathbf a\times\mathbf b|/(|\mathbf a||\mathbf b|)$ zusammen mit $\cos\theta$ aus dem Skalarprodukt den Winkel eindeutig: $\theta=\operatorname{atan2}\big(|\mathbf a\times\mathbf b|,\,\mathbf a\cdot\mathbf b\big)$ – das nutzt die IK in jedem Teilproblem.</p>
+
+<h3 id="kosinussatz">1.7 Der Kosinussatz</h3>
+<p>Im beliebigen Dreieck mit Seiten $a,b,c$ und dem Winkel $\gamma$ gegenüber von $c$ gilt</p>
+$$c^2=a^2+b^2-2ab\cos\gamma\quad\Longleftrightarrow\quad\gamma=\arccos\frac{a^2+b^2-c^2}{2ab}.$$
+<p>Für $\gamma=90^\circ$ wird $\cos\gamma=0$ – das ist der Satz des Pythagoras. <i>Beweisidee des Skalarprodukts:</i> Die drei Seiten sind $\mathbf a$, $\mathbf b$ und $\mathbf c=\mathbf a-\mathbf b$. Dann ist $|\mathbf c|^2=(\mathbf a-\mathbf b)\cdot(\mathbf a-\mathbf b)=|\mathbf a|^2+|\mathbf b|^2-2\,\mathbf a\cdot\mathbf b$. Vergleich mit dem Kosinussatz liefert $\mathbf a\cdot\mathbf b=|\mathbf a||\mathbf b|\cos\gamma$.</p>
+{{fig:lawcos}}
+<p>Der Satz ist das Herz des Ellbogens: Kennt man die Längen der beiden Armglieder und den Abstand Schulter–Handgelenk, sind alle drei Seiten bekannt, und der Ellbogenwinkel folgt direkt.</p>

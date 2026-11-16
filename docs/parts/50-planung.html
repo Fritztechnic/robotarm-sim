@@ -1,0 +1,42 @@
+<h2 id="planung">5 · Bahnplanung</h2>
+<p>Die IK beantwortet „Wie stehe ich <i>an</i> einem Punkt?“. Eine Aufgabe besteht aber aus vielen Punkten, und dazwischen soll der Arm nicht irgendwie herumschwingen. Dieses Kapitel beschreibt, wie das Programm daraus eine saubere Bewegung macht.</p>
+
+<h3 id="linie">5.1 Linien statt Bögen</h3>
+<p>Zwei Möglichkeiten, von A nach B zu kommen:</p>
+<ul><li><b>Linearbahn:</b> Die Werkzeugspitze fährt eine gerade Linie.</li>
+<li><b>Gelenkfahrt (PTP, „point to point“):</b> Jedes Gelenk interpoliert selbst linear: $\mathbf q(t)=\mathbf q_A+t(\mathbf q_B-\mathbf q_A)$, $t\in[0,1]$. Die Spitze fährt dabei einen schwer vorhersagbaren Bogen.</li></ul>
+{{fig:linevsptp}}
+<p>Die Linie wird in kleine Schritte von höchstens <b>2 mm</b> (und höchstens $1^\circ$ Drehung) zerlegt. Der Punkt auf der Linie ist</p>
+$$\mathbf p(t)=\mathbf p_A+t\,(\mathbf p_B-\mathbf p_A),\qquad R(t)=\text{Slerp}(R_A,R_B,t)\ \ (\text{Abschnitt 2.5}).$$
+<p>Für jeden Schritt wird die IK gelöst. Die Lösung in der <i>gleichen Haltung</i> wie beim Schritt davor wird übernommen. Der Schritt gilt als „glatt“, wenn sich kein Gelenk um mehr als $0{,}25$ rad (≈ 14°) ändert. Wenn doch, wird der Schritt rekursiv halbiert (bis zur Tiefe 14), um zu prüfen, ob es wirklich ein Sprung ist oder nur eine steile, aber stetige Stelle.</p>
+
+<h3 id="singbahn">5.2 Linien durch Singularitäten</h3>
+<p>Läuft eine Linie genau durch eine Handgelenk-Singularität ($J5=0$), kann man dort J4 und J6 gegenläufig verstellen, ohne dass sich der TCP bewegt (nur $q_4+q_6$ ist festgelegt, 4.7). Das Programm erlaubt solche „Durchfahrten“, solange der TCP dabei stillhält (Positionsabweichung $<0{,}01$ mm, Orientierung $<10^{-4}$ rad): Die Spitze bleibt auf der Linie, nur die Handgelenkachsen „drehen sich durch“. Eine ungerade Zahl solcher Durchfahrten lässt eine Schleife in der <i>gespiegelten</i> Handgelenkhaltung enden (siehe 5.6).</p>
+
+<h3 id="haltungsopt">5.3 Das Haltungsproblem</h3>
+<p>Jeder Wegpunkt hat bis zu 8 Haltungen (4.3). Von Punkt zu Punkt darf der Arm die Haltung nicht wechseln, sonst wäre eine Gelenkfahrt nötig (Schulter vorn → hinten, Ellbogen oben → unten). Welche Haltung am <i>ersten</i> Punkt „richtig“ ist, merkt man erst, wenn man weiß, welche am <i>letzten</i> noch erreichbar sind.</p>
+<h3 id="dp">5.4 Optimierung: kürzester Weg im Haltungsgraphen</h3>
+<p>Baue einen Graphen: Für jeden Wegpunkt $i$ und jede Haltung $h$ gibt es einen Knoten $(i,h)$. Zwischen den Knoten $(i,h)$ und $(i+1,h')$ liegt eine Kante mit den Kosten</p>
+$$c\big((i,h),(i+1,h')\big)=\begin{cases}\text{Weglänge im Gelenkraum}&\text{Linie fahrbar (gleiche Haltung, kein Sprung)}\\ 1000&\text{sonst: Gelenkfahrt nötig (PTP-Strafe)}\end{cases}$$
+{{fig:dpgraph}}
+<p>Die <b>dynamische Programmierung</b> berechnet Schicht für Schicht die minimalen Gesamtkosten: $D(i+1,h')=\min_h\big(D(i,h)+c\big)$ und speichert den Vorgänger. Am Ende liest man den günstigsten Weg rückwärts ab. Ergebnis: Das Programm nimmt Gelenkfahrten nur, wenn sie <b>physikalisch unvermeidbar</b> sind (z. B. weil ein Punkt hinter der Basis mit festem Werkzeugwinkel an einer Gelenkgrenze scheitert). Der Plan ist deterministisch: gleiche Eingabe → gleiche Gelenkstellungen.</p>
+<h3 id="wrap">5.5 Der kürzeste Winkelweg und das Rücksetzen bei ±360°</h3>
+<p>Winkel sind „zyklisch“: 350° und −10° sind dieselbe Stellung. Von $q_a=32^\circ$ nach $q_b=33^\circ$ darf der Arm niemals 359° fahren. Deshalb wird jede Winkeländerung auf den kürzesten Weg normiert:</p>
+$$\Delta q=\big((q_b-q_a+180^\circ)\bmod360^\circ\big)-180^\circ\ \in[-180^\circ,180^\circ).$$
+<p>Bei J1, J4, J6 darf der Gelenkwinkel dabei intern bis ±720° wachsen (damit der kurze Weg nie an einer Grenze scheitert). Erreicht die <i>Anzeige</i> $\pm360^\circ$, wird sie auf $0^\circ$ zurückgesetzt – die Stellung des Arms ändert sich dadurch nicht, denn 360° ist eine Vollumdrehung.</p>
+{{fig:wrap}}
+<h3 id="flip">5.6 Schleifen und die gespiegelte Handgelenkhaltung</h3>
+<p>Fährt der Arm eine Schleife (letzter Punkt → erster Punkt) und durchquert er dabei eine ungerade Anzahl Handgelenk-Singularitäten, kommt er in der gespiegelten Handgelenkhaltung ($q_4+180^\circ$, $-q_5$, $q_6+180^\circ$) an – die Werkzeuglage ist identisch, aber die Gelenke stehen anders. Statt dort eine Gelenkfahrt einzufügen, darf der Schleifenabschluss bewusst in der gespiegelten Startstellung enden. In der nächsten Runde wird alles gespiegelt gefahren, danach wieder normal: Alle zwei Runden schließt sich der Kreis ohne einen einzigen Sprung.</p>
+<h3 id="ramp">5.7 Geschwindigkeit: Anfahren, Fahren, Bremsen</h3>
+<p>Ein Ruck beim Start oder Stopp (die Geschwindigkeit springt von 0 auf $v$) belastet Mechanik und Getriebe. Deshalb wird jeder Linienabschnitt mit Rampen gefahren. Mit der Gesamtzeit $T$ des Abschnitts, der Zeit $\tau$ seit dem Start und der Rampenzeit $T_r=0{,}35$ s ist der Geschwindigkeitsfaktor</p>
+$$v(\tau)=v_{\max}\cdot\min\!\Big(1,\ \sqrt{\tfrac{\min(\tau,\,T-\tau)}{T_r}}\Big).$$
+{{fig:ramp}}
+<p>Die Wurzel sorgt für ein sehr sanftes Anfahren aus dem Stillstand. Der Vorschub $v_{\max}$ ist die eingestellte TCP-Geschwindigkeit in mm/s.</p>
+<h3 id="zeit">5.8 Zeit pro Schritt</h3>
+<p>Jeder Kleinschritt hat die Länge $\Delta s$ (Weglänge der Spitze) und ändert die Gelenke um $\Delta\mathbf q$. Die Zeit, die er braucht, ist die größere der beiden Anforderungen – der Vorschub <i>oder</i> die schnellste Gelenkgeschwindigkeit $\omega$ begrenzen:</p>
+$$\Delta t=\max\!\Big(\frac{\Delta s}{v_{\text{TCP}}},\ \frac{\max_i|\Delta q_i|}{\omega}\Big).$$
+<p>So bleibt die Spitze auf der Linie mit dem eingestellten Vorschub, aber der Arm überschreitet nie die Motorgeschwindigkeit (bei Gelenkfahrten gilt nur der zweite Teil).</p>
+<h3 id="servo">5.9 Von Gelenkwinkeln zu Servo-Pulsweiten</h3>
+<p>Ein Modellbau-Servo erwartet ein PWM-Signal: Pulsweite $\mu\text{s}$ zwischen $p_{\min}$ und $p_{\max}$ entspricht einem Stellweg von 0 bis zum Bereich (z. B. 180°). Das Programm bildet jeden Gelenkwinkel $q$ so ab (Richtung $d=\pm1$ und Mittenversatz $c$ einstellbar):</p>
+$$a=\operatorname{clamp}\!\big(c+d\cdot q,\ 0,\ \text{Bereich}\big),\qquad \mu\text{s}=p_{\min}+\frac{a}{\text{Bereich}}\,(p_{\max}-p_{\min}).$$
+<p>Wird die Klammer (Clamp) aktiv, zeigt die Oberfläche „begrenzt“: Das Gelenk liegt am Anschlag.</p>

@@ -1,0 +1,42 @@
+<h2 id="werkstatt">6 · Die Werkstatt-Szene</h2>
+<p>In der Simulation kann man eine Werkbank mit Werkstück laden (Reiter <i>Playlist → Werkstatt</i>). Hier spielt die Mathematik zusammen.</p>
+<h3 id="tcp">6.1 Flansch gegen Werkzeugspitze</h3>
+<p>Die Kinematik (Kapitel 3, 4) rechnet bis zum <b>Flansch</b> – der Fläche, auf der das Werkzeug montiert ist. Für eine Bohrung interessiert aber die <b>Spitze des Bohrers</b>, $L$ weiter vorn auf der Werkzeugachse. Mit der Werkzeugrichtung $\mathbf z_{\text{W}}=R\hat z$:</p>
+$$\mathbf p_{\text{Spitze}}=\mathbf p_{\text{Flansch}}+L\,\mathbf z_{\text{W}}\quad\Longleftrightarrow\quad \mathbf p_{\text{Flansch}}=\mathbf p_{\text{Spitze}}-L\,\mathbf z_{\text{W}}.$$
+{{fig:tooltip}}
+<p>Die Aufgaben der Werkstatt sind als Punkte der <b>Spitze</b> definiert und werden mit der zweiten Formel in Flanschpunkte umgerechnet, bevor geplant wird. Weil die Werkzeugrichtung auf der ganzen Bahn konstant ist (feste Orientierung pro Punkt, Slerp dazwischen), ist die Umrechnung für <i>jeden</i> Punkt der Linie korrekt: Wenn die Flanschbahn gerade ist, ist es auch die Spitzenbahn. Das ist besonders beim Schweißen schön sichtbar: Der Brenner ist 15° gekippt („stechend“), der Flansch fährt seitlich versetzt, die Spitze aber exakt gerade.</p>
+<h3 id="jobs">6.2 Die drei Aufgaben</h3>
+<table><tr><th>Aufgabe</th><th>Werkzeug</th><th>Bahn</th><th>Vorschub</th></tr>
+<tr><td>Bohren</td><td>senkrecht, L = 120 mm</td><td>6 Löcher; je anfahren – eintauchen – verweilen – zurückziehen</td><td>150 mm/s</td></tr>
+<tr><td>Fräsen</td><td>senkrecht, L = 110 mm</td><td>Rechteckkontur 140 × 90 mm mit Eckenradius 15 mm, danach ein Kreis (r = 25 mm), 3 mm tief</td><td>50 mm/s</td></tr>
+<tr><td>Schweißen</td><td>15° gekippt, L = 100 mm</td><td>130 mm Naht mit ±2 mm Pendelbewegung alle 4 mm</td><td>20 mm/s</td></tr></table>
+<p><b>Fräskontur:</b> Die Geraden und Viertelkreise (Radius 15 mm) werden als Folge von Wegpunkten erzeugt; der Kreis nutzt $\mathbf p(\varphi)=\mathbf c+r(\cos\varphi,\sin\varphi,0)$ in Schritten von 15° (die Eckenbögen in 18°). Zwischen den Punkten fährt der Planer Linien – bei kleinen Winkelschritten ist das optisch ein Kreis.</p>
+<p><b>Arbeitserkennung:</b> Spur und Bohrloch entstehen, wenn die Werkzeugspitze unter der Werkstückoberfläche ist (Bohren/Fräsen: $z<z_{\text{Fläche}}-0{,}5$ mm) bzw. knapp darüber (Schweißen: $z\le z_{\text{Fläche}}+4$ mm) <i>und</i> innerhalb der Platte liegt. Die Spitzenposition kommt aus der Vorwärtskinematik (Kapitel 3) plus $L\,\mathbf z_{\text{W}}$.</p>
+<h3 id="erreichbar">6.3 Warum steht die Werkbank, wo sie steht?</h3>
+<p>Der Arm erreicht nur Punkte, deren Handgelenk höchstens $a_2+d_4=500$ mm von der Schulter entfernt ist (gestreckter Arm), und nicht näher als $|d_4-a_2|=20$ mm (Kosinussatz-Grenzen aus 4.2). Die Werkbank (Oberfläche auf 100 mm Höhe, Mitte 300 mm vor der Basis) ist so gewählt, dass alle Bahnpunkte komfortabel dazwischen liegen; ein Test im Programm prüft, dass alle drei Aufgaben vollständig erreichbar sind und höchstens zwei Gelenkfahrten brauchen.</p>
+
+<h2 id="glossar">7 · Glossar</h2>
+<table style="width:100%">
+<tr><td><b>Arbeitsraum</b></td><td style="text-align:left">alle Positionen, die der TCP erreichen kann</td></tr>
+<tr><td><b>Atan2</b></td><td style="text-align:left">Arcus-Tangens mit zwei Argumenten; liefert den Winkel im richtigen Quadranten</td></tr>
+<tr><td><b>DH-Parameter</b></td><td style="text-align:left">$a,\alpha,d,\theta$: vier Zahlen pro Glied, die die Kette beschreiben</td></tr>
+<tr><td><b>Determinante</b></td><td style="text-align:left">Zahl zu einer Matrix; 0 bedeutet nicht umkehrbar</td></tr>
+<tr><td><b>Einheitsvektor</b></td><td style="text-align:left">Vektor der Länge 1 (reine Richtung)</td></tr>
+<tr><td><b>Flansch</b></td><td style="text-align:left">Montagefläche am Ende des Arms (Endpunkt der Kinematik)</td></tr>
+<tr><td><b>FK</b></td><td style="text-align:left">Vorwärtskinematik: Gelenkwinkel → Lage</td></tr>
+<tr><td><b>Gelenkfahrt / PTP</b></td><td style="text-align:left">Bewegung, bei der jedes Gelenk linear interpoliert; Spitze fährt einen Bogen</td></tr>
+<tr><td><b>Gimbal Lock</b></td><td style="text-align:left">Kardan-Sperre: Verlust eines Freiheitsgrades bei Drei-Winkel-Schreibweisen (Pitch = ±90°)</td></tr>
+<tr><td><b>Haltung</b></td><td style="text-align:left">eine von bis zu 8 Gelenkstellungen, die dieselbe Werkzeuglage erzeugen</td></tr>
+<tr><td><b>Homogene Matrix</b></td><td style="text-align:left">4×4-Matrix, die Drehung und Verschiebung vereint</td></tr>
+<tr><td><b>IK</b></td><td style="text-align:left">Inverse Kinematik: Lage → Gelenkwinkel</td></tr>
+<tr><td><b>Jacobi-Matrix</b></td><td style="text-align:left">Verknüpft Gelenkgeschwindigkeiten mit TCP-Geschwindigkeit</td></tr>
+<tr><td><b>Kreuzprodukt</b></td><td style="text-align:left">Vektor senkrecht auf zwei Vektoren; Länge = Parallelogrammfläche</td></tr>
+<tr><td><b>Manipulierbarkeit</b></td><td style="text-align:left">$w=\sqrt{\det JJ^{\mathsf T}}$; nahe 0 = Singularität</td></tr>
+<tr><td><b>Orthonormal</b></td><td style="text-align:left">Einheitsvektoren, paarweise senkrecht (Spalten einer Drehmatrix)</td></tr>
+<tr><td><b>Rodrigues-Formel</b></td><td style="text-align:left">Drehung um beliebige Achse</td></tr>
+<tr><td><b>Singularität</b></td><td style="text-align:left">Stellung, in der Achsen zusammenfallen und die Jacobi-Matrix nicht umkehrbar ist</td></tr>
+<tr><td><b>Skalarprodukt</b></td><td style="text-align:left">Zahl aus zwei Vektoren: $|a||b|\cos\theta$</td></tr>
+<tr><td><b>Slerp</b></td><td style="text-align:left">gleichmäßige Drehinterpolation auf dem kürzesten Weg</td></tr>
+<tr><td><b>TCP</b></td><td style="text-align:left">Tool Center Point; hier der Flansch, in der Werkstatt die Werkzeugspitze</td></tr>
+</table>
+<p style="color:var(--mut);margin-top:3em">Dieses Dokument wird aus <code>docs/parts/*.html</code> mit <code>tools/build_docs.mjs</code> erzeugt (KaTeX für die Formeln, alles in einer Datei, ohne Netzwerk).</p>

@@ -1,0 +1,62 @@
+<h2 id="matrizen">2 · Matrizen und Drehungen</h2>
+
+<h3 id="matrix">2.1 Was ist eine Matrix?</h3>
+<p>Eine <b>Matrix</b> ist ein Zahlenrechteck. Eine $3\times3$-Matrix hat drei Zeilen und drei Spalten. Man kann sie sich als „Maschine“ vorstellen, die einen Vektor hineinnimmt und einen neuen Vektor ausgibt.</p>
+<p><b>Matrix mal Vektor:</b> Jede Ausgabekomponente ist das Skalarprodukt aus <i>einer Zeile</i> der Matrix mit dem Vektor.</p>
+$$\begin{pmatrix}a&b&c\\d&e&f\\g&h&i\end{pmatrix}\begin{pmatrix}x\\y\\z\end{pmatrix}=\begin{pmatrix}ax+by+cz\\dx+ey+fz\\gx+hy+iz\end{pmatrix}.$$
+<div class="box ex"><b class="t">Beispiel</b>$\begin{pmatrix}2&0\\0&3\end{pmatrix}\begin{pmatrix}5\\4\end{pmatrix}=\begin{pmatrix}10\\12\end{pmatrix}$ – diese Matrix streckt $x$ um den Faktor 2 und $y$ um den Faktor 3.</div>
+<p>Die <b>Spalten</b> der Matrix haben eine anschauliche Bedeutung: Die erste Spalte ist das Bild von $\hat x=(1,0,0)$, die zweite das Bild von $\hat y$, die dritte das von $\hat z$. Eine Matrix ist also vollständig durch „wohin gehen die Achsen“ bestimmt.</p>
+
+<h3 id="matrixprodukt">2.2 Matrix mal Matrix</h3>
+<p>Zwei Matrizen $A\cdot B$ bedeuten: <i>erst $B$, dann $A$</i> anwenden. Der Eintrag in Zeile $i$, Spalte $j$ ist das Skalarprodukt aus Zeile $i$ von $A$ und Spalte $j$ von $B$:</p>
+$$(AB)_{ij}=\sum_k A_{ik}B_{kj}.$$
+<div class="box warn"><b class="t">Wichtig: Die Reihenfolge zählt!</b>Im Allgemeinen ist $AB\neq BA$. Beispiel aus dem Alltag: „Erst 90° um die $x$-Achse, dann 90° um $z$“ ergibt eine andere Lage als „erst $z$, dann $x$“. Genau deshalb ist die Reihenfolge der Gelenke beim Roboter entscheidend.</div>
+<p><b>Spezielle Matrizen:</b></p>
+<ul>
+<li>Die <b>Einheitsmatrix</b> $I$ (Einsen auf der Diagonale) ändert nichts: $I\mathbf v=\mathbf v$.</li>
+<li>Die <b>Transponierte</b> $A^{\mathsf T}$ vertauscht Zeilen und Spalten.</li>
+<li>Die <b>Inverse</b> $A^{-1}$ macht $A$ rückgängig: $A^{-1}A=I$.</li>
+<li>Die <b>Determinante</b> $\det A$ sagt, wie sich Volumen ändern. $\det A=0$ bedeutet: Die Matrix „plättet“ den Raum und ist nicht umkehrbar. (Das ist genau die <i>Singularität</i> aus Kapitel 4.)</li>
+</ul>
+
+<h3 id="drehmatrizen">2.3 Drehmatrizen</h3>
+<p>Wie dreht man einen Punkt in der Ebene um den Ursprung um den Winkel $\theta$? Der Punkt $\hat x=(1,0)$ wandert nach $(\cos\theta,\sin\theta)$ (Einheitskreis!), der Punkt $\hat y=(0,1)$ wandert nach $(-\sin\theta,\cos\theta)$. Diese beiden Bilder sind nach 2.1 die Spalten der Matrix:</p>
+$$R(\theta)=\begin{pmatrix}\cos\theta&-\sin\theta\\ \sin\theta&\cos\theta\end{pmatrix},\qquad \mathbf p'=R(\theta)\,\mathbf p.$$
+{{fig:rot2d}}
+<div data-widget="rot"></div>
+<p>Im Raum dreht man um eine der Koordinatenachsen. Die Koordinate <i>auf</i> der Achse bleibt unverändert:</p>
+$$R_x(\alpha)=\begin{pmatrix}1&0&0\\0&\cos\alpha&-\sin\alpha\\0&\sin\alpha&\cos\alpha\end{pmatrix},\;
+R_y(\beta)=\begin{pmatrix}\cos\beta&0&\sin\beta\\0&1&0\\-\sin\beta&0&\cos\beta\end{pmatrix},\;
+R_z(\gamma)=\begin{pmatrix}\cos\gamma&-\sin\gamma&0\\\sin\gamma&\cos\gamma&0\\0&0&1\end{pmatrix}.$$
+<p><b>Eigenschaften jeder Drehmatrix:</b></p>
+<ul>
+<li>Die Spalten sind Einheitsvektoren, die paarweise senkrecht stehen (Skalarprodukt = 0). Man nennt das <i>orthonormal</i>.</li>
+<li>Daraus folgt $R^{\mathsf T}R=I$, also ist die Inverse einfach die Transponierte: $R^{-1}=R^{\mathsf T}$. Rückwärts drehen ist umsonst.</li>
+<li>$\det R=+1$ (keine Spiegelung); Längen und Winkel bleiben erhalten.</li>
+<li>Die Spalten sind die Koordinatenachsen des gedrehten Systems, ausgedrückt im Ursprungssystem. Beim Werkzeug: die dritte Spalte $\mathbf z_{\text{Werkzeug}}$ ist die Richtung, in die das Werkzeug zeigt.</li>
+</ul>
+
+<h3 id="rpy">2.4 Winkelangaben: Roll, Pitch, Yaw</h3>
+<p>Jede Lage im Raum lässt sich durch drei Drehungen beschreiben. Das Programm benutzt die übliche Roll-Pitch-Yaw-Konvention (Koordinatenachsen fest, erst Roll um $x$, dann Pitch um $y$, dann Yaw um $z$):</p>
+$$R=R_z(\text{Yaw})\,R_y(\text{Pitch})\,R_x(\text{Roll}).$$
+<p>Ausmultipliziert (mit $c=\cos$, $s=\sin$ und den Winkeln $\varphi$ = Roll, $\vartheta$ = Pitch, $\psi$ = Yaw):</p>
+$$R=\begin{pmatrix}c_\psi c_\vartheta& c_\psi s_\vartheta s_\varphi-s_\psi c_\varphi& c_\psi s_\vartheta c_\varphi+s_\psi s_\varphi\\ s_\psi c_\vartheta& s_\psi s_\vartheta s_\varphi+c_\psi c_\varphi& s_\psi s_\vartheta c_\varphi-c_\psi s_\varphi\\ -s_\vartheta& c_\vartheta s_\varphi& c_\vartheta c_\varphi\end{pmatrix}.$$
+<p>Umgekehrt liest man die Winkel aus der Matrix ab ($R_{ij}$ = Zeile $i$, Spalte $j$):</p>
+$$\vartheta=-\arcsin R_{31},\qquad \varphi=\operatorname{atan2}(R_{32},R_{33}),\qquad \psi=\operatorname{atan2}(R_{21},R_{11}).$$
+<div class="box warn"><b class="t">Kardan-Sperre (Gimbal Lock)</b>Bei $\vartheta=\pm90^\circ$ ist $\cos\vartheta=0$: Roll und Yaw drehen dann um dieselbe Achse und nur ihre Summe/Differenz ist festgelegt. Das ist eine Schwäche der Dreiwinkel-Schreibweise, nicht des Roboters. Deshalb rechnet das Programm intern mit Matrizen und benutzt Winkel nur zur Ein- und Ausgabe.</div>
+
+<h3 id="achsewinkel">2.5 Drehung um eine beliebige Achse</h3>
+<p>Jede Drehung im Raum ist eine Drehung um <i>eine</i> Achse $\hat{\mathbf k}$ (Einheitsvektor) um einen Winkel $\theta$. Der Punkt $\mathbf v$ wird dann (<b>Rodrigues-Formel</b>) in drei Anteile zerlegt – Anteil längs der Achse (bleibt), Anteil senkrecht dazu (wird gedreht) und der dritte Richtung $\hat{\mathbf k}\times\mathbf v$:</p>
+$$\mathbf v'=\mathbf v\cos\theta+(\hat{\mathbf k}\times\mathbf v)\sin\theta+\hat{\mathbf k}\,(\hat{\mathbf k}\cdot\mathbf v)(1-\cos\theta).$$
+<p>Hier kommen Skalar- <i>und</i> Kreuzprodukt zusammen. Als Matrix mit $K=\begin{pmatrix}0&-k_z&k_y\\k_z&0&-k_x\\-k_y&k_x&0\end{pmatrix}$ (so dass $K\mathbf v=\hat{\mathbf k}\times\mathbf v$):</p>
+$$R(\hat{\mathbf k},\theta)=I+\sin\theta\,K+(1-\cos\theta)\,K^2.$$
+<p><b>Rotationsvektor:</b> Den Fehler zwischen zwei Lagen kann man als einen einzigen Vektor $\boldsymbol\omega=\theta\,\hat{\mathbf k}$ schreiben (Richtung = Achse, Länge = Winkel). Die Levenberg-Marquardt-Iteration (4.7) braucht genau das als „Orientierungsfehler“; man gewinnt ihn aus $R_{\text{Soll}}R_{\text{Ist}}^{\mathsf T}$: $\theta=\arccos\frac{\operatorname{spur}-1}{2}$, die Achse folgt aus der antisymmetrischen Hälfte der Matrix.</p>
+<p><b>Slerp:</b> Um von Lage $R_0$ nach $R_1$ gleichmäßig zu drehen, nimmt man die Relativdrehung $R_0^{\mathsf T}R_1$ = (Achse $\hat{\mathbf k}$, Winkel $\theta$) und dreht nur den Bruchteil $t\in[0,1]$:</p>
+$$R(t)=R_0\,R\big(\hat{\mathbf k},\,t\,\theta\big).$$
+<p>Der Werkzeugwinkel dreht damit auf dem <i>kürzesten</i> Weg mit konstanter Winkelgeschwindigkeit – ohne Gimbal-Lock-Probleme.</p>
+
+<h3 id="homogen">2.6 Drehung + Verschiebung: homogene Matrizen</h3>
+<p>Eine Drehmatrix kann nur drehen. Eine <i>Lage</i> (Pose) besteht aus Drehung $R$ <i>und</i> Verschiebung $\mathbf t$: $\mathbf p'=R\mathbf p+\mathbf t$. Ein Trick macht daraus eine einzige Matrix-Multiplikation: Man hängt an jeden Punkt eine $1$ und benutzt eine $4\times4$-Matrix:</p>
+$$T=\begin{pmatrix}R&\mathbf t\\\mathbf 0^{\mathsf T}&1\end{pmatrix},\qquad \begin{pmatrix}\mathbf p'\\1\end{pmatrix}=T\begin{pmatrix}\mathbf p\\1\end{pmatrix}.$$
+<p>Der große Vorteil: <b>Hintereinanderschalten ist Multiplizieren.</b> Ist $T_1$ die Lage von Glied 1 relativ zur Basis und $T_2$ die Lage von Glied 2 relativ zu Glied 1, dann ist die Lage von Glied 2 relativ zur Basis einfach $T_1T_2$. Die Inverse ist leicht: $T^{-1}=\begin{pmatrix}R^{\mathsf T}&-R^{\mathsf T}\mathbf t\\\mathbf 0^{\mathsf T}&1\end{pmatrix}$.</p>
+<div class="box ex"><b class="t">Beispiel</b>Ein Glied sei um $90^\circ$ um $z$ gedreht und um $(100,0,0)$ verschoben. Der Punkt $(50,0,0)$ im Glied liegt dann in der Basis bei $R_z(90^\circ)(50,0,0)^{\mathsf T}+(100,0,0)=(0,50,0)+(100,0,0)=(100,50,0)$.</div>
