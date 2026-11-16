@@ -12,9 +12,14 @@ const vb = (s) => `<tspan class="v b">${s}</tspan>`;
 const pt = (p) => `${n2(p[0])},${n2(p[1])}`;
 const L = (a, b, c = 'ln', arrow = false, extra = '') =>
   `<line class="${c}" x1="${n2(a[0])}" y1="${n2(a[1])}" x2="${n2(b[0])}" y2="${n2(b[1])}"${arrow ? ' marker-end="url(#ah)"' : ''} ${extra}/>`;
+const SUB = '₀₁₂₃₄₅₆₇₈₉', SUP = { '²': '2', '³': '3' };
+const mk = (s) => s
+  .replace(/[₀-₉]/g, (c) => `<tspan class="sb" baseline-shift="sub">${SUB.indexOf(c)}</tspan>`)
+  .replace(/[²³]/g, (c) => `<tspan class="sb" baseline-shift="super">${SUP[c]}</tspan>`)
+  .replace(/_([A-Za-z]+)/g, '<tspan class="sb" baseline-shift="sub">$1</tspan>');
 const T = (p, s, c = 'tx', anchor = 'middle', dx = 0, dy = 0) =>
-  `<text class="${c}" x="${n2(p[0] + dx)}" y="${n2(p[1] + dy)}" text-anchor="${anchor}">${s}</text>`;
-const D = (p, r = 4.5, c = 'dt') => `<circle class="${c}" cx="${n2(p[0])}" cy="${n2(p[1])}" r="${r}"/>`;
+  `<text class="${c}" x="${n2(p[0] + dx)}" y="${n2(p[1] + dy)}" text-anchor="${anchor}">${mk(s)}</text>`;
+const D = (p, r = 4.5, c = 'dt') => `<circle class="${c}" cx="${n2(p[0])}" cy="${n2(p[1])}" r="${r > 6 ? r : n2(r * 0.7)}"/>`;
 const poly = (pts, c = 'fl') => `<polygon class="${c}" points="${pts.map(pt).join(' ')}"/>`;
 const path = (d, c = 'ln', extra = '') => `<path class="${c}" d="${d}" ${extra}/>`;
 const polyline = (pts, c = 'ln') => `<polyline class="${c}" points="${pts.map(pt).join(' ')}"/>`;
@@ -34,13 +39,9 @@ const unitv = (a, b) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; r
 const rightMark = (o, d1, d2, s = 10) => polyline([[o[0] + d1[0] * s, o[1] + d1[1] * s], [o[0] + (d1[0] + d2[0]) * s, o[1] + (d1[1] + d2[1]) * s], [o[0] + d2[0] * s, o[1] + d2[1] * s]], 'ln thin');
 
 function grid2d(map, x0, x1, y0, y1, step = 1, labels = true) {
-  let s = '';
-  for (let x = x0; x <= x1 + 1e-9; x += step) s += L(map([x, y0]), map([x, y1]), x === 0 ? 'axl' : 'gr');
-  for (let y = y0; y <= y1 + 1e-9; y += step) s += L(map([x0, y]), map([x1, y]), y === 0 ? 'axl' : 'gr');
-  if (labels) {
-    for (let x = x0; x <= x1 + 1e-9; x += step) if (x !== 0) s += T(map([x, 0]), fm(x, 0), 'tk', 'middle', 0, 15);
-    for (let y = y0; y <= y1 + 1e-9; y += step) if (y !== 0) s += T(map([0, y]), fm(y, 0), 'tk', 'end', -6, 4);
-  }
+  let s = L(map([x0, 0]), map([x1, 0]), 'axl') + L(map([0, y0]), map([0, y1]), 'axl');
+  for (let x = x0; x <= x1 + 1e-9; x += step) if (x !== 0) { const p = map([x, 0]); s += L([p[0], p[1] - 3], [p[0], p[1] + 3], 'axl') + (labels ? T(p, fm(x, 0), 'tk', 'middle', 0, 16) : ''); }
+  for (let y = y0; y <= y1 + 1e-9; y += step) if (y !== 0) { const p = map([0, y]); s += L([p[0] - 3, p[1]], [p[0] + 3, p[1]], 'axl') + (labels ? T(p, fm(y, 0), 'tk', 'end', -7, 4) : ''); }
   return s;
 }
 
@@ -67,8 +68,8 @@ const arrow3d = (pr, a, b, c) => L(pr(a), pr(b), c, true);
 
 /* ---------- Rahmen ---------- */
 const DEFS = `<defs>
-<marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker>
-<marker id="dm" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>`;
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0 1.8L10 5L0 8.2L2.2 5z" fill="context-stroke"/></marker>
+<marker id="dm" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 2L10 5L0 8L2 5z" fill="context-stroke"/></marker></defs>`;
 function fig(w, h, title, body, cap) {
   return `<figure class="vp"><svg viewBox="0 0 ${w} ${h}" role="img" xmlns="http://www.w3.org/2000/svg">${DEFS}${body}</svg>
 <figcaption><b>${title}.</b> ${cap}</figcaption></figure>`;
@@ -142,7 +143,7 @@ ${T(m([1, 0]), '1', 'tk', 'middle', 0, 16)}${T(m([-1, 0]), '−1', 'tk', 'middle
     return fig(560, 320, 'Vektoraddition',
       `${grid2d(m, 0, 6, 0, 3.5, 1)}${L(m(a), m(c), 'ln dash B')}${L(m(b), m(c), 'ln dash A')}
 ${L(m([0, 0]), m(a), 'vec A', true)}${L(m([0, 0]), m(b), 'vec B', true)}${L(m([0, 0]), m(c), 'vec C', true)}
-${T(m(a), vb('a') + ' = (3 | 1)', 'tx a', 'start', 8, 18)}${T(m(b), vb('b') + ' = (1 | 2)', 'tx b', 'end', -10, -2)}${T(m(c), vb('a') + ' + ' + vb('b') + ' = (4 | 3)', 'tx c', 'start', 10, -6)}
+${T(m(a), vb('a') + ' = (3 | 1)', 'tx a', 'start', 8, 18)}${T(m(b), vb('b') + ' = (1 | 2)', 'tx b', 'start', 14, -16)}${T(m(c), vb('a') + ' + ' + vb('b') + ' = (4 | 3)', 'tx c', 'start', 10, -6)}
 ${D(m([0, 0]), 4, 'dt o')}`,
       'Komponentenweise addieren: (3 | 1) + (1 | 2) = (4 | 3). Geometrisch hängt man <b>b</b> an die Spitze von <b>a</b>; es entsteht ein Parallelogramm, dessen Diagonale die Summe ist.');
   },
@@ -160,12 +161,12 @@ ${L(o, m(a), 'vec A', true)}${L(o, bt, 'vec B', true)}${L(bt, foot, 'ln dash')}$
 ${rightMark(foot, unitv(foot, o), unitv(foot, bt), 10)}
 ${path(arcPath(m, [0, 0], 0.9, aAng, bAng), 'ln arc')}${T(m([1.0, 0.85]), 'θ = ' + fm(th, 1) + '°', 'tx', 'start', 6, 0)}
 ${T(m(a), vb('a') + ' = (4 | 1)', 'tx a', 'start', 8, 4)}${T(m(b), vb('b') + ' = (1,5 | 3)', 'tx b', 'start', 8, -6)}
-${T(m([pr[0] / 2, pr[1] / 2]), 'Projektion', 'tx c', 'middle', 4, 26)}
+${T(m([pr[0] / 2, pr[1] / 2]), 'Projektion', 'tx c', 'middle', 4, -12)}
 ${T([430, 80], vb('a') + '·' + vb('b') + ' = 4·1,5 + 1·3 = ' + fm(ab, 1), 'tx', 'start')}
 ${T([430, 108], '|' + vb('a') + '| = ' + fm(na, 3) + ',  |' + vb('b') + '| = ' + fm(nb, 3), 'tx s', 'start')}
 ${T([430, 132], 'cos θ = ' + fm(ab / (na * nb), 3) + ' → θ = ' + fm(th, 1) + '°', 'tx s', 'start')}
 ${T([430, 156], 'Projektionslänge = ' + fm(ab / na, 3), 'tx s c', 'start')}`,
-      'Das Skalarprodukt ist 9; daraus folgt der Winkel zwischen den Vektoren. Die grüne Strecke ist die Projektion von <b>b</b> auf <b>a</b> (Lotfuß mit rechtem Winkel).');
+      'Das Skalarprodukt ist 9; daraus folgt der Winkel zwischen den Vektoren. Die blaue Strecke ist die Projektion von <b>b</b> auf <b>a</b> (Lotfuß mit rechtem Winkel).');
   },
 
   cross() {
@@ -204,10 +205,10 @@ ${T([20, 50], 'c² = a² + b² − 2ab·cos γ', 'tx', 'start')}${T([20, 76], '2
       `${grid2d(m, -1, 3, 0, 3, 1)}${path(arcPath(m, [0, 0], r, a0, a0 + th), 'ln dash')}
 ${L(m([0, 0]), m(P), 'vec A', true)}${L(m([0, 0]), m(Q), 'vec C', true)}${path(arcPath(m, [0, 0], 0.9, a0, a0 + th), 'ln arc')}
 ${T(m([0.55, 1.05]), 'θ = 50°', 'tx', 'start', 4, -2)}${D(m(P))}${D(m(Q))}
-${T(m(P), vb('P') + ' = (2,4 | 0,8)', 'tx a', 'start', 10, 20)}${T(m(Q), 'P′ = (' + fm(Q[0], 3) + ' | ' + fm(Q[1], 3) + ')', 'tx c', 'end', -10, -8)}
+${T(m(P), vb('P') + ' = (2,4 | 0,8)', 'tx a', 'start', 10, 20)}${T(m(Q), 'P’ = (' + fm(Q[0], 3) + ' | ' + fm(Q[1], 3) + ')', 'tx c', 'start', 10, -8)}
 ${T([430, 80], 'R(50°) = [ cos θ  −sin θ ; sin θ  cos θ ]', 'tx s', 'start')}${T([430, 106], '= [ ' + fm(c, 3) + '  ' + fm(-s, 3) + ' ; ' + fm(s, 3) + '  ' + fm(c, 3) + ' ]', 'tx s', 'start')}
-${T([430, 140], '|P| = ' + fm(r, 3) + ',  |P′| = ' + fm(Math.hypot(...Q), 3), 'tx s c', 'start')}`,
-      'P′ = R(θ)·P. Der gestrichelte Kreis zeigt: Die Länge bleibt erhalten, nur die Richtung ändert sich. Alle Zahlen sind exakt nachgerechnet.');
+${T([430, 140], '|P| = ' + fm(r, 3) + ',  |P’| = ' + fm(Math.hypot(...Q), 3), 'tx s c', 'start')}`,
+      'P’ = R(θ)·P. Der gestrichelte Kreis zeigt: Die Länge bleibt erhalten, nur die Richtung ändert sich. Alle Zahlen sind exakt nachgerechnet.');
   },
 
   rodrigues() {
@@ -224,9 +225,9 @@ ${polyline(full, 'ln circ')}${polyline(arc, 'ln arc thick')}
 ${L(pr(hz), pr([vv[0], vv[1], vv[2]]), 'ln dash')}${L(pr(hz), pr(rot), 'ln dash C')}
 ${arrow3d(pr, [0, 0, 0], vv, 'vec A')}${arrow3d(pr, [0, 0, 0], rot, 'vec C')}${arrow3d(pr, [0, 0, 0], par, 'vec B thick')}
 ${D(pr([0, 0, 0]), 4, 'dt o')}
-${T(pr(vv), vb('v'), 'tx a', 'start', 8, 14)}${T(pr(rot), vb('v') + '′', 'tx c', 'start', 8, -4)}${T(pr([0, 0, 1.7]), vb('k') + '  (Drehachse)', 'tx', 'start', 8, 0)}${T(pr([0, 0, 0.45]), 'Anteil längs k', 'tx b', 'end', -10, 0)}
+${T(pr(vv), vb('v'), 'tx a', 'start', 8, 14)}${T(pr(rot), vb('v') + '’', 'tx c', 'start', 8, -4)}${T(pr([0, 0, 1.7]), vb('k') + '  (Drehachse)', 'tx', 'start', 8, 0)}${T(pr([0, 0, 0.45]), 'Anteil längs k', 'tx b', 'end', -10, 0)}
 ${T(pr([rp * Math.cos(ph + rad(th / 2)) * 0.6, rp * Math.sin(ph + rad(th / 2)) * 0.6, vv[2]]), 'θ = 70°', 'tx', 'middle', 0, -8)}`,
-      '<b>v</b> wird um die Achse <b>k</b> um 70° gedreht. Der Anteil längs der Achse bleibt (orange), der senkrechte Anteil läuft auf dem Kreis; die Länge |<b>v</b>′| = |<b>v</b>| bleibt erhalten.');
+      '<b>v</b> wird um die Achse <b>k</b> um 70° gedreht. Der Anteil längs der Achse bleibt (senkrechter Pfeil), der senkrechte Anteil läuft auf dem Kreis; die Länge |<b>v</b>’| = |<b>v</b>| bleibt erhalten.');
   },
 
   armzero() {
@@ -238,7 +239,7 @@ ${T(pr([rp * Math.cos(ph + rad(th / 2)) * 0.6, rp * Math.sin(ph + rad(th / 2)) *
     g += `<rect class="jbox" x="${n2(m(-34, 130)[0])}" y="${n2(m(0, 130)[1])}" width="${n2(68 * s)}" height="${n2(130 * s)}"/>`;
     for (const [z, lab] of [[130, 'J2'], [370, 'J3'], [630, 'J5']]) g += `<circle class="jc" cx="${n2(m(0, z)[0])}" cy="${n2(m(0, z)[1])}" r="12"/>${T(m(0, z), '×', 'tx s', 'middle', 0, 5)}${T(m(0, z), lab, 'tx a', 'end', -22, 5)}`;
     g += T(m(0, 60), 'J1', 'tx a', 'end', -22, 4) + T(m(0, 500), 'J4', 'tx a', 'end', -22, 5) + T(m(0, 672), 'J6', 'tx a', 'end', -22, 4);
-    g += D(m(0, 714.09), 6, 'dt C') + T(m(0, 714.09), 'TCP (0 | 0 | 714,09)', 'tx c', 'start', 16, 4);
+    g += D(m(0, 714.09), 6, 'dt C') + T(m(0, 714.09), 'TCP (0 | 0 | 714,09)', 'tx c', 'start', 22, 4);
     const dim = (z0, z1, x, lab) => L(m(x, z0), m(x, z1), 'dim', false, 'marker-start="url(#dm)" marker-end="url(#dm)"') + L(m(x - 8, z0), m(x + 8, z0), 'dim') + L(m(x - 8, z1), m(x + 8, z1), 'dim') + T(m(x, (z0 + z1) / 2), lab, 'tx', 'start', 10, 4);
     g += dim(0, 130, 120, 'd₁ = 130') + dim(130, 370, 120, 'a₂ = 240') + dim(370, 630, 120, 'd₄ = 260') + dim(630, 714.09, 120, 'd₆ = 84,09');
     g += T(m(190, 450), 'Σ = 714,09 mm', 'tx b', 'start');
@@ -270,26 +271,37 @@ ${L(pr(C), pr(pp(a1)), 'ln A thick')}${L(pr(C), pr(pp(a2)), 'ln C thick')}
 ${D(pr(pp(a1)), 6, 'dt A')}${D(pr(pp(a2)), 6, 'dt C')}${D(pr(C), 3.5, 'dt')}
 ${T(pr(pp(a1)), vb('p'), 'tx a', 'start', 10, 14)}${T(pr(pp(a2)), vb('q'), 'tx c', 'end', -10, -6)}
 ${T(pr(pp((a1 + a2) / 2)), 'θ = ?', 'tx', 'middle', 0, -14)}
-${T([20, 380], 'θ = atan2( k·(u×v), u·v ) = ' + fm(a2 - a1, 1) + '°', 'tx s', 'start')}`,
+${T([20, 330], 'θ = atan2( k·(u×v), u·v ) = ' + fm(a2 - a1, 1) + '°', 'tx s', 'start')}`,
       'Beide Punkte liegen im gleichen Abstand von der Achse <b>k</b> (Kreis). Gesucht ist der Winkel θ, der <b>p</b> in <b>q</b> dreht. Das Kreuzprodukt liefert sin θ, das Skalarprodukt cos θ.');
   },
 
   twolink() {
-    const L1 = 240, L2 = 260, s = 0.6, m = plane(70, 340, s), Tg = [330, 260], d = Math.hypot(...Tg);
-    const c2 = (d * d - L1 * L1 - L2 * L2) / (2 * L1 * L2);
-    let g = grid2d(m, 0, 500, 0, 450, 100);
-    g += path(arcPath(m, [0, 0], L1 + L2, 0, 90, 90), 'ln dash') + path(arcPath(m, [0, 0], Math.abs(L1 - L2), 0, 90, 20), 'ln dash');
-    g += T(m([(L1 + L2) * Math.cos(rad(62)), (L1 + L2) * Math.sin(rad(62))]), 'max. Reichweite 500', 'tx s', 'start', 10, -4);
-    for (const [sg, cls, name] of [[-1, 'A', 'Ellbogen oben'], [1, 'B', 'Ellbogen unten']]) {
-      const q2 = sg * Math.acos(c2), q1 = Math.atan2(Tg[1], Tg[0]) - Math.atan2(L2 * Math.sin(q2), L1 + L2 * Math.cos(q2));
-      const E = [L1 * Math.cos(q1), L1 * Math.sin(q1)];
-      g += polyline([m([0, 0]), m(E), m(Tg)], `tube out ${cls}`) + polyline([m([0, 0]), m(E), m(Tg)], `tube in ${cls}`) + D(m(E), 7, 'dt ' + cls);
-      g += T(m(E), name, 'tx ' + cls.toLowerCase(), sg < 0 ? 'end' : 'start', sg < 0 ? -12 : 12, sg < 0 ? -6 : 46);
-    }
-    g += D(m([0, 0]), 8, 'dt o') + D(m(Tg), 7, 'dt C') + T(m(Tg), 'Ziel (330 | 260)', 'tx c', 'start', 12, -10);
-    g += T([450, 300], 'L₁ = 240, L₂ = 260, Abstand d = ' + fm(d, 1), 'tx s', 'start') + T([450, 324], 'cos q₂ = (d² − L₁² − L₂²) / (2 L₁ L₂) = ' + fm(c2, 3), 'tx s', 'start');
-    g += T([450, 348], 'Lösungen: q₂ = ±' + fm(deg(Math.acos(c2)), 1) + '°', 'tx s c', 'start');
-    return fig(760, 400, 'Zwei Glieder, ein Ziel – zwei Lösungen', g, 'Der Kosinussatz liefert den Ellbogenwinkel q₂ = ±arccos(…): zwei spiegelbildliche Lösungen. Die gestrichelten Kreise begrenzen die erreichbaren Abstände |L₁−L₂| … L₁+L₂.');
+    const L1 = 240, L2 = 260, sc = 0.75, m = plane(80, 400, sc), Tg = [330, 260], d = Math.hypot(...Tg);
+    const c2 = (d * d - L1 * L1 - L2 * L2) / (2 * L1 * L2), ang = Math.atan2(Tg[1], Tg[0]);
+    const sol = (sg) => { const q2 = sg * Math.acos(c2), q1 = ang - Math.atan2(L2 * Math.sin(q2), L1 + L2 * Math.cos(q2)); return { q1, q2, E: [L1 * Math.cos(q1), L1 * Math.sin(q1)] }; };
+    const up = sol(1), dn = sol(-1);
+    const dimv = (p, q, off, lab) => {
+      const [u0, u1] = unitv(p, q), n = [-u1, u0], a = [p[0] + n[0] * off, p[1] + n[1] * off], b = [q[0] + n[0] * off, q[1] + n[1] * off];
+      return L(a, b, 'dim', false, 'marker-start="url(#dm)" marker-end="url(#dm)"') + L(p, a, 'dim') + L(q, b, 'dim') + T([(a[0] + b[0]) / 2 + n[0] * 12, (a[1] + b[1]) / 2 + n[1] * 12 + 5], lab, 'tx');
+    };
+    let g = L(m([-30, 0]), m([540, 0]), 'axl', true) + L(m([0, -30]), m([0, 440]), 'axl', true) + T(m([540, 0]), v('x'), 'tx', 'start', 8, 5) + T(m([0, 440]), v('y'), 'tx', 'middle', 0, -8);
+    g += path(arcPath(m, [0, 0], L1 + L2, 0, 90, 90), 'circ');
+    g += polyline([m([0, 0]), m(dn.E), m(Tg)], 'ln dash') + D(m(dn.E), 4.5, 'dt A');
+    g += polyline([m([0, 0]), m(up.E), m(Tg)], 'ln thick');
+    g += L(m([0, 0]), m(Tg), 'ln dash') + L(m(Tg), m([Tg[0], 0]), 'ln dash') + L(m(Tg), m([0, Tg[1]]), 'ln dash');
+    const e = up.E, ext = [e[0] + 0.55 * L2 * Math.cos(up.q1), e[1] + 0.55 * L2 * Math.sin(up.q1)];
+    g += L(m(e), m(ext), 'ln dash');
+    g += arcArrow(m, [0, 0], 85, 0, deg(up.q1)) + T(m([105 * Math.cos(up.q1 / 2), 105 * Math.sin(up.q1 / 2)]), v('q') + '₁', 'tx', 'middle', 0, 5);
+    g += arcArrow(m, e, 70, deg(up.q1), deg(up.q1 + up.q2)) + T(m([e[0] + 95 * Math.cos(up.q1 + up.q2 / 2), e[1] + 95 * Math.sin(up.q1 + up.q2 / 2)]), v('q') + '₂', 'tx', 'middle', 0, 5);
+    g += dimv(m([0, 0]), m(e), -22, v('L') + '₁') + dimv(m(e), m(Tg), -22, v('L') + '₂');
+    g += T(m([Tg[0] / 2, Tg[1] / 2]), v('d'), 'tx', 'middle', 14, 16);
+    g += D(m([0, 0]), 5, 'dt') + D(m(e), 4.5, 'dt A') + D(m(Tg), 4.5, 'dt A');
+    g += T(m(Tg), vb('P') + ' (' + v('x') + ', ' + v('y') + ')', 'tx', 'start', 12, -6) + T(m([Tg[0], 0]), v('x') + '_P', 'tx', 'middle', 0, 20) + T(m([0, Tg[1]]), v('y') + '_P', 'tx', 'end', -8, 5);
+    g += T(m(dn.E), 'zweite Lösung', 'tx s', 'end', -10, 4);
+    g += T([40, 452], v('L') + '₁ = 240,  ' + v('L') + '₂ = 260,  ' + v('d') + ' = ' + fm(d, 1), 'tx s', 'start');
+    g += T([40, 478], 'cos ' + v('q') + '₂ = (' + v('d') + '² − ' + v('L') + '₁² − ' + v('L') + '₂²) / (2' + v('L') + '₁' + v('L') + '₂) = ' + fm(c2, 3), 'tx s', 'start');
+    g += T([40, 504], v('q') + '₂ = ±' + fm(deg(Math.acos(c2)), 1) + '°  →  zwei Lösungen', 'tx s c', 'start');
+    return fig(700, 520, 'Zwei Glieder, ein Ziel – zwei Lösungen', g, 'Der Kosinussatz liefert den Ellbogenwinkel q₂ = ±arccos(…). Durchgezogen: eine Lösung, gestrichelt: die gespiegelte. Der Kreis ist die maximale Reichweite L₁ + L₂.');
   },
 
   wristsing() {
