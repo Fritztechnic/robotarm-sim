@@ -5,6 +5,7 @@ mod icons;
 mod kin;
 mod math;
 mod plan;
+mod shop;
 mod ui;
 mod view;
 
@@ -43,6 +44,9 @@ struct Config {
     waypoints: Vec<Waypoint>,
     #[serde(default = "default_ramp")]
     ramp_s: f64,
+    /// Aktive Werkstatt-Aufgabe (Werkbank, Werkstück und Werkzeug werden gezeichnet)
+    #[serde(default)]
+    shop: Option<shop::Job>,
 }
 
 fn default_ramp() -> f64 {
@@ -155,6 +159,7 @@ impl Default for Config {
             tcp_speed: default_tcp_speed(),
             waypoints: demo_waypoints(),
             ramp_s: plan::RAMP,
+            shop: None,
         }
     }
 }
@@ -224,6 +229,8 @@ struct App {
     ik_msg: Option<(bool, String)>,
     cam: Camera,
     trail: Vec<V3>,
+    /// Arbeitspunkte der Werkzeugspitze am Werkstück (Spuren der Werkstatt)
+    cuts: Vec<V3>,
     status: String,
     play: Play,
     looping: bool,
@@ -295,6 +302,7 @@ impl App {
             ik_msg: None,
             cam: Camera::default(),
             trail: vec![],
+            cuts: vec![],
             status: String::new(),
             play: Play::Idle,
             looping: true,
@@ -328,6 +336,22 @@ impl App {
             let n: Vec<f64> = v.split(',').filter_map(|s| s.parse().ok()).collect();
             if n.len() == 6 {
                 app.set_pose(std::array::from_fn(|i| n[i]));
+            }
+        }
+        if let Ok(j) = std::env::var("ROBOTARM_SHOP") {
+            if let Some((job, _)) = shop::JOBS.iter().find(|(_, n)| n.to_lowercase().starts_with(&j)) {
+                app.load_job(*job);
+                // Screenshot-Hilfe: ganze Bahn vorab abfahren, damit die Spuren sichtbar sind
+                if let Ok(frac) = std::env::var("ROBOTARM_DONE").map(|v| v.parse::<f64>().unwrap_or(1.0)) {
+                    let p = plan::build(&app.cfg.arm, &app.poses());
+                    let qs: Vec<[f64; 6]> = p.segs.iter().flat_map(|s| s.q.iter().copied()).collect();
+                    for q in qs.iter().take((qs.len() as f64 * frac) as usize) {
+                        app.q_view = *q;
+                        app.collect_cuts();
+                    }
+                    app.set_pose(qs.get(((qs.len() as f64 * frac) as usize).saturating_sub(1)).unwrap_or(&qs[0]).map(f64::to_degrees));
+                    app.q_view = app.q_cmd;
+                }
             }
         }
         if std::env::var("ROBOTARM_CLEAN").is_ok() {
@@ -519,8 +543,30 @@ impl App {
     }
 
     // Playlist von vorn: erst alles vorausberechnen (plan.rs), dann nur noch abspielen.
+    /// Werkstatt-Aufgabe laden: Bahnpunkte (Spitze → Flansch), Werkzeugwinkel pro Punkt, Vorschub.
+    fn load_job(&mut self, job: shop::Job) {
+        let spec = job.spec();
+        self.cfg.waypoints = spec.tips.iter().map(|&(tip, dwell)| Waypoint { pos: job.flange(tip), dwell, rpy_deg: Some(spec.rpy_deg) }).collect();
+        self.cfg.tcp_speed = spec.tcp_speed;
+        self.cfg.shop = Some(job);
+        self.use_orientation = true;
+        self.play = Play::Idle;
+        self.trail.clear();
+        self.cuts.clear();
+    }
+
+    /// Spitze des Werkzeugs der aktiven Aufgabe; sammelt Arbeitspunkte, solange das Werkzeug am Werkstück ist.
+    fn collect_cuts(&mut self) {
+        let Some(job) = self.cfg.shop else { return };
+        let tip = job.tip(&kin::fk(&self.cfg.arm, &self.q_view));
+        if job.working(tip) && self.cuts.last().is_none_or(|l| (0..3).map(|i| (l[i] - tip[i]).powi(2)).sum::<f64>() > 2.25) && self.cuts.len() < 20000 {
+            self.cuts.push(tip);
+        }
+    }
+
     fn play_all(&mut self) {
         self.trail.clear();
+        self.cuts.clear();
         self.q_cmd = self.q_view; // Start von der gerade sichtbaren Pose
         let pts = self.poses();
         let arm = self.cfg.arm;
@@ -561,6 +607,9 @@ impl App {
         let k = self.plan.segs.iter().position(|s| s.from == self.pl_idx);
         match k {
             Some(k) if !self.plan.segs[k].closing || self.looping => {
+                if self.looping && self.plan.segs[k].from == self.plan.first {
+                    self.cuts.clear();
+                }
                 self.pl_idx = self.plan.segs[k].to;
                 self.play = Play::Seg { k, u: 0.0 };
                 self.ik_msg = Some(self.play_msg());
@@ -686,6 +735,7 @@ mod tests {
             ik_msg: None,
             cam: Camera::default(),
             trail: vec![],
+            cuts: vec![],
             status: String::new(),
             play: Play::Idle,
             looping: false,
@@ -719,6 +769,18 @@ mod tests {
         }
         assert!(!a.playing(), "Playlist endet nicht");
         assert!(visited.iter().all(|v| *v), "nicht alle Punkte erreicht: {visited:?}");
+    }
+
+    #[test]
+    fn shop_jobs_are_reachable_with_few_ptps() {
+        for (job, name) in shop::JOBS {
+            let mut a = app();
+            a.load_job(job);
+            a.play_all();
+            let ptps = a.plan.segs.iter().filter(|s| s.ptp).count();
+            assert!(a.plan.unreachable.is_empty(), "{name}: unerreichbar {:?}", a.plan.unreachable);
+            assert!(ptps <= 2, "{name}: {ptps} Gelenkfahrten");
+        }
     }
 
     #[test]

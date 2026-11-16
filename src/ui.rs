@@ -186,7 +186,16 @@ impl App {
             let wps: Vec<V3> = self.cfg.waypoints.iter().map(|w| w.pos).collect();
             let cur = (self.tab == Tab::Playlist || self.playing()).then_some(self.pl_idx);
             let reach = self.reach(ui.ctx());
-            let res = view::draw(ui, &mut self.cam, &self.cfg.style, &self.cfg.arm, &self.q_view, &target, &self.trail, &wps, cur, reach.as_deref());
+            self.collect_cuts();
+            let scene = match self.cfg.shop {
+                Some(job) => {
+                    let fr = kin::fk(&self.cfg.arm, &self.q_view);
+                    let tip = job.tip(&fr);
+                    view::Scene { objs: job.objects(&fr), marks: job.marks(&self.cuts, tip, job == shop::Job::Weld && job.working(tip)) }
+                }
+                None => view::Scene::default(),
+            };
+            let res = view::draw(ui, &mut self.cam, &self.cfg.style, &self.cfg.arm, &self.q_view, &target, &self.trail, &wps, cur, reach.as_deref(), &scene);
             if let Some(np) = res.new_target {
                 self.play = Play::Idle;
                 self.mode = Mode::Ik;
@@ -402,6 +411,25 @@ impl App {
 
     // Reiter Playlist: Punkte tippen, duplizieren, verschieben, löschen. Alles editierbar
     fn playlist_tab(&mut self, ui: &mut egui::Ui) {
+        card(ui, Some("Werkstatt"), |ui| {
+            ui.horizontal(|ui| {
+                for (job, name) in shop::JOBS {
+                    if ui.selectable_label(self.cfg.shop == Some(job), name).clicked() {
+                        self.load_job(job);
+                    }
+                }
+                if self.cfg.shop.is_some() && ui.button("Aus").clicked() {
+                    self.cfg.shop = None;
+                    self.cuts.clear();
+                }
+            });
+            ui.label(RichText::new(match self.cfg.shop {
+                Some(shop::Job::Drill) => "Sechs Bohrungen (Tiefe 10 mm) in einer Aluplatte. Die Punkte sind Positionen der Bohrerspitze; der Flansch sitzt 120 mm darüber.",
+                Some(shop::Job::Mill) => "Rechteckkontur mit Eckenradius und Rundloch, 3 mm tief, Fräser nach unten. Spitze = Fräserspitze, Werkzeuglänge 110 mm.",
+                Some(shop::Job::Weld) => "Pendelnaht (±2 mm) an einer Stumpfstoßfuge, Brenner 15° stechend gestellt. Zeigt, dass die Spitze eine exakte Gerade fährt, obwohl der Flansch seitlich versetzt ist.",
+                None => "Lädt Werkbank, Werkstück, Werkzeug und passende Bahnpunkte (Werkzeugwinkel pro Punkt gesetzt). Dann in der Zeitleiste unten starten.",
+            }).size(11.0).color(MUTED));
+        });
         card(ui, Some("Ablauf"), |ui| {
             ui.horizontal(|ui| {
                 ui.label("TCP-Geschwindigkeit");

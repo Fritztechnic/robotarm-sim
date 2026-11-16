@@ -20,3 +20,7 @@ Dev-Hooks: `ROBOTARM_SHOT=/pfad.ppm` (Screenshot), `ROBOTARM_TAB`, `ROBOTARM_VIE
 - Winkel pro Punkt (Achsen-Symbol in der Playbook-Zeile) oder global („Winkel vorgeben“ in der Steuerung, gilt für den ganzen Ablauf). Zwischen Punkten mit verschiedenen Winkeln wird per Slerp überblendet. Der Planer verfolgt jede Gerade aus jeder exakten Haltung und wählt per Graph-Suche die Route mit den wenigsten Gelenkfahrten; ist ein Pfad nicht stetig fahrbar, folgt eine Gelenkfahrt.
 - J1, J4 und J6: Anzeige springt bei ±360° auf 0, intern ±720° Spielraum; es wird stets der kürzeste Weg gewählt (359° → 0° = +1°).
 - Linkes und rechtes Panel lassen sich über die Gruppe PANELS in der Werkzeugleiste ein-/ausklappen.
+
+## Werkstatt
+
+Im Playlist-Tab lädt die Karte „Werkstatt“ eine Aufgabe (Bohren, Fräsen, Schweißen): Werkbank, Werkstück, Werkzeug und passende Bahnpunkte. Die Punkte sind Positionen der Werkzeugspitze; der Flansch sitzt um die Werkzeuglänge entlang der Werkzeugachse versetzt (p_Flansch = p_Spitze − L·z_Werkzeug). Bohrungen, Nut und Schweißraupe entstehen live, wo die Spitze das Werkstück erreicht.

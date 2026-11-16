@@ -3,6 +3,7 @@
 
 use crate::gpu::{SceneCallback, Uniforms, FLOOR, SHADOW_PASSES, UNIFORM_VEC4};
 use crate::kin::{self, Arm, M4, V3};
+use crate::shop;
 use eframe::egui::{self, Color32, Pos2, Sense, Stroke};
 use eframe::egui_wgpu;
 use serde::{Deserialize, Serialize};
@@ -167,6 +168,13 @@ impl Proj {
     }
 }
 
+/// Werkstatt-Szene für einen Frame: Körper (GPU) und Spuren (Overlay).
+#[derive(Default)]
+pub struct Scene {
+    pub objs: Vec<shop::Obj>,
+    pub marks: Vec<shop::Mark>,
+}
+
 // ---------- Modell-Matrizen ----------
 
 /// Modellmatrix je Teil: Frame(q) · Frame(Ruhepose)⁻¹. Teil 0 (Basis) bleibt stehen.
@@ -195,7 +203,7 @@ fn mat(c: [u8; 3], metal: f32, rough: f32) -> Mat {
 }
 
 // Zeichnet den ganzen 3D-Bereich: GPU-Szene, Spur, Playlist-Punkte, Gelenk-Scheiben, Ziel. Plus Mausinteraktion
-pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64; 6], target: &M4, trail: &[V3], wps: &[V3], cur: Option<usize>, reach: Option<&kin::Reach>) -> Interaction {
+pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64; 6], target: &M4, trail: &[V3], wps: &[V3], cur: Option<usize>, reach: Option<&kin::Reach>, shop: &Scene) -> Interaction {
     let rect = ui.available_rect_before_wrap();
     let resp = ui.allocate_rect(rect, Sense::click_and_drag());
     let mut out = Interaction { new_target: None, released: false, dragging: false };
@@ -281,9 +289,18 @@ pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64
         u[76 + i] = [c[0], c[1], c[2], metal];
         u[92 + i] = [rough, 0.0, 0.0, 0.0];
     }
+    let mut props = vec![];
+    for (k, o) in shop.objs.iter().take(8).enumerate() {
+        let slot = 7 + k;
+        push_mat(&mut u, 12 + 4 * slot, &o.m);
+        let c = mat(o.col, o.metal, o.rough);
+        u[76 + slot] = [c.col[0], c.col[1], c.col[2], c.metal];
+        u[92 + slot] = [c.rough, 0.0, 0.0, 0.0];
+        props.push((o.cyl as usize, slot as u32));
+    }
     painter.add(egui_wgpu::Callback::new_paint_callback(
         rect,
-        SceneCallback { size_points: [rect.width(), rect.height()], uniforms: u, bg, shadows: st.show_shadow },
+        SceneCallback { size_points: [rect.width(), rect.height()], uniforms: u, bg, shadows: st.show_shadow, props },
     ));
 
     let line = |a: V3, b: V3, stroke: Stroke| {
@@ -302,6 +319,22 @@ pub fn draw(ui: &mut egui::Ui, cam: &mut Camera, st: &Style, arm: &Arm, q: &[f64
         }
     };
     let glow = Color32::from_rgb(0, 120, 212);
+    for mk in &shop.marks {
+        match mk {
+            shop::Mark::Line(pts, c, w) => {
+                let col = Color32::from_rgba_unmultiplied(c[0], c[1], c[2], c[3]);
+                for s in pts.windows(2) {
+                    line(s[0], s[1], Stroke::new(*w, col));
+                }
+            }
+            shop::Mark::Disc(c, r, col) => {
+                let ring: Vec<Pos2> = (0..24).filter_map(|k| pr.pt(add(*c, scale([(k as f64 / 24.0 * std::f64::consts::TAU).cos(), (k as f64 / 24.0 * std::f64::consts::TAU).sin(), 0.0], *r)))).collect();
+                if ring.len() > 2 {
+                    painter.add(egui::Shape::convex_polygon(ring, Color32::from_rgba_unmultiplied(col[0], col[1], col[2], col[3]), Stroke::NONE));
+                }
+            }
+        }
+    }
     if let (true, Some(rc)) = (st.show_reach, reach) {
         draw_reach(&painter, &pr, rc);
     }

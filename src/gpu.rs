@@ -225,6 +225,41 @@ fn load_model() -> (Vec<Vertex>, Vec<u32>, Vec<(u32, u32, i32)>) {
     ranges.push((idx.len() as u32, 6, verts.len() as i32));
     verts.extend([v(-e, -e), v(e, -e), v(e, e), v(-e, e)]);
     idx.extend([0, 1, 2, 0, 2, 3]);
+    // Werkstatt-Grundkörper: Quader (x, y ∈ ±½, z ∈ 0..1) und Zylinder (r = 1, z ∈ 0..1)
+    let nv = |n: [f32; 3]| [(n[0] * 127.0) as i8, (n[1] * 127.0) as i8, (n[2] * 127.0) as i8, 0];
+    ranges.push((idx.len() as u32, 36, verts.len() as i32));
+    for a in 0..3 {
+        for sgn in [-1.0f32, 1.0] {
+            let (b, c) = ((a + 1) % 3, (a + 2) % 3);
+            let k = verts.len() as u32 - ranges.last().unwrap().2 as u32;
+            let coord = |ax: usize, t: f32| if ax == 2 { (t + 1.0) / 2.0 } else { t * 0.5 };
+            let mut n = [0.0; 3];
+            n[a] = sgn;
+            for (u, v) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+                let mut p = [0.0; 3];
+                (p[a], p[b], p[c]) = (coord(a, sgn), coord(b, u), coord(c, v));
+                verts.push(Vertex { pos: p, nrm: nv(n) });
+            }
+            idx.extend([k, k + 1, k + 2, k, k + 2, k + 3]);
+        }
+    }
+    const SEG: u32 = 40;
+    ranges.push((idx.len() as u32, SEG * 12, verts.len() as i32));
+    for i in 0..SEG {
+        let t = i as f32 / SEG as f32 * std::f32::consts::TAU;
+        let (c, s) = (t.cos(), t.sin());
+        verts.push(Vertex { pos: [c, s, 0.0], nrm: nv([c, s, 0.0]) });
+        verts.push(Vertex { pos: [c, s, 1.0], nrm: nv([c, s, 0.0]) });
+        verts.push(Vertex { pos: [c, s, 0.0], nrm: nv([0.0, 0.0, -1.0]) });
+        verts.push(Vertex { pos: [c, s, 1.0], nrm: nv([0.0, 0.0, 1.0]) });
+    }
+    verts.push(Vertex { pos: [0.0, 0.0, 0.0], nrm: nv([0.0, 0.0, -1.0]) });
+    verts.push(Vertex { pos: [0.0, 0.0, 1.0], nrm: nv([0.0, 0.0, 1.0]) });
+    let (cb, ct) = (SEG * 4, SEG * 4 + 1);
+    for i in 0..SEG {
+        let (a, b) = (i * 4, ((i + 1) % SEG) * 4);
+        idx.extend([a, b, b + 1, a, b + 1, a + 1, cb, b + 2, a + 2, ct, a + 3, b + 3]);
+    }
     (verts, idx, ranges)
 }
 
@@ -437,6 +472,8 @@ pub struct SceneCallback {
     pub uniforms: Uniforms,
     pub bg: [f32; 3],
     pub shadows: bool,
+    /// Werkstatt-Körper: (Mesh 0 = Quader / 1 = Zylinder, Instanz-Slot 7..=14)
+    pub props: Vec<(usize, u32)>,
 }
 
 impl CallbackTrait for SceneCallback {
@@ -494,11 +531,17 @@ impl CallbackTrait for SceneCallback {
                 for part in 0..PARTS {
                     draw(&mut pass, part, ((k as u32) << 4) | part as u32);
                 }
+                for &(mesh, slot) in &self.props {
+                    draw(&mut pass, PARTS + 1 + mesh, ((k as u32) << 4) | slot);
+                }
             }
         }
         pass.set_pipeline(&gpu.scene);
         for part in 0..PARTS {
             draw(&mut pass, part, part as u32);
+        }
+        for &(mesh, slot) in &self.props {
+            draw(&mut pass, PARTS + 1 + mesh, slot);
         }
         drop(pass);
         vec![]
